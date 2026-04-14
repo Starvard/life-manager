@@ -1,7 +1,10 @@
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, "data")
+
+# Allow external data directory (e.g. persistent volume on Fly.io)
+# Falls back to ./data for local development
+DATA_DIR = os.environ.get("LM_DATA_DIR", os.path.join(BASE_DIR, "data"))
 PHOTOS_DIR = os.path.join(DATA_DIR, "photos")
 CARDS_DIR = os.path.join(DATA_DIR, "cards")
 ROUTINE_CARDS_DIR = os.path.join(DATA_DIR, "routine-cards")

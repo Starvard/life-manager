@@ -1,0 +1,13 @@
+__pycache__
+*.pyc
+*.pyo
+.git
+.gitignore
+*.md
+data/budget
+data/vapid_keys.json
+data/vapid_private.pem
+data/push_subscriptions.json
+budget/
+plans/
+*.bat
