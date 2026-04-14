@@ -117,8 +117,6 @@ areas:
     - name: Budget
       weight: 2.5
       freq: 4.0
-      on_days:
-      - 1
       notify_time: 09:00
     - name: Walk Jasper
       weight: 2.5
@@ -163,6 +161,8 @@ areas:
     - name: Take out Trash
       weight: 2.0
       freq: 1.0
+      on_days:
+      - 1
       notify_time: 09:00
   homeschool:
     name: Homeschool
