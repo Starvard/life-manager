@@ -1,0 +1,424 @@
+{
+  "week_key": "2026-W12",
+  "area_key": "home",
+  "area_name": "Home",
+  "week_start": "2026-03-16",
+  "tasks": [
+    {
+      "name": "Plant Care",
+      "freq": 3,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        0,
+        1,
+        0,
+        1,
+        0,
+        1,
+        0
+      ],
+      "weight": 1.5
+    },
+    {
+      "name": "Budget",
+      "freq": 4,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        1,
+        0,
+        1,
+        0,
+        1,
+        0,
+        1
+      ],
+      "weight": 2.5
+    },
+    {
+      "name": "Walk Jasper",
+      "freq": 3,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        1,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0
+      ],
+      "weight": 2.5
+    },
+    {
+      "name": "Dishes",
+      "freq": 7,
+      "days": [
+        [
+          false,
+          false
+        ],
+        [
+          false,
+          false
+        ],
+        [
+          false,
+          false
+        ],
+        [
+          false,
+          false
+        ],
+        [
+          false,
+          false
+        ],
+        [
+          false,
+          false
+        ],
+        [
+          false,
+          false
+        ]
+      ],
+      "scheduled": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "weight": 2.0
+    },
+    {
+      "name": "Tidy Up",
+      "freq": 7,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "weight": 2.0
+    },
+    {
+      "name": "Deep Clean Upstairs",
+      "freq": 0.5,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "weight": 2.0
+    },
+    {
+      "name": "Deep Clean Downstairs",
+      "freq": 0.5,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "weight": 2.0
+    },
+    {
+      "name": "HVAC Maintenance",
+      "freq": 0.038461538461538464,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "weight": 1.5
+    },
+    {
+      "name": "Knife Sharpening",
+      "freq": 0.07692307692307693,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "weight": 1.0
+    },
+    {
+      "name": "Meal Plan",
+      "freq": 1,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "weight": 2.0
+    },
+    {
+      "name": "Laundry",
+      "freq": 2,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        0,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0
+      ],
+      "weight": 2.0
+    }
+  ],
+  "notes": "",
+  "extra_tasks": []
+}

@@ -1,0 +1,350 @@
+{
+  "week_key": "2026-W13",
+  "area_key": "self_care",
+  "area_name": "Self-Care",
+  "week_start": "2026-03-23",
+  "tasks": [
+    {
+      "name": "Play Basketball",
+      "freq": 2.0,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          true
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1
+      ],
+      "carryover": true,
+      "carryover_week_key": "2026-W12",
+      "weight": 2.5
+    },
+    {
+      "name": "Run 5k",
+      "freq": 2.0,
+      "days": [
+        [
+          true
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          true
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        1,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0
+      ],
+      "carryover": true,
+      "carryover_week_key": "2026-W12",
+      "weight": 2.5
+    },
+    {
+      "name": "Meditate",
+      "freq": 2.0,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          true
+        ],
+        [
+          false
+        ],
+        [
+          true
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        1,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0
+      ],
+      "carryover": true,
+      "carryover_week_key": "2026-W12",
+      "weight": 2.0
+    },
+    {
+      "name": "Drink Water",
+      "freq": 35.0,
+      "days": [
+        [
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        [
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        [
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true,
+          false
+        ],
+        [
+          true,
+          false,
+          false,
+          false,
+          false
+        ],
+        [
+          true,
+          true,
+          true,
+          true,
+          false
+        ]
+      ],
+      "scheduled": [
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5
+      ],
+      "weight": 1.0
+    },
+    {
+      "name": "Physical Therapy",
+      "freq": 3.0,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        1,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0
+      ],
+      "weight": 2.5
+    },
+    {
+      "name": "Strength Train",
+      "freq": 3.0,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        0,
+        1,
+        0,
+        1,
+        0,
+        1,
+        0
+      ],
+      "weight": 2.5
+    },
+    {
+      "name": "Take Vitamins",
+      "freq": 14.0,
+      "days": [
+        [
+          false,
+          false
+        ],
+        [
+          false,
+          false
+        ],
+        [
+          false,
+          false
+        ],
+        [
+          true,
+          true
+        ],
+        [
+          true,
+          false
+        ],
+        [
+          false,
+          false
+        ],
+        [
+          true,
+          true
+        ]
+      ],
+      "scheduled": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "weight": 1.5
+    },
+    {
+      "name": "Stretch",
+      "freq": 7.0,
+      "days": [
+        [
+          false,
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "carryover": true,
+      "carryover_week_key": "2026-W12",
+      "weight": 1.0
+    }
+  ],
+  "notes": "",
+  "extra_tasks": []
+}

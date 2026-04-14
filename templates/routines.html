@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Routines - Life Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Routine Configuration</h1>
+    <p class="subtitle">Frequency = times per week (7 = daily, 14 = 2x/day, 0.25 = monthly). Weight (try 1–5) scales how much each task affects your dashboard score for completed scheduled dots. Check weekdays to pin a task (e.g. trash every Tuesday).</p>
+    <p class="subtitle routines-push-behavior">Push: only when <strong>today</strong> has a <strong>scheduled dot</strong> for that task that is still empty—not for missed dots on earlier weekdays by themselves. Clear the Notify field on a task to turn off its timed reminder.</p>
+</div>
+
+<div class="card routines-push-card">
+    <div class="card-title">Push notifications</div>
+    <p class="routines-push-hint">Sends one test to every device that tapped Enable reminders. <strong>Notify</strong> defaults to <strong>{{ default_notify_time }}</strong> (set <code>LM_DEFAULT_NOTIFY_TIME</code> to change). Times use <strong>this computer&rsquo;s clock</strong>. Clear a task&rsquo;s time to disable its reminder.</p>
+    <button type="button" class="btn btn-primary" id="routines-test-push">Send test notification</button>
+    <span class="routines-test-push-status" id="routines-test-push-status" aria-live="polite"></span>
+</div>
+
+<form method="POST" action="{{ url_for('save_routines_form') }}">
+    {% for area_key, area in areas.items() %}
+    <div class="area-section" id="area-{{ area_key }}">
+        <div class="area-header">
+            <div class="reorder-arrows">
+                <button type="button" class="btn-arrow" title="Move up"
+                        onclick="reorderArea('{{ area_key }}', 'up')">&#9650;</button>
+                <button type="button" class="btn-arrow" title="Move down"
+                        onclick="reorderArea('{{ area_key }}', 'down')">&#9660;</button>
+            </div>
+            <input type="text" name="area_name_{{ area_key }}" value="{{ area.name }}">
+            <button type="button" class="btn btn-sm btn-danger"
+                    onclick="if(confirm('Delete {{ area.name }}?')){var f=document.createElement('form');f.method='POST';f.action='{{ url_for('delete_area', area_key=area_key) }}';document.body.appendChild(f);f.submit();}">Delete</button>
+        </div>
+        <div class="area-body">
+            <div class="task-row task-row-head">
+                <span class="task-col-h">Task Name</span>
+                <span class="task-col-h">Freq/Wk</span>
+                <span class="task-col-h">Freq/Yr</span>
+                <span class="task-col-h" title="Importance for score (default 1)">Wt</span>
+                <span class="task-col-h" title="Local time; once per day if still due">Notify</span>
+                <span class="task-col-h" title="Optional: Mon–Sun">Days</span>
+                <span></span>
+            </div>
+
+            {% for task in area.tasks %}
+            <div class="task-row">
+                <input type="text" name="task_name_{{ area_key }}_{{ loop.index0 }}" value="{{ task.name }}">
+                <input type="number" name="task_freq_{{ area_key }}_{{ loop.index0 }}"
+                       value="{{ task.freq if task.freq is defined else '' }}" step="0.25" min="0" placeholder="freq/wk">
+                <input type="number" name="task_fpy_{{ area_key }}_{{ loop.index0 }}"
+                       value="{{ task.freq_per_year if task.freq_per_year is defined else '' }}" step="1" min="0" placeholder="freq/yr">
+                <input type="number" name="task_weight_{{ area_key }}_{{ loop.index0 }}"
+                       value="{{ task.weight if task.weight is defined else '' }}" step="0.5" min="0.5" max="10" placeholder="1" title="Weight for scoring">
+                <input type="time" name="task_notify_time_{{ area_key }}_{{ loop.index0 }}"
+                       {% if 'notify_time' not in task %}value="{{ default_notify_time }}"
+                       {% elif task.notify_time %}value="{{ task.notify_time }}"
+                       {% else %}value=""
+                       {% endif %} title="Remind after this time when today has a scheduled dot (PC clock). Clear to disable.">
+                <div class="task-days-picker">
+                    {% set od = task.get('on_days', []) %}
+                    {% for label in ['Mo','Tu','We','Th','Fr','Sa','Su'] %}
+                    <label class="day-chip"><input type="checkbox" name="task_on_days_{{ area_key }}_{{ loop.index0 }}" value="{{ loop.index0 }}"
+                        {% if loop.index0 in od %}checked{% endif %}><span>{{ label }}</span></label>
+                    {% endfor %}
+                </div>
+                <div class="delete-btn" title="Delete">
+                    <input type="checkbox" name="task_delete_{{ area_key }}_{{ loop.index0 }}" value="1" style="display:none">
+                    <span onclick="this.previousElementSibling.checked=true; this.closest('.task-row').style.opacity='0.3';">&#x2715;</span>
+                </div>
+            </div>
+            {% endfor %}
+
+            <div class="add-task-row">
+                <input type="text" name="new_task_name_{{ area_key }}" placeholder="Add task...">
+                <input type="number" name="new_task_freq_{{ area_key }}" step="0.25" min="0" placeholder="freq/wk">
+                <input type="number" name="new_task_fpy_{{ area_key }}" step="1" min="0" placeholder="freq/yr">
+                <input type="number" name="new_task_weight_{{ area_key }}" step="0.5" min="0.5" max="10" placeholder="1" title="Weight">
+                <input type="time" name="new_task_notify_time_{{ area_key }}" value="{{ default_notify_time }}" title="Default notify time; clear to disable for this row">
+                <div class="task-days-picker">
+                    {% for label in ['Mo','Tu','We','Th','Fr','Sa','Su'] %}
+                    <label class="day-chip"><input type="checkbox" name="new_task_on_days_{{ area_key }}" value="{{ loop.index0 }}"><span>{{ label }}</span></label>
+                    {% endfor %}
+                </div>
+                <span class="add-task-plus">+</span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <div class="card" style="border: 2px dashed var(--border);">
+        <div class="card-title">Add New Area</div>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <div class="form-group" style="flex:1; min-width:120px; margin-bottom:0">
+                <label>Key (lowercase)</label>
+                <input type="text" name="new_area_key" placeholder="e.g. fitness" pattern="[a-z_]+">
+            </div>
+            <div class="form-group" style="flex:1; min-width:120px; margin-bottom:0">
+                <label>Display Name</label>
+                <input type="text" name="new_area_name" placeholder="e.g. Fitness">
+            </div>
+        </div>
+    </div>
+
+    <div style="margin-top:0.75rem;">
+        <button type="submit" class="btn btn-primary">Save All Changes</button>
+    </div>
+</form>
+
+<script>
+async function reorderArea(key, dir) {
+    const res = await fetch("/api/routines/reorder", {
+        method: "PATCH",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({area_key: key, direction: dir})
+    });
+    if (res.ok) location.reload();
+}
+
+document.getElementById("routines-test-push")?.addEventListener("click", async () => {
+    const st = document.getElementById("routines-test-push-status");
+    if (!st) return;
+    st.textContent = "Sending…";
+    try {
+        const res = await fetch("/api/push/test", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: "{}",
+        });
+        const data = await res.json();
+        if (data.ok) {
+            const reg = data.registered ?? 0;
+            const ok = data.sent ?? 0;
+            if (reg === 0) {
+                st.textContent = "No subscriptions on this server yet — open the app on your phone (tunnel URL), Home → Enable reminders.";
+            } else if (ok === 0) {
+                st.textContent = reg + " subscription(s) on file, but push failed (network, expired subscription, or VAPID issue). On the phone: Disable reminders, then Enable again.";
+            } else {
+                st.textContent = "Sent to " + ok + " of " + reg + " device(s). Check your phone.";
+            }
+        } else {
+            st.textContent = "Request failed.";
+        }
+    } catch (e) {
+        st.textContent = "Network error.";
+    }
+});
+</script>
+{% endblock %}

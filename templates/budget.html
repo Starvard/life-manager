@@ -1,0 +1,506 @@
+{% extends "base.html" %}
+{% block title %}Budget - Life Manager{% endblock %}
+
+{% block content %}
+<div x-data='budgetPage({{ transactions|tojson }}, {{ report|tojson }}, {{ plan|tojson }}, {{ categories|tojson }}, "{{ current_month }}", {{ months|tojson }}, {{ overview|tojson }})'>
+
+<div class="page-header">
+    <h1>Budget</h1>
+    <p class="subtitle" x-text="monthLabel(currentMonth)"></p>
+</div>
+
+{# ── Month Picker ──────────────────────────────────────────── #}
+<div class="budget-month-picker">
+    <button class="picker-btn" @click="prevMonth()" title="Previous month">&larr;</button>
+    <select x-model="currentMonth" @change="switchMonth()">
+        <template x-for="m in allMonths" :key="m">
+            <option :value="m" x-text="monthLabel(m)" :selected="m === currentMonth"></option>
+        </template>
+    </select>
+    <button class="picker-btn" @click="nextMonth()" title="Next month">&rarr;</button>
+    <div class="budget-import-actions">
+        <button class="btn btn-sm btn-outline" @click="importData()" :disabled="importing">
+            <span x-show="!importing">Import from Sheets</span>
+            <span x-show="importing">Importing…</span>
+        </button>
+        <label class="budget-import-replace">
+            <input type="checkbox" x-model="importReplaceAll">
+            <span>Replace all transactions (fixes a bad first import)</span>
+        </label>
+    </div>
+</div>
+
+{# ── Planned vs actual (when no sheet overview for this month) ─────────────── #}
+<div class="budget-snapshot card" x-show="report.snapshot && !overviewHasData()" x-cloak>
+    <div class="card-title">Month at a glance</div>
+    <table class="budget-snapshot-table">
+        <thead>
+            <tr>
+                <th></th>
+                <th>Planned</th>
+                <th>Actual</th>
+                <th>Variance</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="budget-snapshot-rowlabel">Income</td>
+                <td x-text="formatMoney(report.snapshot.planned_income)"></td>
+                <td x-text="formatMoney(report.snapshot.actual_income)"></td>
+                <td class="budget-snapshot-var"
+                    :class="snapshotIncomeVarClass(report.snapshot.income_variance)"
+                    x-text="formatMoneySigned(report.snapshot.income_variance)"></td>
+            </tr>
+            <tr>
+                <td class="budget-snapshot-rowlabel">Expenses</td>
+                <td x-text="formatMoney(report.snapshot.planned_expenses)"></td>
+                <td x-text="formatMoney(report.snapshot.actual_expenses)"></td>
+                <td class="budget-snapshot-var"
+                    :class="snapshotExpenseVarClass(report.snapshot.expense_variance)"
+                    x-text="formatMoneySigned(report.snapshot.expense_variance)"></td>
+            </tr>
+            <tr class="budget-snapshot-net">
+                <td class="budget-snapshot-rowlabel">Net</td>
+                <td x-text="formatMoney(report.snapshot.planned_net)"></td>
+                <td x-text="formatMoney(report.snapshot.actual_net)"></td>
+                <td class="budget-snapshot-var"
+                    :class="snapshotNetVarClass(report.snapshot.net_variance)"
+                    x-text="formatMoneySigned(report.snapshot.net_variance)"></td>
+            </tr>
+        </tbody>
+    </table>
+    <p class="budget-snapshot-hint"
+       x-show="report.snapshot && !report.snapshot.has_planned_expenses && !report.snapshot.has_planned_income">
+        Planned columns use the <strong>Plan</strong> tab (allocated amounts). Actual income and expenses come from imported transactions.
+    </p>
+</div>
+
+{# ── Cashflow Summary ─────────────────────────────────────── #}
+<div class="budget-summary">
+    <div class="budget-summary-card budget-income">
+        <div class="budget-summary-label">Income</div>
+        <div class="budget-summary-value" x-text="formatMoney(report.total_income)"></div>
+    </div>
+    <div class="budget-summary-card budget-expenses">
+        <div class="budget-summary-label">Expenses</div>
+        <div class="budget-summary-value" x-text="formatMoney(report.total_expenses)"></div>
+    </div>
+    <div class="budget-summary-card" :class="report.net >= 0 ? 'budget-net-pos' : 'budget-net-neg'">
+        <div class="budget-summary-label">Net</div>
+        <div class="budget-summary-value" x-text="formatMoney(report.net)"></div>
+    </div>
+    <div class="budget-summary-card budget-count">
+        <div class="budget-summary-label">Transactions</div>
+        <div class="budget-summary-value" x-text="report.transaction_count"></div>
+    </div>
+</div>
+
+{# ── Sub-tabs ──────────────────────────────────────────────── #}
+<div class="budget-tabs">
+    <button class="budget-tab" :class="{ active: view === 'overview' }" @click="view = 'overview'">Overview</button>
+    <button class="budget-tab" :class="{ active: view === 'transactions' }" @click="view = 'transactions'">Transactions</button>
+    <button class="budget-tab" :class="{ active: view === 'plan' }" @click="view = 'plan'">Plan</button>
+    <button class="budget-tab" :class="{ active: view === 'report' }" @click="view = 'report'">Report</button>
+    <button class="budget-tab" :class="{ active: view === 'duplicates' }" @click="view = 'duplicates'">
+        Duplicates
+        <span class="budget-badge" x-show="duplicateCount > 0" x-text="duplicateCount"></span>
+    </button>
+</div>
+
+{# ── Overview (sheet-style dashboard, from monthly tab HTML) ── #}
+<div x-show="view === 'overview'" x-cloak class="budget-overview">
+    <div x-show="overviewHasData()" class="budget-ov-loaded">
+        <div class="card budget-ov-snapshot-card">
+            <div class="card-title">Totals</div>
+            <table class="budget-snapshot-table budget-ov-snapshot-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Allocated</th>
+                        <th>Actual</th>
+                        <th>Remaining</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="row in (overview.snapshot || [])" :key="row.label">
+                        <tr>
+                            <td class="budget-snapshot-rowlabel" x-text="row.label"></td>
+                            <td x-text="formatMoneyDash(row.allocated)"></td>
+                            <td x-text="formatMoneyDash(row.actual)"></td>
+                            <td class="budget-ov-snap-rem">
+                                <span x-text="formatMoneyDash(row.remaining)"></span>
+                                <div class="budget-ov-meter-track" x-show="showRemainingMeter(row)">
+                                    <div class="budget-ov-meter-fill"
+                                         :class="remainingMeterClass(row)"
+                                         :style="'width:' + remainingMeterWidth(row) + '%'"></div>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="budget-ov-ledger card" x-show="overview.ledger && (overview.ledger.debit != null || overview.ledger.credit != null)">
+            <div class="card-title">Transactions (sheet summary)</div>
+            <div class="budget-ov-ledger-row">
+                <span>Debit</span><strong x-text="formatMoneyDash(overview.ledger.debit)"></strong>
+                <span>Credit</span><strong x-text="formatMoneyDash(overview.ledger.credit)"></strong>
+                <span>Delta</span><strong x-text="formatMoneyDash(overview.ledger.delta)"></strong>
+            </div>
+        </div>
+
+        <div class="budget-ov-panels">
+            <div class="budget-ov-panel card">
+                <div class="card-title">Income</div>
+                <table class="budget-ov-mini-table">
+                    <thead><tr><th></th><th>Allocated</th><th>Received</th></tr></thead>
+                    <tbody>
+                        <template x-for="(row, i) in (overview.panels.income || [])" :key="'inc'+i">
+                            <tr>
+                                <td x-text="row.name"></td>
+                                <td x-text="formatMoneyDash(row.allocated)"></td>
+                                <td x-text="formatMoneyDash(row.received)"></td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+            <div class="budget-ov-panel card">
+                <div class="card-title">Bills</div>
+                <table class="budget-ov-mini-table budget-ov-mini-table-meter">
+                    <thead><tr><th></th><th>Allocated</th><th>Remaining</th><th class="budget-ov-meter-head" title="Budget left">◧</th></tr></thead>
+                    <tbody>
+                        <template x-for="(row, i) in (overview.panels.bills || [])" :key="'bill'+i">
+                            <tr>
+                                <td x-text="row.name"></td>
+                                <td x-text="formatMoneyDash(row.allocated)"></td>
+                                <td x-text="formatMoneyDash(row.remaining)"></td>
+                                <td class="budget-ov-meter-cell">
+                                    <div class="budget-ov-meter-track" x-show="showRemainingMeter(row)">
+                                        <div class="budget-ov-meter-fill"
+                                             :class="remainingMeterClass(row)"
+                                             :style="'width:' + remainingMeterWidth(row) + '%'"></div>
+                                    </div>
+                                    <span class="budget-ov-meter-label" x-show="showRemainingMeter(row)" x-text="remainingMeterLabel(row)"></span>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="budget-ov-panels">
+            <div class="budget-ov-panel card">
+                <div class="card-title">Food &amp; gas</div>
+                <table class="budget-ov-mini-table budget-ov-mini-table-meter">
+                    <thead><tr><th></th><th>Allocated</th><th>Remaining</th><th class="budget-ov-meter-head" title="Budget left">◧</th></tr></thead>
+                    <tbody>
+                        <template x-for="(row, i) in (overview.panels.food_gas || [])" :key="'fg'+i">
+                            <tr>
+                                <td x-text="row.name"></td>
+                                <td x-text="formatMoneyDash(row.allocated)"></td>
+                                <td x-text="formatMoneyDash(row.remaining)"></td>
+                                <td class="budget-ov-meter-cell">
+                                    <div class="budget-ov-meter-track" x-show="showRemainingMeter(row)">
+                                        <div class="budget-ov-meter-fill"
+                                             :class="remainingMeterClass(row)"
+                                             :style="'width:' + remainingMeterWidth(row) + '%'"></div>
+                                    </div>
+                                    <span class="budget-ov-meter-label" x-show="showRemainingMeter(row)" x-text="remainingMeterLabel(row)"></span>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+            <div class="budget-ov-panel card">
+                <div class="card-title">Subscriptions</div>
+                <table class="budget-ov-mini-table budget-ov-mini-table-meter">
+                    <thead><tr><th></th><th>Allocated</th><th>Remaining</th><th class="budget-ov-meter-head" title="Budget left">◧</th></tr></thead>
+                    <tbody>
+                        <template x-for="(row, i) in (overview.panels.subscriptions || [])" :key="'sub'+i">
+                            <tr>
+                                <td x-text="row.name"></td>
+                                <td x-text="formatMoneyDash(row.allocated)"></td>
+                                <td x-text="formatMoneyDash(row.remaining)"></td>
+                                <td class="budget-ov-meter-cell">
+                                    <div class="budget-ov-meter-track" x-show="showRemainingMeter(row)">
+                                        <div class="budget-ov-meter-fill"
+                                             :class="remainingMeterClass(row)"
+                                             :style="'width:' + remainingMeterWidth(row) + '%'"></div>
+                                    </div>
+                                    <span class="budget-ov-meter-label" x-show="showRemainingMeter(row)" x-text="remainingMeterLabel(row)"></span>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="budget-ov-panels">
+            <div class="budget-ov-panel card">
+                <div class="card-title">Personal care</div>
+                <table class="budget-ov-mini-table budget-ov-mini-table-meter">
+                    <thead><tr><th></th><th>Allocated</th><th>Remaining</th><th class="budget-ov-meter-head" title="Budget left">◧</th></tr></thead>
+                    <tbody>
+                        <template x-for="(row, i) in (overview.panels.personal || [])" :key="'per'+i">
+                            <tr>
+                                <td x-text="row.name"></td>
+                                <td x-text="formatMoneyDash(row.allocated)"></td>
+                                <td x-text="formatMoneyDash(row.remaining)"></td>
+                                <td class="budget-ov-meter-cell">
+                                    <div class="budget-ov-meter-track" x-show="showRemainingMeter(row)">
+                                        <div class="budget-ov-meter-fill"
+                                             :class="remainingMeterClass(row)"
+                                             :style="'width:' + remainingMeterWidth(row) + '%'"></div>
+                                    </div>
+                                    <span class="budget-ov-meter-label" x-show="showRemainingMeter(row)" x-text="remainingMeterLabel(row)"></span>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+            <div class="budget-ov-panel card">
+                <div class="card-title">Misc</div>
+                <table class="budget-ov-mini-table budget-ov-mini-table-meter">
+                    <thead><tr><th></th><th>Allocated</th><th>Remaining</th><th class="budget-ov-meter-head" title="Budget left">◧</th></tr></thead>
+                    <tbody>
+                        <template x-for="(row, i) in (overview.panels.misc || [])" :key="'misc'+i">
+                            <tr>
+                                <td x-text="row.name"></td>
+                                <td x-text="formatMoneyDash(row.allocated)"></td>
+                                <td x-text="formatMoneyDash(row.remaining)"></td>
+                                <td class="budget-ov-meter-cell">
+                                    <div class="budget-ov-meter-track" x-show="showRemainingMeter(row)">
+                                        <div class="budget-ov-meter-fill"
+                                             :class="remainingMeterClass(row)"
+                                             :style="'width:' + remainingMeterWidth(row) + '%'"></div>
+                                    </div>
+                                    <span class="budget-ov-meter-label" x-show="showRemainingMeter(row)" x-text="remainingMeterLabel(row)"></span>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="budget-ov-panel card budget-ov-panel-wide budget-ov-savings-last" x-show="(overview.panels.savings || []).length > 0">
+            <div class="card-title">Savings</div>
+            <table class="budget-ov-mini-table">
+                <thead><tr><th></th><th>Allocated</th><th>Send to bank</th><th>In bank</th></tr></thead>
+                <tbody>
+                    <template x-for="(row, i) in (overview.panels.savings || [])" :key="'sav'+i">
+                        <tr>
+                            <td x-text="row.name"></td>
+                            <td x-text="formatMoneyDash(row.allocated)"></td>
+                            <td x-text="formatMoneyDash(row.send_to_bank)"></td>
+                            <td x-text="formatMoneyDash(row.in_bank)"></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card budget-ov-billpay" x-show="(overview.bill_payments || []).length > 0">
+            <div class="card-title">Bill payments</div>
+            <table class="budget-ov-mini-table">
+                <tbody>
+                    <template x-for="(row, i) in (overview.bill_payments || [])" :key="'bp'+i">
+                        <tr>
+                            <td x-text="row.name"></td>
+                            <td class="budget-ov-num" x-text="formatMoneyDash(row.amount)"></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card budget-ov-weekly" x-show="(overview.weekly && overview.weekly.columns && overview.weekly.columns.length)">
+            <div class="card-title">Weekly breakdown</div>
+            <div class="budget-ov-weekly-scroll">
+                <table class="budget-ov-weekly-table">
+                    <thead>
+                        <tr>
+                            <th class="budget-ov-wk-cat"></th>
+                            <template x-for="(c, wi) in (overview.weekly.columns || [])" :key="'wc'+wi">
+                                <th x-text="c"></th>
+                            </template>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(wr, ri) in (overview.weekly.rows || [])" :key="'wr'+ri">
+                            <tr>
+                                <td class="budget-ov-wk-cat" x-text="wr.name"></td>
+                                <template x-for="(a, ai) in wr.amounts" :key="'wa'+ri+ai">
+                                    <td x-text="formatMoneyDash(a)"></td>
+                                </template>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <p class="budget-ov-source" x-show="overview.source_file">
+            <span class="text-muted">From </span><span x-text="overview.source_file"></span>
+        </p>
+    </div>
+
+    <div x-show="!overviewHasData()" class="budget-empty budget-ov-empty">
+        <p><strong>No budget sheet loaded for this month.</strong> Export your Google Sheet (each month as HTML in the same folder as Transactions) and tap <strong>Import from Sheets</strong>.</p>
+        <p class="budget-ov-empty-sub">We read your monthly tab layout automatically: totals, categories, savings, bill list, and weekly grid.</p>
+    </div>
+</div>
+
+{# ── Transactions View ────────────────────────────────────── #}
+<div x-show="view === 'transactions'" x-cloak>
+    <div class="budget-filter-bar">
+        <input type="text" class="budget-search" placeholder="Search transactions..."
+               x-model="searchQuery" @input="filterTxns()">
+        <select class="budget-filter-select" x-model="filterCategory" @change="filterTxns()">
+            <option value="">All Categories</option>
+            <template x-for="c in allCategories" :key="c">
+                <option :value="c" x-text="c"></option>
+            </template>
+        </select>
+    </div>
+
+    <div class="budget-tx-list" x-show="filteredTxns.length > 0">
+        <template x-for="tx in filteredTxns" :key="tx.id">
+            <div class="budget-tx-row" :class="{ 'budget-tx-income': tx.amount > 0 }">
+                <div class="budget-tx-date" x-text="tx.date"></div>
+                <div class="budget-tx-desc">
+                    <span class="budget-tx-desc-text" x-text="tx.description"></span>
+                    <span class="budget-tx-account" x-text="tx.account"></span>
+                </div>
+                <div class="budget-tx-cat" @click="startEditCategory(tx)">
+                    <template x-if="editingCatId !== tx.id">
+                        <span class="budget-cat-pill" x-text="displayCat(tx)"></span>
+                    </template>
+                    <template x-if="editingCatId === tx.id">
+                        <select class="budget-cat-select"
+                                x-model="editCatValue"
+                                @change="saveCategory(tx)"
+                                @blur="editingCatId = null"
+                                x-ref="catSelect">
+                            <template x-for="c in allCategories" :key="c">
+                                <option :value="c" x-text="c" :selected="c === displayCat(tx)"></option>
+                            </template>
+                        </select>
+                    </template>
+                </div>
+                <div class="budget-tx-amount" :class="tx.amount >= 0 ? 'positive' : 'negative'"
+                     x-text="formatMoney(tx.amount)"></div>
+            </div>
+        </template>
+    </div>
+
+    <div class="budget-empty" x-show="filteredTxns.length === 0">
+        <p>No transactions for this month.</p>
+        <button class="btn btn-primary" @click="importData()">Import from Google Sheets</button>
+    </div>
+</div>
+
+{# ── Plan View ─────────────────────────────────────────────── #}
+<div x-show="view === 'plan'" x-cloak>
+    <div class="budget-plan">
+        <template x-for="(section, sKey) in plan.sections" :key="sKey">
+            <div class="budget-plan-section">
+                <div class="budget-plan-section-header">
+                    <span x-text="section.label"></span>
+                    <button class="btn btn-sm btn-outline" @click="addPlanItem(sKey)">+ Add</button>
+                </div>
+                <template x-for="(item, idx) in section.items" :key="sKey + idx">
+                    <div class="budget-plan-row">
+                        <input type="text" class="budget-plan-name"
+                               x-model="item.name" @blur="savePlan()" placeholder="Item name">
+                        <div class="budget-plan-amount-group">
+                            <label>Planned</label>
+                            <input type="number" step="0.01"
+                                   x-model.number="item.allocated" @blur="savePlan()">
+                        </div>
+                        <div class="budget-plan-amount-group">
+                            <label>Actual</label>
+                            <input type="number" step="0.01"
+                                   x-model.number="item.actual" @blur="savePlan()">
+                        </div>
+                        <div class="budget-plan-remaining"
+                             :class="(item.allocated - (item.actual || 0)) >= 0 ? 'positive' : 'negative'">
+                            <span x-text="formatMoney((item.allocated || 0) - (item.actual || 0))"></span>
+                        </div>
+                        <button class="delete-btn" @click="removePlanItem(sKey, idx)" title="Remove">&times;</button>
+                    </div>
+                </template>
+                <div class="budget-plan-subtotal" x-show="section.items.length > 0">
+                    <span>Subtotal</span>
+                    <span x-text="formatMoney(sectionTotal(section, 'allocated'))"></span>
+                    <span x-text="formatMoney(sectionTotal(section, 'actual'))"></span>
+                    <span :class="sectionRemaining(section) >= 0 ? 'positive' : 'negative'"
+                          x-text="formatMoney(sectionRemaining(section))"></span>
+                </div>
+            </div>
+        </template>
+    </div>
+    <textarea class="card-notes" placeholder="Month notes..."
+              x-model="plan.notes" @blur="savePlan()" rows="2"></textarea>
+</div>
+
+{# ── Report View ───────────────────────────────────────────── #}
+<div x-show="view === 'report'" x-cloak>
+    <div class="budget-report">
+        <h3 class="budget-report-title">Category Breakdown</h3>
+        <template x-for="cat in report.categories" :key="cat.category">
+            <div class="budget-report-row">
+                <span class="budget-report-cat" x-text="cat.category"></span>
+                <div class="budget-report-bar-wrap">
+                    <div class="budget-report-bar"
+                         :class="cat.total >= 0 ? 'bar-income' : 'bar-expense'"
+                         :style="'width:' + barWidth(cat.total) + '%'"></div>
+                </div>
+                <span class="budget-report-amt"
+                      :class="cat.total >= 0 ? 'positive' : 'negative'"
+                      x-text="formatMoney(cat.total)"></span>
+            </div>
+        </template>
+        <div class="budget-empty" x-show="!report.categories || report.categories.length === 0">
+            <p>No data for this month yet.</p>
+        </div>
+    </div>
+</div>
+
+{# ── Duplicates View ──────────────────────────────────────── #}
+<div x-show="view === 'duplicates'" x-cloak>
+    <div class="budget-dupes" x-show="duplicates.length > 0">
+        <p class="budget-dupes-hint">These transactions were flagged as possible duplicates. Keep them if they're real, or dismiss to hide.</p>
+        <template x-for="tx in duplicates" :key="tx.id">
+            <div class="budget-tx-row budget-tx-dupe">
+                <div class="budget-tx-date" x-text="tx.date"></div>
+                <div class="budget-tx-desc">
+                    <span class="budget-tx-desc-text" x-text="tx.description"></span>
+                    <span class="budget-tx-account" x-text="tx.account"></span>
+                </div>
+                <div class="budget-tx-amount" :class="tx.amount >= 0 ? 'positive' : 'negative'"
+                     x-text="formatMoney(tx.amount)"></div>
+                <div class="budget-dupe-actions">
+                    <button class="btn btn-sm btn-outline" @click="resolveDupe(tx, 'keep')">Keep</button>
+                    <button class="btn btn-sm btn-danger" @click="resolveDupe(tx, 'dismiss')">Dismiss</button>
+                </div>
+            </div>
+        </template>
+    </div>
+    <div class="budget-empty" x-show="duplicates.length === 0">
+        <p>No duplicates found. Looking clean!</p>
+    </div>
+</div>
+
+{# ── Import Status Flash ──────────────────────────────────── #}
+<div class="flash flash-success" x-show="importMsg" x-text="importMsg"
+     x-transition:leave="transition duration-300" style="display:none;"></div>
+
+</div>
+{% endblock %}

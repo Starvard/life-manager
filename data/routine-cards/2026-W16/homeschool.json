@@ -1,0 +1,86 @@
+{
+  "week_key": "2026-W16",
+  "area_key": "homeschool",
+  "area_name": "Homeschool",
+  "week_start": "2026-04-13",
+  "tasks": [
+    {
+      "name": "Lesson Plan",
+      "freq": 1.0,
+      "weight": 2.0,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0
+      ],
+      "carryover": true,
+      "carryover_week_key": "2026-W15"
+    },
+    {
+      "name": "Teach",
+      "freq": 4.0,
+      "weight": 3.5,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        0,
+        1,
+        0,
+        1,
+        0,
+        1,
+        1
+      ]
+    }
+  ],
+  "extra_tasks": [],
+  "notes": ""
+}

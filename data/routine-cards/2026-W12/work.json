@@ -1,0 +1,121 @@
+{
+  "week_key": "2026-W12",
+  "area_key": "work",
+  "area_name": "Work",
+  "week_start": "2026-03-16",
+  "tasks": [
+    {
+      "name": "Emails",
+      "freq": 5,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        1,
+        0,
+        1,
+        1,
+        1,
+        0,
+        1
+      ],
+      "weight": 2.0
+    },
+    {
+      "name": "Plan",
+      "freq": 5,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        1,
+        1,
+        1,
+        0,
+        1,
+        1,
+        0
+      ],
+      "weight": 2.5
+    },
+    {
+      "name": "Focus Work",
+      "freq": 5,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        0,
+        1,
+        1,
+        1,
+        0,
+        1,
+        1
+      ],
+      "weight": 3.0
+    }
+  ],
+  "notes": "",
+  "extra_tasks": []
+}

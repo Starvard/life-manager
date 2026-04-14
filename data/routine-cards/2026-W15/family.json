@@ -1,0 +1,347 @@
+{
+  "week_key": "2026-W15",
+  "area_key": "family",
+  "area_name": "Family",
+  "week_start": "2026-04-06",
+  "tasks": [
+    {
+      "name": "Jenna Night Routine",
+      "freq": 7.0,
+      "weight": 4.0,
+      "days": [
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ]
+      ],
+      "scheduled": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "Rosemary Night Routine",
+      "freq": 7.0,
+      "weight": 4.0,
+      "days": [
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ]
+      ],
+      "scheduled": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "Rowan Night Routine",
+      "freq": 7.0,
+      "weight": 4.0,
+      "days": [
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ]
+      ],
+      "scheduled": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "Jenna 1:1 Date",
+      "freq": 0.25,
+      "weight": 3.5,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "carryover": true,
+      "carryover_week_key": "2026-W14"
+    },
+    {
+      "name": "Rosemary 1:1 Date",
+      "freq": 0.25,
+      "weight": 3.5,
+      "days": [
+        [
+          true
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "carryover": true,
+      "carryover_week_key": "2026-W14"
+    },
+    {
+      "name": "Rowan 1:1 Date",
+      "freq": 0.25,
+      "weight": 3.5,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Flowers for Jenna",
+      "freq": 0.25,
+      "weight": 2.0,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Romance",
+      "freq": 0.5,
+      "weight": 3.0,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "Family Activity",
+      "freq": 1.0,
+      "weight": 3.0,
+      "days": [
+        [
+          true
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "extra_tasks": [],
+  "notes": ""
+}

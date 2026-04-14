@@ -1,0 +1,328 @@
+{
+  "month": "2026-01",
+  "source_file": "January.html",
+  "snapshot": [
+    {
+      "label": "Income",
+      "allocated": 7863.0,
+      "actual": 8364.0,
+      "remaining": null
+    },
+    {
+      "label": "Spending",
+      "allocated": 5488.0,
+      "actual": 6748.0,
+      "remaining": -1260.0
+    },
+    {
+      "label": "Saving",
+      "allocated": null,
+      "actual": null,
+      "remaining": null
+    },
+    {
+      "label": "In - Out",
+      "allocated": 2375.0,
+      "actual": 1616.0,
+      "remaining": null
+    }
+  ],
+  "ledger": {
+    "debit": 15159.0,
+    "credit": 17372.0,
+    "delta": -2213.0
+  },
+  "weekly": {
+    "columns": [
+      "01/1 - 01/7",
+      "01/8 - 01/14",
+      "01/15 - 01/21",
+      "01/22 - 01/28",
+      "01/29 - 01/31"
+    ],
+    "rows": [
+      {
+        "name": "🍴Restaurants",
+        "amounts": [
+          -222.0,
+          -175.0,
+          -129.0,
+          -82.0,
+          -62.0
+        ]
+      },
+      {
+        "name": "🛒 Groceries",
+        "amounts": [
+          -1053.0,
+          -936.0,
+          -819.0,
+          -703.0,
+          -653.0
+        ]
+      },
+      {
+        "name": "🛍️ Shopping",
+        "amounts": [
+          -712.0,
+          -677.0,
+          -642.0,
+          -607.0,
+          -592.0
+        ]
+      },
+      {
+        "name": "🎉 Entertainment",
+        "amounts": [
+          -298.0,
+          -228.0,
+          -158.0,
+          -88.0,
+          -58.0
+        ]
+      }
+    ]
+  },
+  "bill_payments": [
+    {
+      "name": "Next Mortgage",
+      "amount": 3000.0
+    },
+    {
+      "name": "CFNA",
+      "amount": 0.0
+    },
+    {
+      "name": "Chase",
+      "amount": 1000.0
+    },
+    {
+      "name": "Discover",
+      "amount": 0.0
+    },
+    {
+      "name": "Citi",
+      "amount": 117.84
+    },
+    {
+      "name": "Blue Amex",
+      "amount": 0.0
+    },
+    {
+      "name": "Robinhood",
+      "amount": 5290.02
+    },
+    {
+      "name": "Bills",
+      "amount": 174.68
+    }
+  ],
+  "panels": {
+    "income": [
+      {
+        "name": "🔥 Dyndrite",
+        "allocated": 7863.0,
+        "received": 8325.0
+      },
+      {
+        "name": "💵 Jenna Sales",
+        "allocated": null,
+        "received": 26.0
+      },
+      {
+        "name": "💰 Other Income",
+        "allocated": null,
+        "received": 13.0
+      },
+      {
+        "name": "🎈From Savings",
+        "allocated": null,
+        "received": 0.0
+      }
+    ],
+    "bills": [
+      {
+        "name": "🏡 Mortgage",
+        "allocated": 3000.0,
+        "remaining": 0.0
+      },
+      {
+        "name": "⚡Electricity",
+        "allocated": 150.0,
+        "remaining": 25.0
+      },
+      {
+        "name": "💦 Water",
+        "allocated": 100.0,
+        "remaining": 9.0
+      },
+      {
+        "name": "🔥 Natural Gas",
+        "allocated": 20.0,
+        "remaining": -3.0
+      },
+      {
+        "name": "🖥️ Internet",
+        "allocated": 55.0,
+        "remaining": 0.0
+      },
+      {
+        "name": "📞 Phone",
+        "allocated": 95.0,
+        "remaining": 95.0
+      }
+    ],
+    "savings": [
+      {
+        "name": "Emergency Savings",
+        "allocated": null,
+        "send_to_bank": null,
+        "in_bank": null
+      },
+      {
+        "name": "🚑 Medical Fund",
+        "allocated": null,
+        "send_to_bank": 0.0,
+        "in_bank": 1000.0
+      },
+      {
+        "name": "🧱 3 Months Mortgage",
+        "allocated": null,
+        "send_to_bank": 0.0,
+        "in_bank": 6000.0
+      },
+      {
+        "name": "🛠️ Home Maintenance",
+        "allocated": null,
+        "send_to_bank": 0.0,
+        "in_bank": 1000.0
+      },
+      {
+        "name": "Life Savings",
+        "allocated": null,
+        "send_to_bank": null,
+        "in_bank": null
+      },
+      {
+        "name": "🐕 Dog Fund",
+        "allocated": null,
+        "send_to_bank": 0.0,
+        "in_bank": null
+      },
+      {
+        "name": "🚗 Car Maintenance",
+        "allocated": null,
+        "send_to_bank": 0.0,
+        "in_bank": 500.0
+      },
+      {
+        "name": "🏎️ Car Insurance",
+        "allocated": 165.0,
+        "send_to_bank": -607.0,
+        "in_bank": null
+      },
+      {
+        "name": "🛫 Amex Platnium",
+        "allocated": 75.0,
+        "send_to_bank": 75.0,
+        "in_bank": null
+      },
+      {
+        "name": "🪙 Robinhood Gold",
+        "allocated": 8.0,
+        "send_to_bank": 8.0,
+        "in_bank": null
+      },
+      {
+        "name": "👜 Amazon Prime",
+        "allocated": 12.0,
+        "send_to_bank": 12.0,
+        "in_bank": null
+      },
+      {
+        "name": "💃 Dance Class",
+        "allocated": 45.0,
+        "send_to_bank": 45.0,
+        "in_bank": null
+      }
+    ],
+    "food_gas": [
+      {
+        "name": "🍴Restaurants",
+        "allocated": 200.0,
+        "remaining": -69.0
+      },
+      {
+        "name": "🛒 Groceries",
+        "allocated": 500.0,
+        "remaining": -669.0
+      },
+      {
+        "name": "⛽ Gas",
+        "allocated": 100.0,
+        "remaining": 66.0
+      }
+    ],
+    "subscriptions": [
+      {
+        "name": "🎭 YouTube",
+        "allocated": 25.0,
+        "remaining": 25.0
+      },
+      {
+        "name": "📺 Netflix",
+        "allocated": 19.0,
+        "remaining": 0.0
+      },
+      {
+        "name": "📸 Google One",
+        "allocated": 22.0,
+        "remaining": 22.0
+      }
+    ],
+    "personal": [
+      {
+        "name": "🏊 Swim",
+        "allocated": 136.0,
+        "remaining": 0.0
+      },
+      {
+        "name": "🩺 Reoccuring Med.",
+        "allocated": 120.0,
+        "remaining": 0.0
+      },
+      {
+        "name": "🐩 Reoccuring Dog",
+        "allocated": 91.0,
+        "remaining": -12.0
+      },
+      {
+        "name": "💆‍♀️ Massage",
+        "allocated": 110.0,
+        "remaining": 0.0
+      }
+    ],
+    "misc": [
+      {
+        "name": "🏬 Shopping",
+        "allocated": 150.0,
+        "remaining": -597.0
+      },
+      {
+        "name": "🎉 Entertainment",
+        "allocated": 300.0,
+        "remaining": -68.0
+      },
+      {
+        "name": "🛖 Home Improvement",
+        "allocated": 275.0,
+        "remaining": -9.0
+      },
+      {
+        "name": "💸 Retirement",
+        "allocated": null,
+        "remaining": 0.0
+      }
+    ]
+  }
+}

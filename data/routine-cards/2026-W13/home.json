@@ -1,0 +1,471 @@
+{
+  "week_key": "2026-W13",
+  "area_key": "home",
+  "area_name": "Home",
+  "week_start": "2026-03-23",
+  "tasks": [
+    {
+      "name": "Plant Care",
+      "freq": 3.0,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        1
+      ],
+      "weight": 1.5
+    },
+    {
+      "name": "Budget",
+      "freq": 4.0,
+      "days": [
+        [
+          false
+        ],
+        [
+          false,
+          false,
+          false,
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          true
+        ]
+      ],
+      "scheduled": [
+        0,
+        4,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "weight": 2.5
+    },
+    {
+      "name": "Walk Jasper",
+      "freq": 3.0,
+      "days": [
+        [
+          false
+        ],
+        [
+          true
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        1,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0
+      ],
+      "weight": 2.5
+    },
+    {
+      "name": "Dishes",
+      "freq": 14.0,
+      "days": [
+        [
+          true,
+          false
+        ],
+        [
+          true,
+          false
+        ],
+        [
+          true,
+          false
+        ],
+        [
+          true,
+          false
+        ],
+        [
+          true,
+          true
+        ],
+        [
+          true,
+          false
+        ],
+        [
+          true,
+          false
+        ]
+      ],
+      "scheduled": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "weight": 2.0
+    },
+    {
+      "name": "Tidy Up",
+      "freq": 7.0,
+      "days": [
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ]
+      ],
+      "scheduled": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "weight": 2.0
+    },
+    {
+      "name": "Deep Clean Upstairs",
+      "freq": 0.5,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "carryover": true,
+      "carryover_week_key": "2026-W12",
+      "weight": 2.0
+    },
+    {
+      "name": "Deep Clean Downstairs",
+      "freq": 0.5,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      "weight": 2.0
+    },
+    {
+      "name": "HVAC Maintenance",
+      "freq": 0.038461538461538464,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "weight": 1.5
+    },
+    {
+      "name": "Knife Sharpening",
+      "freq": 0.07692307692307693,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "weight": 1.0
+    },
+    {
+      "name": "Meal Plan",
+      "freq": 1.0,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        1,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "carryover": true,
+      "carryover_week_key": "2026-W12",
+      "weight": 2.0
+    },
+    {
+      "name": "Laundry",
+      "freq": 2.0,
+      "days": [
+        [
+          false,
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ]
+      ],
+      "scheduled": [
+        2,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0
+      ],
+      "carryover": true,
+      "carryover_week_key": "2026-W12",
+      "weight": 2.0
+    },
+    {
+      "name": "Mow Lawn",
+      "freq": 1.0,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          true
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0
+      ],
+      "weight": 1.5
+    }
+  ],
+  "notes": "HVAC Needs UV light for Bio growth\n",
+  "extra_tasks": []
+}

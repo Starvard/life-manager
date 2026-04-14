@@ -1,0 +1,41 @@
+baby_name: Robinson
+tracks:
+  - key: nursing_l
+    label: Nursing L
+    type: blocks
+    hint: shade when feeding
+  - key: nursing_r
+    label: Nursing R
+    type: blocks
+    hint: shade when feeding
+  - key: bottle
+    label: Bottle
+    type: blocks
+    hint: shade when feeding
+  - key: wet_diaper
+    label: Wet Diaper
+    type: blocks
+    hint: shade when changed
+  - key: dirty_diaper
+    label: Dirty Diaper
+    type: blocks
+    hint: shade when changed
+  - key: rowan_sleep
+    label: Rowan Sleep
+    type: blocks
+    hint: shade 30-min blocks
+  - key: jenna_sleep
+    label: Jenna Sleep
+    type: blocks
+    hint: shade 30-min blocks
+  - key: tylenol
+    label: Tylenol (J)
+    type: blocks
+    hint: shade when taken
+  - key: ibuprofen
+    label: Ibuprofen (J)
+    type: blocks
+    hint: shade when taken
+  - key: notes
+    label: Notes
+    type: notes

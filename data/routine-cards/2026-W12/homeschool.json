@@ -1,0 +1,84 @@
+{
+  "week_key": "2026-W12",
+  "area_key": "homeschool",
+  "area_name": "Homeschool",
+  "week_start": "2026-03-16",
+  "tasks": [
+    {
+      "name": "Lesson Plan",
+      "freq": 1,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0
+      ],
+      "weight": 2.0
+    },
+    {
+      "name": "Teach",
+      "freq": 4,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        0,
+        1,
+        0,
+        1,
+        1,
+        0,
+        1
+      ],
+      "weight": 3.5
+    }
+  ],
+  "notes": "",
+  "extra_tasks": []
+}

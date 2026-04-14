@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Baby Tracker - Life Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Baby Tracker</h1>
+    <p class="subtitle">{{ card.baby_name }} &mdash; {{ card_date }}</p>
+</div>
+
+<div class="picker">
+    <a href="#" class="picker-btn"
+       onclick="event.preventDefault(); var d=new Date('{{ card_date }}'); d.setDate(d.getDate()-1); location.href='?date='+d.toISOString().slice(0,10);">
+        &larr;
+    </a>
+    <input type="date" value="{{ card_date }}"
+           onchange="location.href='?date='+this.value"
+           style="padding:0.4rem; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:0.8rem;">
+    <a href="#" class="picker-btn"
+       onclick="event.preventDefault(); var d=new Date('{{ card_date }}'); d.setDate(d.getDate()+1); location.href='?date='+d.toISOString().slice(0,10);">
+        &rarr;
+    </a>
+    <a href="#" class="btn btn-sm btn-outline"
+       onclick="event.preventDefault(); location.href='?date='+new Date().toISOString().slice(0,10);">Today</a>
+</div>
+
+<div x-data='babyCard("{{ card_date }}", {{ card|tojson }})' class="notecard"
+     @mouseup.window="endPaint()" @touchend.window="endPaint()">
+
+    <div class="notecard-header baby">
+        <span>Baby {{ card.baby_name }}</span>
+        <span class="week-label"
+              x-text="new Date('{{ card_date }}T12:00:00').toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric', year:'numeric'})">
+        </span>
+    </div>
+
+    {% for track_key, track in card.tracks.items() %}
+    <div class="baby-track">
+        <div class="baby-track-label">
+            {{ track.label }}
+            {% if track.hint %}<span class="hint">{{ track.hint }}</span>{% endif %}
+        </div>
+        <div class="baby-track-content">
+
+            {% if track.type == "blocks" %}
+            <div class="block-wrap">
+                <div class="block-time-labels">
+                    <span style="grid-column: 1">12a</span>
+                    <span style="grid-column: 4">3a</span>
+                    <span style="grid-column: 7">6a</span>
+                    <span style="grid-column: 10">9a</span>
+                    <span style="grid-column: 13">12p</span>
+                    <span style="grid-column: 16">3p</span>
+                    <span style="grid-column: 19">6p</span>
+                    <span style="grid-column: 22">9p</span>
+                </div>
+                <div class="block-grid" data-track="{{ track_key }}">
+                    <template x-for="(filled, idx) in card.tracks['{{ track_key }}'].squares" :key="idx">
+                        <div class="blk"
+                             :class="{ filled: card.tracks['{{ track_key }}'].squares[idx] }"
+                             :data-idx="idx"
+                             @mousedown.prevent="startPaint('{{ track_key }}', idx)"
+                             @mouseenter="continuePaint('{{ track_key }}', idx)"
+                             @touchstart.prevent="startPaint('{{ track_key }}', idx)"
+                             @touchmove.prevent="onTouchMove($event)">
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            {% elif track.type == "tally" %}
+            <div class="tally">
+                <button class="tally-btn" @click="updateTally('{{ track_key }}', -1)">&minus;</button>
+                <span class="tally-count" x-text="card.tracks['{{ track_key }}'].count"></span>
+                <button class="tally-btn" @click="updateTally('{{ track_key }}', 1)">+</button>
+            </div>
+
+            {% elif track.type == "notes" %}
+            <textarea class="baby-notes-input"
+                      placeholder="Notes..."
+                      x-model="card.tracks['{{ track_key }}'].text"
+                      @blur="updateNotes('{{ track_key }}')"
+                      rows="1"></textarea>
+            {% endif %}
+
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if days %}
+<div class="card" style="margin-top:1rem;">
+    <div class="card-title">Recent Days</div>
+    <div class="btn-group">
+        {% for d in days[-14:] %}
+        <a href="?date={{ d }}" class="btn btn-sm {% if d == card_date %}btn-primary{% else %}btn-outline{% endif %}"
+           style="{% if d == card_date %}background:var(--purple); border-color:var(--purple);{% endif %}">{{ d[5:] }}</a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

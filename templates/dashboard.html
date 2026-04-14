@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Life Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Dashboard</h1>
+    <p class="subtitle">Week {{ week_key }}</p>
+</div>
+
+{% set ua = request.headers.get('User-Agent', '') or '' %}
+{% set ua_mobile = 'Android' in ua or 'iPhone' in ua or 'iPad' in ua or 'iPod' in ua %}
+{% if browser_on_loopback_host %}
+    {% if ua_mobile %}
+    <div class="loopback-banner" role="status">
+        <strong>Phone / tablet:</strong> do not use <code>127.0.0.1</code> or <code>localhost</code> here—that points at <em>this device</em>, not your PC. On the same Wi‑Fi open your computer&rsquo;s address instead, with a <strong>trusted</strong> HTTPS URL if adhoc SSL fails (tunnel / ngrok / mkcert):
+        <a href="{{ network_base_url }}">{{ network_base_url }}</a>
+    </div>
+    {% else %}
+    <div class="loopback-banner loopback-banner-ok" role="status">
+        <strong>This PC:</strong> <code>http://127.0.0.1:5000</code> (or <code>localhost</code>) is the right way to use push in Chrome—no HTTPS needed. Adhoc <code>https://192.168…</code> often breaks the service worker; use plain HTTP here, or use <strong>start.bat</strong> without <code>LM_USE_SSL</code>.
+        For your <strong>phone</strong>, use a tunnel or mkcert (see push section below)—not localhost.
+    </div>
+    {% endif %}
+{% endif %}
+
+{% set ns = namespace(total_dots=0, done_dots=0, active_areas=0) %}
+{% for key, card in cards.items() %}
+    {% set ns.active_areas = ns.active_areas + 1 %}
+    {% for task in card.tasks + (card.extra_tasks|default([])) %}
+        {% for day in task.days %}
+            {% set ns.total_dots = ns.total_dots + day|length %}
+            {% for d in day %}{% if d %}{% set ns.done_dots = ns.done_dots + 1 %}{% endif %}{% endfor %}
+        {% endfor %}
+    {% endfor %}
+{% endfor %}
+
+<div class="stat-grid">
+    <div class="stat-card stat-card-accent">
+        <div class="label">Today's score</div>
+        <div class="value">{% if today_score_pct is not none %}{{ today_score_pct }}%{% else %}—{% endif %}</div>
+        {% if today_weekday_idx is none %}<div class="stat-hint">Switch to the week that contains today</div>{% endif %}
+    </div>
+    <div class="stat-card stat-card-accent">
+        <div class="label">Week score (weighted)</div>
+        <div class="value">{% if week_score_pct is not none %}{{ week_score_pct }}%{% else %}—{% endif %}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Areas</div>
+        <div class="value">{{ ns.active_areas }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Dots done</div>
+        <div class="value">{{ ns.done_dots }} / {{ ns.total_dots }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Dot progress</div>
+        <div class="value">{% if ns.total_dots > 0 %}{{ (ns.done_dots / ns.total_dots * 100)|int }}%{% else %}0%{% endif %}</div>
+    </div>
+    <div class="stat-card">
+        <div class="label">Baby Days</div>
+        <div class="value">{{ baby_days|length }}</div>
+    </div>
+</div>
+
+<div class="card push-reminders-card" id="push-reminders-card">
+    <div class="card-title">Push reminders</div>
+    <p class="push-reminders-hint">
+        <strong>This PC (Chrome):</strong> use <code>http://127.0.0.1:5000</code> with <strong>start.bat</strong>—loopback HTTP counts as secure for workers and push. <strong>Do not rely on</strong> <code>https://192.168…</code> with the built-in adhoc cert; Chrome often fails to load <code>sw.js</code> even when the page works.
+        <strong>Android phone:</strong> install <code>cloudflared</code> once (<code>winget install --id Cloudflare.cloudflared -e</code>), run <code>tunnel-cloudflare.bat</code> while <code>start.bat</code> is running, then open the printed <code>https://….trycloudflare.com</code> link on your phone for trusted HTTPS push.
+        One row per task; cooldown <code>LM_REMINDER_COOLDOWN_MINUTES</code> (default 120). Done clears today&rsquo;s scheduled dots for that task.
+    </p>
+    <div class="push-reminders-actions">
+        <button type="button" class="btn-push" id="push-enable-btn">Enable reminders</button>
+        <button type="button" class="btn-push btn-push-secondary" id="push-disable-btn" hidden>Disable</button>
+    </div>
+    <p class="push-reminders-status" id="push-status" aria-live="polite"></p>
+</div>
+
+{% if daily_score_row %}
+<div class="card score-week-card">
+    <div class="card-title">This week by day</div>
+    <p class="score-week-sub">Weighted %: planned dots count fully; extra/early dots count at 40%. Edit weights under Routines.</p>
+    <div class="score-day-strip">
+        {% set day_labels = ['Mo','Tu','We','Th','Fr','Sa','Su'] %}
+        {% for pct in daily_score_row %}
+        <div class="score-day-cell {% if today_weekday_idx == loop.index0 %}score-day-today{% endif %}">
+            <span class="score-day-label">{{ day_labels[loop.index0] }}</span>
+            <span class="score-day-pct">{% if pct is not none %}{{ pct }}%{% else %}—{% endif %}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if day_metrics and day_metrics.active_days %}
+<div class="card score-metrics-card">
+    <div class="card-title">Week highlights</div>
+    <div class="score-metrics-row">
+        <div class="score-metric">
+            <span class="score-metric-label">Best day</span>
+            <span class="score-metric-value">{{ day_metrics.best_short }} · {{ day_metrics.best_pct }}%</span>
+        </div>
+        {% if day_metrics.active_days >= 2 and day_metrics.low_idx != day_metrics.best_idx %}
+        <span class="score-metrics-dot" aria-hidden="true">·</span>
+        <div class="score-metric">
+            <span class="score-metric-label">Lowest</span>
+            <span class="score-metric-value">{{ day_metrics.low_short }} · {{ day_metrics.low_pct }}%</span>
+        </div>
+        {% endif %}
+        {% if day_metrics.active_days >= 2 %}
+        <span class="score-metrics-dot" aria-hidden="true">·</span>
+        <div class="score-metric">
+            <span class="score-metric-label">Daily avg</span>
+            <span class="score-metric-value">{{ day_metrics.avg_pct }}%</span>
+            <span class="score-metric-hint">days with tasks</span>
+        </div>
+        {% endif %}
+        <span class="score-metrics-dot" aria-hidden="true">·</span>
+        <div class="score-metric">
+            <span class="score-metric-label">Active days</span>
+            <span class="score-metric-value">{{ day_metrics.active_days }} / 7</span>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if score_bests %}
+<div class="card score-alltime-card">
+    <div class="card-title">All-time bests</div>
+    <p class="score-week-sub">Best completed week is recorded only after that Sunday (so mid-week spikes do not count). Best day updates whenever you open the app with that week loaded.</p>
+    <div class="score-alltime-row">
+        <div class="score-metric">
+            <span class="score-metric-label">Best week</span>
+            {% if score_bests.best_completed_week %}
+            <span class="score-metric-value">{{ score_bests.best_completed_week.pct }}%</span>
+            <span class="score-metric-hint">{{ score_bests.best_completed_week.week_key }}</span>
+            {% else %}
+            <span class="score-metric-value">—</span>
+            <span class="score-metric-hint">Visit a finished week on the dashboard</span>
+            {% endif %}
+        </div>
+        <span class="score-metrics-dot" aria-hidden="true">·</span>
+        <div class="score-metric">
+            <span class="score-metric-label">Best day</span>
+            {% if score_bests.best_day %}
+            <span class="score-metric-value">{{ score_bests.best_day.pct }}%</span>
+            <span class="score-metric-hint">{{ score_bests.best_day.date }}</span>
+            {% else %}
+            <span class="score-metric-value">—</span>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="btn-group" style="margin-bottom: 1.5rem;">
+    <a href="{{ url_for('cards_page', week=week_key) }}" class="btn btn-primary">Open Cards</a>
+    <a href="{{ url_for('baby_page') }}" class="btn btn-secondary" style="background:var(--purple)">Baby Tracker</a>
+    <a href="{{ url_for('routines_page') }}" class="btn btn-outline">Edit Routines</a>
+</div>
+
+<div class="card">
+    <div class="card-title">This Week's Areas</div>
+    {% for key, card in cards.items() %}
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0; border-bottom:1px solid var(--border-light);">
+        <span style="font-size:0.85rem; font-weight:500;">{{ card.area_name }}</span>
+        <span style="font-size:0.75rem; color:var(--text-muted);">{{ card.tasks|length + (card.extra_tasks|default([])|length) }} tasks</span>
+    </div>
+    {% endfor %}
+</div>
+
+{% if weeks|length > 1 %}
+<div class="card">
+    <div class="card-title">Past Weeks</div>
+    <div class="btn-group">
+        {% for w in weeks %}
+        <a href="{{ url_for('dashboard', week=w) }}"
+           class="btn btn-sm {% if w == week_key %}btn-primary{% else %}btn-outline{% endif %}">{{ w }}</a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

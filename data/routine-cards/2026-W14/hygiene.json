@@ -1,0 +1,250 @@
+{
+  "week_key": "2026-W14",
+  "area_key": "hygiene",
+  "area_name": "Hygiene",
+  "week_start": "2026-03-30",
+  "tasks": [
+    {
+      "name": "Floss",
+      "freq": 14.0,
+      "weight": 2.0,
+      "days": [
+        [
+          false,
+          true
+        ],
+        [
+          true,
+          false
+        ],
+        [
+          false,
+          false
+        ],
+        [
+          true,
+          true
+        ],
+        [
+          true,
+          false
+        ],
+        [
+          false,
+          true
+        ],
+        [
+          true,
+          true
+        ]
+      ],
+      "scheduled": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    {
+      "name": "Brush",
+      "freq": 14.0,
+      "weight": 2.0,
+      "days": [
+        [
+          false,
+          true
+        ],
+        [
+          true,
+          false
+        ],
+        [
+          false,
+          true
+        ],
+        [
+          true,
+          true
+        ],
+        [
+          true,
+          false
+        ],
+        [
+          false,
+          true
+        ],
+        [
+          true,
+          true
+        ]
+      ],
+      "scheduled": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ]
+    },
+    {
+      "name": "Shower",
+      "freq": 4.0,
+      "weight": 2.0,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          true
+        ]
+      ],
+      "scheduled": [
+        1,
+        0,
+        1,
+        0,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "Moisturize",
+      "freq": 7.0,
+      "weight": 1.5,
+      "days": [
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          false
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ],
+        [
+          true
+        ]
+      ],
+      "scheduled": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "Trim Nails",
+      "freq": 1.0,
+      "weight": 1.0,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          true
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          true
+        ]
+      ],
+      "scheduled": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "carryover": true,
+      "carryover_week_key": "2026-W13"
+    },
+    {
+      "name": "Shave",
+      "freq": 2.0,
+      "weight": 1.0,
+      "days": [
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          true
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ],
+        [
+          false
+        ]
+      ],
+      "scheduled": [
+        1,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0
+      ],
+      "carryover": true,
+      "carryover_week_key": "2026-W13"
+    }
+  ],
+  "extra_tasks": [],
+  "notes": ""
+}

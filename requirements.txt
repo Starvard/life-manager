@@ -1,0 +1,8 @@
+flask
+reportlab
+pyyaml
+pillow
+pywebpush
+apscheduler
+cryptography
+beautifulsoup4

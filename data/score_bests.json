@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "best_completed_week": {
+    "pct": 41,
+    "week_key": "2026-W15",
+    "week_start": "2026-04-06"
+  },
+  "best_day": {
+    "pct": 53,
+    "date": "2026-04-02",
+    "week_key": "2026-W14"
+  }
+}

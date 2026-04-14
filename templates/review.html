@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Review - Life Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Weekly Review</h1>
+    <p class="subtitle">Review your completed cards and reflect on the week</p>
+</div>
+
+<div class="card">
+    <div class="card-title">How It Works</div>
+    <p style="font-size:0.85rem; color:var(--text-muted); line-height:1.6;">
+        Your filled-out cards are your history. Visit the
+        <a href="{{ url_for('cards_page') }}">Cards</a> page to see your progress
+        for any week. Each card auto-saves as you tap dots, so your history
+        builds naturally over time.
+    </p>
+</div>
+{% endblock %}

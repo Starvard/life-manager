@@ -1,0 +1,774 @@
+import os
+import socket
+import json
+import time
+from datetime import date, timedelta
+from flask import (
+    Flask, render_template, request, redirect, url_for,
+    send_file, send_from_directory, flash, jsonify, make_response,
+)
+
+import config
+
+_CACHE_BUST = str(int(time.time()))
+from services.routine_manager import load_routines, save_routines
+from services.week_planner import iso_week_key, week_start_date, upcoming_week_monday
+from services.score_bests import update_and_return_bests
+from services.score_helpers import (
+    weighted_week_score,
+    weighted_day_score,
+    daily_breakdown_weighted,
+    today_weekday_index,
+    week_day_summary,
+    today_score_banner_context,
+)
+from services.card_store import (
+    get_routine_cards, get_routine_card,
+    toggle_routine_dot, set_routine_dot, set_routine_notes, list_routine_weeks,
+    regenerate_routine_cards,
+    add_extra_task, remove_extra_task,
+    complete_routine_day_scheduled,
+    get_baby_card, save_baby_card, update_baby_track, list_baby_days,
+)
+from services import push_subscriptions
+from services import vapid_keys
+from services.push_reminders import (
+    refresh_reminder_state_after_dot_change,
+    send_test_push_to_all,
+)
+from services.card_generator import generate_cards_pdf
+from services.baby_card_generator import generate_baby_cards_pdf
+from services.budget_store import (
+    load_transactions, save_transactions,
+    get_transactions_by_month, get_available_months,
+    update_transaction, load_plan, save_plan, list_plan_months,
+    compute_monthly_report, record_import, load_import_meta,
+    load_categories,
+    load_overview,
+    refresh_overviews_from_exports,
+)
+from services.budget_import import import_from_directory
+from services.budget_dedupe import merge_new_transactions
+from services.budget_categorizer import get_all_categories, get_display_category
+
+app = Flask(__name__)
+app.secret_key = "life-manager-local-key"
+
+for d in [config.PHOTOS_DIR, config.CARDS_DIR,
+          config.ROUTINE_CARDS_DIR, config.BABY_CARDS_DIR,
+          config.BUDGET_DATA_DIR, config.BUDGET_PLANS_DIR,
+          config.BUDGET_OVERVIEW_DIR]:
+    os.makedirs(d, exist_ok=True)
+
+
+def _network_base_url_for_phone() -> str:
+    """URL to open on another device on the same Wi‑Fi (not 127.0.0.1)."""
+    try:
+        port = int(os.environ.get("LM_PORT", "5000"))
+    except ValueError:
+        port = 5000
+    cert = os.environ.get("LM_SSL_CERT", "").strip()
+    key = os.environ.get("LM_SSL_KEY", "").strip()
+    ssl_on = (
+        (cert and key and os.path.isfile(cert) and os.path.isfile(key))
+        or os.environ.get("LM_USE_SSL", "").lower() in ("1", "true", "yes")
+    )
+    scheme = "https" if ssl_on else "http"
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        ip = "127.0.0.1"
+    return f"{scheme}://{ip}:{port}"
+
+
+@app.context_processor
+def inject_cache_bust():
+    return {"cache_bust": _CACHE_BUST}
+
+
+@app.context_processor
+def inject_network_url():
+    host = (request.host.split(":")[0].lower() if request.host else "") or ""
+    loopback = host in ("127.0.0.1", "localhost", "::1")
+    return {
+        "network_base_url": _network_base_url_for_phone(),
+        "browser_on_loopback_host": loopback,
+        "default_notify_time": config.DEFAULT_NOTIFY_TIME,
+    }
+
+
+def _default_week_key():
+    return iso_week_key(upcoming_week_monday(date.today()))
+
+
+def _ordered_cards(cards: dict) -> dict:
+    """Sort cards dict by area_order from routines.yaml."""
+    data = load_routines()
+    order = data.get("area_order", [])
+    order_map = {k: i for i, k in enumerate(order)}
+    return dict(sorted(cards.items(), key=lambda kv: order_map.get(kv[0], 999)))
+
+
+# ── HTML Pages ────────────────────────────────────────────────────
+
+@app.route("/")
+def dashboard():
+    wk = request.args.get("week", _default_week_key())
+    cards = _ordered_cards(get_routine_cards(wk))
+    weeks = list_routine_weeks()
+    baby_days = list_baby_days()
+    _, _, week_score_pct = weighted_week_score(cards)
+    daily_row = daily_breakdown_weighted(cards)
+    week_start = next((c.get("week_start") for c in cards.values()), None)
+    today_idx = today_weekday_index(week_start) if week_start else None
+    today_score_pct = None
+    if today_idx is not None:
+        _, _, today_score_pct = weighted_day_score(cards, today_idx)
+    day_metrics = week_day_summary(cards)
+    score_bests = update_and_return_bests(wk, cards)
+    return render_template(
+        "dashboard.html",
+        week_key=wk,
+        cards=cards,
+        weeks=weeks,
+        baby_days=baby_days,
+        week_score_pct=week_score_pct,
+        daily_score_row=daily_row,
+        today_weekday_idx=today_idx,
+        today_score_pct=today_score_pct,
+        day_metrics=day_metrics,
+        score_bests=score_bests,
+    )
+
+
+@app.route("/cards")
+def cards_page():
+    wk = request.args.get("week", _default_week_key())
+    cards = _ordered_cards(get_routine_cards(wk))
+    weeks = list_routine_weeks()
+    banner = today_score_banner_context(cards)
+    update_and_return_bests(wk, cards)
+    return render_template(
+        "cards.html",
+        week_key=wk,
+        cards=cards,
+        weeks=weeks,
+        **banner,
+    )
+
+
+@app.route("/baby")
+def baby_page():
+    d = request.args.get("date", date.today().isoformat())
+    card = get_baby_card(d)
+    days = list_baby_days()
+    return render_template("baby.html", card_date=d, card=card, days=days)
+
+
+@app.route("/routines")
+def routines_page():
+    data = load_routines()
+    order = data.get("area_order", [])
+    all_areas = data.get("areas", {})
+    ordered_areas = {k: all_areas[k] for k in order if k in all_areas}
+    for k, v in all_areas.items():
+        if k not in ordered_areas:
+            ordered_areas[k] = v
+    return render_template("routines.html", areas=ordered_areas)
+
+
+@app.route("/routines/save", methods=["POST"])
+def save_routines_form():
+    data = load_routines()
+    areas = data.get("areas", {})
+
+    for area_key in list(areas.keys()):
+        area = areas[area_key]
+        area["name"] = request.form.get(f"area_name_{area_key}", area.get("name", area_key))
+
+        updated_tasks = []
+        i = 0
+        while True:
+            name_field = f"task_name_{area_key}_{i}"
+            if name_field not in request.form:
+                break
+            if request.form.get(f"task_delete_{area_key}_{i}"):
+                i += 1
+                continue
+            name = request.form[name_field].strip()
+            if not name:
+                i += 1
+                continue
+            task = {"name": name}
+            wt = request.form.get(f"task_weight_{area_key}_{i}", "").strip()
+            if wt:
+                try:
+                    wv = float(wt)
+                    if wv > 0:
+                        task["weight"] = wv
+                except ValueError:
+                    pass
+            fpy = request.form.get(f"task_fpy_{area_key}_{i}", "").strip()
+            freq = request.form.get(f"task_freq_{area_key}_{i}", "").strip()
+            if fpy:
+                try:
+                    task["freq_per_year"] = float(fpy)
+                except ValueError:
+                    pass
+            elif freq:
+                try:
+                    task["freq"] = float(freq)
+                except ValueError:
+                    task["freq"] = 1
+            od = []
+            for x in request.form.getlist(f"task_on_days_{area_key}_{i}"):
+                try:
+                    d = int(x)
+                    if 0 <= d <= 6:
+                        od.append(d)
+                except ValueError:
+                    pass
+            if od:
+                task["on_days"] = sorted(set(od))
+            nt = request.form.get(f"task_notify_time_{area_key}_{i}", "").strip()
+            task["notify_time"] = nt
+            updated_tasks.append(task)
+            i += 1
+
+        nf = f"new_task_name_{area_key}"
+        if request.form.get(nf, "").strip():
+            new_task = {"name": request.form[nf].strip()}
+            nwt = request.form.get(f"new_task_weight_{area_key}", "").strip()
+            if nwt:
+                try:
+                    wv = float(nwt)
+                    if wv > 0:
+                        new_task["weight"] = wv
+                except ValueError:
+                    pass
+            fpy = request.form.get(f"new_task_fpy_{area_key}", "").strip()
+            freq = request.form.get(f"new_task_freq_{area_key}", "").strip()
+            if fpy:
+                try:
+                    new_task["freq_per_year"] = float(fpy)
+                except ValueError:
+                    pass
+            elif freq:
+                try:
+                    new_task["freq"] = float(freq)
+                except ValueError:
+                    new_task["freq"] = 1
+            else:
+                new_task["freq"] = 1
+            od = []
+            for x in request.form.getlist(f"new_task_on_days_{area_key}"):
+                try:
+                    d = int(x)
+                    if 0 <= d <= 6:
+                        od.append(d)
+                except ValueError:
+                    pass
+            if od:
+                new_task["on_days"] = sorted(set(od))
+            ntn = request.form.get(f"new_task_notify_time_{area_key}", "").strip()
+            new_task["notify_time"] = ntn
+            updated_tasks.append(new_task)
+
+        area["tasks"] = updated_tasks
+
+    new_key = request.form.get("new_area_key", "").strip().lower().replace(" ", "_")
+    new_name = request.form.get("new_area_name", "").strip()
+    if new_key and new_name:
+        areas[new_key] = {"name": new_name, "tasks": []}
+        data.setdefault("area_order", []).append(new_key)
+
+    save_routines(data)
+    regenerate_routine_cards(_default_week_key())
+    flash("Routines saved!", "success")
+    return redirect(url_for("routines_page"))
+
+
+@app.route("/routines/delete-area/<area_key>", methods=["POST"])
+def delete_area(area_key):
+    data = load_routines()
+    data.get("areas", {}).pop(area_key, None)
+    order = data.get("area_order", [])
+    if area_key in order:
+        order.remove(area_key)
+    save_routines(data)
+    flash(f"Area '{area_key}' deleted.", "success")
+    return redirect(url_for("routines_page"))
+
+
+@app.route("/api/routines/reorder", methods=["PATCH"])
+def api_reorder_area():
+    body = request.get_json(force=True)
+    area_key = body.get("area_key")
+    direction = body.get("direction")
+    data = load_routines()
+    order = data.get("area_order", list(data.get("areas", {}).keys()))
+    if area_key not in order:
+        return jsonify({"ok": False}), 400
+    idx = order.index(area_key)
+    if direction == "up" and idx > 0:
+        order[idx], order[idx - 1] = order[idx - 1], order[idx]
+    elif direction == "down" and idx < len(order) - 1:
+        order[idx], order[idx + 1] = order[idx + 1], order[idx]
+    data["area_order"] = order
+    save_routines(data)
+    return jsonify({"ok": True, "order": order})
+
+
+# ── API: Routine Cards ────────────────────────────────────────────
+
+@app.route("/api/routine-cards/<week_key>")
+def api_get_routine_cards(week_key):
+    return jsonify({"areas": get_routine_cards(week_key)})
+
+
+@app.route("/sw.js")
+def service_worker():
+    resp = make_response(
+        send_from_directory(
+            app.static_folder, "sw.js", mimetype="application/javascript"
+        )
+    )
+    resp.headers["Service-Worker-Allowed"] = "/"
+    resp.headers["Cache-Control"] = "no-cache, max-age=0"
+    return resp
+
+
+@app.route("/api/routine-cards/<week_key>/<area_key>/toggle", methods=["PATCH"])
+def api_toggle_dot(week_key, area_key):
+    body = request.get_json(force=True)
+    task = int(body.get("task", 0))
+    day = int(body.get("day", 0))
+    dot = int(body.get("dot", 0))
+    list_key = body.get("list", "tasks")
+    if list_key not in ("tasks", "extra_tasks"):
+        list_key = "tasks"
+    new_val = toggle_routine_dot(
+        week_key, area_key, task, day, dot, list_key=list_key
+    )
+    refresh_reminder_state_after_dot_change(
+        week_key, area_key, list_key, task, day
+    )
+    return jsonify({"ok": True, "value": new_val})
+
+
+@app.route("/api/routine-cards/<week_key>/<area_key>/set-dot", methods=["PATCH"])
+def api_set_dot(week_key, area_key):
+    body = request.get_json(force=True)
+    task = int(body.get("task", 0))
+    day = int(body.get("day", 0))
+    dot = int(body.get("dot", 0))
+    list_key = body.get("list", "tasks")
+    if list_key not in ("tasks", "extra_tasks"):
+        list_key = "tasks"
+    value = bool(body.get("value", True))
+    ok = set_routine_dot(
+        week_key, area_key, task, day, dot, value, list_key=list_key
+    )
+    if ok:
+        refresh_reminder_state_after_dot_change(
+            week_key, area_key, list_key, task, day
+        )
+    return jsonify({"ok": ok})
+
+
+@app.route(
+    "/api/routine-cards/<week_key>/<area_key>/complete-scheduled-day",
+    methods=["POST"],
+)
+def api_complete_scheduled_day(week_key, area_key):
+    body = request.get_json(force=True)
+    task = int(body.get("task", 0))
+    day = int(body.get("day", 0))
+    list_key = body.get("list", "tasks")
+    if list_key not in ("tasks", "extra_tasks"):
+        list_key = "tasks"
+    ok = complete_routine_day_scheduled(
+        week_key, area_key, task, day, list_key=list_key
+    )
+    if ok:
+        refresh_reminder_state_after_dot_change(
+            week_key, area_key, list_key, task, day
+        )
+    return jsonify({"ok": ok})
+
+
+@app.route("/api/routine-cards/<week_key>/<area_key>/extra-task", methods=["POST"])
+def api_add_extra_task(week_key, area_key):
+    body = request.get_json(force=True)
+    name = body.get("name", "")
+    row = add_extra_task(week_key, area_key, name)
+    if row is None:
+        return jsonify({"ok": False}), 400
+    card = get_routine_card(week_key, area_key)
+    return jsonify({"ok": True, "extra_tasks": card.get("extra_tasks", [])})
+
+
+@app.route("/api/routine-cards/<week_key>/<area_key>/extra-task/<int:task_idx>",
+           methods=["DELETE"])
+def api_remove_extra_task(week_key, area_key, task_idx):
+    ok = remove_extra_task(week_key, area_key, task_idx)
+    return jsonify({"ok": ok})
+
+
+@app.route("/api/routine-cards/<week_key>/<area_key>/notes", methods=["PUT"])
+def api_set_notes(week_key, area_key):
+    body = request.get_json(force=True)
+    set_routine_notes(week_key, area_key, body.get("notes", ""))
+    return jsonify({"ok": True})
+
+
+@app.route("/api/routine-cards/weeks")
+def api_list_weeks():
+    return jsonify({"weeks": list_routine_weeks()})
+
+
+# ── Web Push ─────────────────────────────────────────────────────
+
+@app.route("/api/push/vapid-public-key")
+def api_push_vapid_public():
+    _, pub_b64 = vapid_keys.ensure_vapid_keys()
+    return jsonify({"publicKey": pub_b64})
+
+
+@app.route("/api/push/subscribe", methods=["POST"])
+def api_push_subscribe():
+    sub = request.get_json(force=True)
+    if not sub or not sub.get("endpoint"):
+        return jsonify({"ok": False, "error": "invalid subscription"}), 400
+    push_subscriptions.add_subscription(sub)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/push/subscribe", methods=["DELETE"])
+def api_push_unsubscribe():
+    body = request.get_json(force=True, silent=True) or {}
+    endpoint = body.get("endpoint", "")
+    if not endpoint:
+        return jsonify({"ok": False, "error": "missing endpoint"}), 400
+    removed = push_subscriptions.remove_subscription(endpoint)
+    return jsonify({"ok": removed})
+
+
+@app.route("/api/push/test", methods=["POST"])
+def api_push_test():
+    sent, registered = send_test_push_to_all()
+    return jsonify({"ok": True, "sent": sent, "registered": registered})
+
+
+# ── API: Baby Cards ───────────────────────────────────────────────
+
+@app.route("/api/baby-cards/<card_date>")
+def api_get_baby_card(card_date):
+    return jsonify(get_baby_card(card_date))
+
+
+@app.route("/api/baby-cards/<card_date>/track", methods=["PATCH"])
+def api_update_baby_track(card_date):
+    body = request.get_json(force=True)
+    track_key = body.pop("track", None)
+    if not track_key:
+        return jsonify({"error": "missing track"}), 400
+    updated = update_baby_track(card_date, track_key, body)
+    return jsonify({"ok": True, "track": updated})
+
+
+@app.route("/api/baby-cards/days")
+def api_list_baby_days():
+    return jsonify({"days": list_baby_days()})
+
+
+# ── Budget Page ───────────────────────────────────────────────────
+
+@app.route("/budget")
+def budget_page():
+    months = get_available_months()
+    current_month = request.args.get("month", "")
+    if not current_month:
+        from datetime import date as _date
+        current_month = _date.today().strftime("%Y-%m")
+    txns = get_transactions_by_month(current_month)
+    report = compute_monthly_report(current_month)
+    plan = load_plan(current_month)
+    categories = get_all_categories(load_transactions())
+    overview = load_overview(current_month) or {}
+    return render_template(
+        "budget.html",
+        months=months,
+        current_month=current_month,
+        transactions=txns,
+        report=report,
+        plan=plan,
+        categories=categories,
+        overview=overview,
+    )
+
+
+# ── API: Budget ──────────────────────────────────────────────────
+
+@app.route("/api/budget/import", methods=["POST"])
+def api_budget_import():
+    body = request.get_json(silent=True) or {}
+    replace_all = bool(body.get("replace_all"))
+
+    budget_exports_dir = os.path.join(config.BUDGET_DIR, "2026 Budget")
+    if not os.path.isdir(budget_exports_dir):
+        return jsonify({"ok": False, "error": "No budget export directory found"}), 404
+
+    overview_months = refresh_overviews_from_exports(budget_exports_dir)
+
+    incoming = import_from_directory(budget_exports_dir)
+    existing = [] if replace_all else load_transactions()
+    merged = existing
+    new_count = 0
+    if incoming:
+        merged = merge_new_transactions(existing, incoming)
+        save_transactions(merged)
+        new_count = len(merged) - len(existing)
+        import hashlib as _hl
+        fp = _hl.sha256(json.dumps([t["id"] for t in incoming]).encode()).hexdigest()[:16]
+        record_import("2026 Budget", len(incoming), fp)
+    elif replace_all and not incoming:
+        save_transactions([])
+        merged = []
+
+    if not incoming and overview_months == 0:
+        return jsonify({
+            "ok": False,
+            "error": "No transactions or monthly budget sheets found in export folder",
+        }), 400
+
+    return jsonify({
+        "ok": True,
+        "imported": len(incoming),
+        "new": new_count,
+        "total": len(merged),
+        "duplicates_marked": sum(1 for t in merged if t.get("is_duplicate")),
+        "overview_months_saved": overview_months,
+    })
+
+
+@app.route("/api/budget/transactions")
+def api_budget_transactions():
+    month = request.args.get("month", "")
+    show_dupes = request.args.get("show_duplicates", "false").lower() == "true"
+    if month:
+        txns = get_transactions_by_month(month)
+    else:
+        txns = load_transactions()
+    if not show_dupes:
+        txns = [t for t in txns if not t.get("is_duplicate")]
+    txns.sort(key=lambda t: t.get("date", ""), reverse=True)
+    return jsonify({"transactions": txns, "count": len(txns)})
+
+
+@app.route("/api/budget/transactions/<tx_id>/category", methods=["PATCH"])
+def api_budget_update_category(tx_id):
+    body = request.get_json(force=True)
+    new_cat = body.get("category", "").strip()
+    if not new_cat:
+        return jsonify({"ok": False, "error": "Missing category"}), 400
+    txns = load_transactions()
+    for tx in txns:
+        if tx.get("id") == tx_id:
+            tx["category_override"] = new_cat
+            save_transactions(txns)
+            return jsonify({"ok": True, "transaction": tx})
+    return jsonify({"ok": False, "error": "Transaction not found"}), 404
+
+
+@app.route("/api/budget/transactions/<tx_id>/duplicate", methods=["PATCH"])
+def api_budget_resolve_duplicate(tx_id):
+    body = request.get_json(force=True)
+    action = body.get("action", "dismiss")
+    txns = load_transactions()
+    for tx in txns:
+        if tx.get("id") == tx_id:
+            if action == "keep":
+                tx["is_duplicate"] = False
+                tx["duplicate_of"] = None
+            elif action == "dismiss":
+                tx["is_duplicate"] = True
+            save_transactions(txns)
+            return jsonify({"ok": True, "transaction": tx})
+    return jsonify({"ok": False, "error": "Transaction not found"}), 404
+
+
+@app.route("/api/budget/report")
+def api_budget_report():
+    month = request.args.get("month", "")
+    if not month:
+        from datetime import date as _date
+        month = _date.today().strftime("%Y-%m")
+    return jsonify(compute_monthly_report(month))
+
+
+@app.route("/api/budget/plan/<month>")
+def api_budget_get_plan(month):
+    return jsonify(load_plan(month))
+
+
+@app.route("/api/budget/plan/<month>", methods=["PUT"])
+def api_budget_save_plan(month):
+    body = request.get_json(force=True)
+    save_plan(month, body)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/budget/months")
+def api_budget_months():
+    tx_months = get_available_months()
+    plan_months = list_plan_months()
+    all_months = sorted(set(tx_months + plan_months))
+    return jsonify({"months": all_months})
+
+
+@app.route("/api/budget/categories")
+def api_budget_categories():
+    txns = load_transactions()
+    return jsonify({"categories": get_all_categories(txns)})
+
+
+# ── PDF Export ────────────────────────────────────────────────────
+
+@app.route("/api/routine-cards/<week_key>/export-pdf", methods=["POST"])
+def api_export_routine_pdf(week_key):
+    cards = get_routine_cards(week_key)
+    plans = []
+    for area_key, card in cards.items():
+        plan = {
+            "key": area_key,
+            "name": card["area_name"],
+            "week_key": card["week_key"],
+            "week_start": card["week_start"],
+            "tasks": [],
+        }
+        for task in card["tasks"]:
+            dots = task.get("scheduled", [len(d) for d in task["days"]])
+            plan["tasks"].append({"name": task["name"], "freq": task["freq"], "dots": dots})
+        for task in card.get("extra_tasks", []):
+            dots = task.get("scheduled", [len(d) for d in task["days"]])
+            plan["tasks"].append({
+                "name": task["name"] + " (this week)",
+                "freq": task.get("freq", 1),
+                "dots": dots,
+            })
+        plans.append(plan)
+    filepath = generate_cards_pdf(plans, week_key)
+    return jsonify({"ok": True, "filename": os.path.basename(filepath)})
+
+
+@app.route("/cards/download/<week_key>")
+def download_cards(week_key):
+    filepath = os.path.join(config.CARDS_DIR, f"{week_key}.pdf")
+    if not os.path.exists(filepath):
+        flash("PDF not found.", "error")
+        return redirect(url_for("cards_page"))
+    return send_file(filepath, as_attachment=True,
+                     download_name=f"routine-cards-{week_key}.pdf")
+
+
+@app.route("/baby/download/<filename>")
+def download_baby_pdf(filename):
+    filepath = os.path.join(config.CARDS_DIR, filename)
+    if not os.path.exists(filepath) or not filename.startswith("baby-"):
+        flash("File not found.", "error")
+        return redirect(url_for("baby_page"))
+    return send_file(filepath, as_attachment=True, download_name=filename)
+
+
+@app.route("/photos/<week_key>/<filename>")
+def serve_photo(week_key, filename):
+    photo_path = os.path.join(config.PHOTOS_DIR, week_key, filename)
+    if os.path.exists(photo_path):
+        return send_file(photo_path)
+    return "Not found", 404
+
+
+# ── Startup ───────────────────────────────────────────────────────
+
+def _get_local_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+
+def _ssl_context():
+    cert = os.environ.get("LM_SSL_CERT", "").strip()
+    key = os.environ.get("LM_SSL_KEY", "").strip()
+    if cert and key and os.path.isfile(cert) and os.path.isfile(key):
+        return (cert, key)
+    if os.environ.get("LM_USE_SSL", "").lower() in ("1", "true", "yes"):
+        return "adhoc"
+    return None
+
+
+def _start_push_scheduler():
+    if os.environ.get("WERKZEUG_RUN_MAIN") != "true" and app.debug:
+        return
+    try:
+        from apscheduler.schedulers.background import BackgroundScheduler
+    except ImportError:
+        return
+    try:
+        from services.push_reminders import run_reminder_scan
+    except ImportError:
+        return
+    try:
+        interval = int(os.environ.get("LM_REMINDER_INTERVAL_MINUTES", "30"))
+    except ValueError:
+        interval = 30
+    interval = max(5, interval)
+    sched = BackgroundScheduler()
+    sched.add_job(
+        run_reminder_scan,
+        "interval",
+        minutes=interval,
+        id="life_manager_push_reminders",
+        replace_existing=True,
+    )
+    sched.start()
+
+
+if __name__ == "__main__":
+    ip = _get_local_ip()
+    port = int(os.environ.get("LM_PORT", "5000"))
+    ssl_ctx = _ssl_context()
+    scheme = "https" if ssl_ctx else "http"
+    print(f"\n  Life Manager running at:")
+    print(f"    Local:   {scheme}://127.0.0.1:{port}")
+    print(f"    Network: {scheme}://{ip}:{port}")
+    if ssl_ctx:
+        print(
+            "    >>> HTTPS is ON — use these https:// links on your phone.\n"
+            "        If the phone shows ERR_SSL_PROTOCOL_ERROR, you are hitting a server\n"
+            "        that is still on plain HTTP; restart using start-with-push.bat.\n"
+        )
+    if not ssl_ctx:
+        print(
+            "    Web Push on Android needs HTTPS: set LM_USE_SSL=1 (dev adhoc cert) or "
+            "LM_SSL_CERT + LM_SSL_KEY, or use a tunnel / reverse proxy.\n"
+        )
+    else:
+        print(
+            "    Accept the browser warning for the adhoc/LAN cert to enable push.\n"
+        )
+    _start_push_scheduler()
+    app.run(
+        debug=True,
+        host="0.0.0.0",
+        port=port,
+        ssl_context=ssl_ctx,
+    )

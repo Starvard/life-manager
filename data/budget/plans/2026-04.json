@@ -1,0 +1,40 @@
+{
+  "month": "2026-04",
+  "notes": "",
+  "sections": {
+    "bills": {
+      "items": [
+        {
+          "name": "",
+          "allocated": 0.04,
+          "actual": 0.01
+        }
+      ],
+      "label": "Bills"
+    },
+    "food_gas": {
+      "items": [],
+      "label": "Food & Gas"
+    },
+    "income": {
+      "items": [],
+      "label": "Income"
+    },
+    "misc": {
+      "items": [],
+      "label": "Misc"
+    },
+    "personal": {
+      "items": [],
+      "label": "Personal Care"
+    },
+    "savings": {
+      "items": [],
+      "label": "Savings"
+    },
+    "subscriptions": {
+      "items": [],
+      "label": "Subscriptions"
+    }
+  }
+}
