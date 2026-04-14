@@ -1,0 +1,18 @@
+# Private keys & secrets
+data/vapid_keys.json
+data/vapid_private.pem
+data/push_subscriptions.json
+
+# Budget / financial data
+data/budget/
+budget/
+
+# Python cache
+__pycache__/
+services/__pycache__/
+*.pyc
+*.pyo
+
+# OS files
+.DS_Store
+Thumbs.db
