@@ -51,8 +51,12 @@ from services.budget_import import import_from_directory
 from services.budget_dedupe import merge_new_transactions
 from services.budget_categorizer import get_all_categories, get_display_category
 
+# Seed persistent volume on first cloud deploy
+from seed_data import seed as _seed_data
+_seed_data()
+
 app = Flask(__name__)
-app.secret_key = "life-manager-local-key"
+app.secret_key = os.environ.get("LM_SECRET_KEY", "life-manager-local-key")
 
 for d in [config.PHOTOS_DIR, config.CARDS_DIR,
           config.ROUTINE_CARDS_DIR, config.BABY_CARDS_DIR,
@@ -62,7 +66,7 @@ for d in [config.PHOTOS_DIR, config.CARDS_DIR,
 
 
 def _network_base_url_for_phone() -> str:
-    """URL to open on another device on the same Wi‑Fi (not 127.0.0.1)."""
+    """URL to open on another device on the same Wi\u2011Fi (not 127.0.0.1)."""
     try:
         port = int(os.environ.get("LM_PORT", "5000"))
     except ValueError:
@@ -112,7 +116,7 @@ def _ordered_cards(cards: dict) -> dict:
     return dict(sorted(cards.items(), key=lambda kv: order_map.get(kv[0], 999)))
 
 
-# ── HTML Pages ────────────────────────────────────────────────────
+# \u2500\u2500 HTML Pages \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route("/")
 def dashboard():
@@ -322,7 +326,7 @@ def api_reorder_area():
     return jsonify({"ok": True, "order": order})
 
 
-# ── API: Routine Cards ────────────────────────────────────────────
+# \u2500\u2500 API: Routine Cards \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route("/api/routine-cards/<week_key>")
 def api_get_routine_cards(week_key):
@@ -430,7 +434,7 @@ def api_list_weeks():
     return jsonify({"weeks": list_routine_weeks()})
 
 
-# ── Web Push ─────────────────────────────────────────────────────
+# \u2500\u2500 Web Push \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route("/api/push/vapid-public-key")
 def api_push_vapid_public():
@@ -463,7 +467,7 @@ def api_push_test():
     return jsonify({"ok": True, "sent": sent, "registered": registered})
 
 
-# ── API: Baby Cards ───────────────────────────────────────────────
+# \u2500\u2500 API: Baby Cards \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route("/api/baby-cards/<card_date>")
 def api_get_baby_card(card_date):
@@ -485,7 +489,7 @@ def api_list_baby_days():
     return jsonify({"days": list_baby_days()})
 
 
-# ── Budget Page ───────────────────────────────────────────────────
+# \u2500\u2500 Budget Page \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route("/budget")
 def budget_page():
@@ -511,7 +515,7 @@ def budget_page():
     )
 
 
-# ── API: Budget ──────────────────────────────────────────────────
+# \u2500\u2500 API: Budget \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route("/api/budget/import", methods=["POST"])
 def api_budget_import():
@@ -636,7 +640,7 @@ def api_budget_categories():
     return jsonify({"categories": get_all_categories(txns)})
 
 
-# ── PDF Export ────────────────────────────────────────────────────
+# \u2500\u2500 PDF Export \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route("/api/routine-cards/<week_key>/export-pdf", methods=["POST"])
 def api_export_routine_pdf(week_key):
@@ -692,7 +696,7 @@ def serve_photo(week_key, filename):
     return "Not found", 404
 
 
-# ── Startup ───────────────────────────────────────────────────────
+# \u2500\u2500 Startup \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 def _get_local_ip():
     try:
@@ -742,6 +746,19 @@ def _start_push_scheduler():
     sched.start()
 
 
+# \u2500\u2500 Health check (for Fly.io / load balancers) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+@app.route("/healthz")
+def health_check():
+    return jsonify({"status": "ok"})
+
+
+# \u2500\u2500 Startup \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+# Start push scheduler for both dev (python app.py) and production (gunicorn)
+_start_push_scheduler()
+
+
 if __name__ == "__main__":
     ip = _get_local_ip()
     port = int(os.environ.get("LM_PORT", "5000"))
@@ -752,7 +769,7 @@ if __name__ == "__main__":
     print(f"    Network: {scheme}://{ip}:{port}")
     if ssl_ctx:
         print(
-            "    >>> HTTPS is ON — use these https:// links on your phone.\n"
+            "    >>> HTTPS is ON \u2014 use these https:// links on your phone.\n"
             "        If the phone shows ERR_SSL_PROTOCOL_ERROR, you are hitting a server\n"
             "        that is still on plain HTTP; restart using start-with-push.bat.\n"
         )
@@ -765,7 +782,6 @@ if __name__ == "__main__":
         print(
             "    Accept the browser warning for the adhoc/LAN cert to enable push.\n"
         )
-    _start_push_scheduler()
     app.run(
         debug=True,
         host="0.0.0.0",
