@@ -41,7 +41,7 @@
         {% if today_weekday_idx is none %}<div class="stat-hint">Switch to the week that contains today</div>{% endif %}
     </div>
     <div class="stat-card stat-card-accent">
-        <div class="label">Week score (weighted)</div>
+        <div class="label">Week score</div>
         <div class="value">{% if week_score_pct is not none %}{{ week_score_pct }}%{% else %}—{% endif %}</div>
     </div>
     <div class="stat-card">
@@ -62,24 +62,165 @@
     </div>
 </div>
 
-<div class="card push-reminders-card" id="push-reminders-card">
-    <div class="card-title">Push reminders</div>
-    <p class="push-reminders-hint">
-        <strong>This PC (Chrome):</strong> use <code>http://127.0.0.1:5000</code> with <strong>start.bat</strong>—loopback HTTP counts as secure for workers and push. <strong>Do not rely on</strong> <code>https://192.168…</code> with the built-in adhoc cert; Chrome often fails to load <code>sw.js</code> even when the page works.
-        <strong>Android phone:</strong> install <code>cloudflared</code> once (<code>winget install --id Cloudflare.cloudflared -e</code>), run <code>tunnel-cloudflare.bat</code> while <code>start.bat</code> is running, then open the printed <code>https://….trycloudflare.com</code> link on your phone for trusted HTTPS push.
-        One row per task; cooldown <code>LM_REMINDER_COOLDOWN_MINUTES</code> (default 120). Done clears today&rsquo;s scheduled dots for that task.
-    </p>
-    <div class="push-reminders-actions">
-        <button type="button" class="btn-push" id="push-enable-btn">Enable reminders</button>
-        <button type="button" class="btn-push btn-push-secondary" id="push-disable-btn" hidden>Disable</button>
+{% if daily_score_row %}
+<div class="charts-row">
+    <div class="chart-card">
+        <div class="card-title">Daily Scores</div>
+        <canvas id="weeklyBarChart"></canvas>
     </div>
-    <p class="push-reminders-status" id="push-status" aria-live="polite"></p>
+    <div class="chart-card">
+        <div class="card-title">Area Breakdown</div>
+        <canvas id="areaDonutChart"></canvas>
+    </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var dailyScores = {{ daily_score_row | tojson }};
+    var todayIdx = {{ today_weekday_idx if today_weekday_idx is not none else 'null' }};
+    var dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    var barColors = dailyScores.map(function(v, i) {
+        if (v === null) return 'rgba(92,95,115,0.2)';
+        if (i === todayIdx) return 'rgba(99,179,255,0.9)';
+        return 'rgba(167,139,250,0.6)';
+    });
+    var barBorders = dailyScores.map(function(v, i) {
+        if (v === null) return 'rgba(92,95,115,0.3)';
+        if (i === todayIdx) return '#63b3ff';
+        return '#a78bfa';
+    });
+
+    new Chart(document.getElementById('weeklyBarChart'), {
+        type: 'bar',
+        data: {
+            labels: dayLabels,
+            datasets: [{
+                data: dailyScores.map(function(v) { return v !== null ? v : 0; }),
+                backgroundColor: barColors,
+                borderColor: barBorders,
+                borderWidth: 1.5,
+                borderRadius: 6,
+                borderSkipped: false
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1c1c28',
+                    borderColor: 'rgba(255,255,255,0.08)',
+                    borderWidth: 1,
+                    titleColor: '#e8eaed',
+                    bodyColor: '#8b8fa3',
+                    cornerRadius: 8,
+                    padding: 10,
+                    callbacks: {
+                        label: function(ctx) { return ctx.raw > 0 ? ctx.raw + '%' : 'No data'; }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    grid: { color: 'rgba(255,255,255,0.04)', drawBorder: false },
+                    ticks: { color: '#5c5f73', font: { size: 10, family: 'Inter' }, callback: function(v) { return v + '%'; } },
+                    border: { display: false }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#8b8fa3', font: { size: 11, weight: '600', family: 'Inter' } },
+                    border: { display: false }
+                }
+            }
+        }
+    });
+
+    var cardsData = {{ cards | tojson }};
+    var areaNames = [];
+    var areaDone = [];
+    var areaTotal = [];
+    for (var key in cardsData) {
+        if (!cardsData.hasOwnProperty(key)) continue;
+        var card = cardsData[key];
+        areaNames.push(card.area_name);
+        var done = 0, total = 0;
+        (card.tasks || []).forEach(function(task) {
+            task.days.forEach(function(day) {
+                total += day.length;
+                day.forEach(function(d) { if (d) done++; });
+            });
+        });
+        (card.extra_tasks || []).forEach(function(task) {
+            task.days.forEach(function(day) {
+                total += day.length;
+                day.forEach(function(d) { if (d) done++; });
+            });
+        });
+        areaDone.push(done);
+        areaTotal.push(total);
+    }
+
+    var donutColors = ['#63b3ff', '#a78bfa', '#34d399', '#fbbf24', '#f87171', '#22d3ee', '#f472b6', '#fb923c'];
+
+    new Chart(document.getElementById('areaDonutChart'), {
+        type: 'doughnut',
+        data: {
+            labels: areaNames,
+            datasets: [{
+                data: areaDone,
+                backgroundColor: donutColors.slice(0, areaNames.length),
+                borderColor: '#16161f',
+                borderWidth: 2,
+                hoverBorderColor: '#22222f',
+                spacing: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        color: '#8b8fa3',
+                        font: { size: 11, family: 'Inter' },
+                        padding: 12,
+                        usePointStyle: true,
+                        pointStyleWidth: 8
+                    }
+                },
+                tooltip: {
+                    backgroundColor: '#1c1c28',
+                    borderColor: 'rgba(255,255,255,0.08)',
+                    borderWidth: 1,
+                    titleColor: '#e8eaed',
+                    bodyColor: '#8b8fa3',
+                    cornerRadius: 8,
+                    padding: 10,
+                    callbacks: {
+                        label: function(ctx) {
+                            var i = ctx.dataIndex;
+                            var pct = areaTotal[i] > 0 ? Math.round(areaDone[i] / areaTotal[i] * 100) : 0;
+                            return ' ' + areaDone[i] + '/' + areaTotal[i] + ' dots (' + pct + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endif %}
 
 {% if daily_score_row %}
 <div class="card score-week-card">
     <div class="card-title">This week by day</div>
-    <p class="score-week-sub">Weighted %: planned dots count fully; extra/early dots count at 40%. Edit weights under Routines.</p>
+    <p class="score-week-sub">Weighted %: planned dots count fully; extra/early dots count at 40%.</p>
     <div class="score-day-strip">
         {% set day_labels = ['Mo','Tu','We','Th','Fr','Sa','Su'] %}
         {% for pct in daily_score_row %}
@@ -127,7 +268,6 @@
 {% if score_bests %}
 <div class="card score-alltime-card">
     <div class="card-title">All-time bests</div>
-    <p class="score-week-sub">Best completed week is recorded only after that Sunday (so mid-week spikes do not count). Best day updates whenever you open the app with that week loaded.</p>
     <div class="score-alltime-row">
         <div class="score-metric">
             <span class="score-metric-label">Best week</span>
@@ -153,18 +293,31 @@
 </div>
 {% endif %}
 
+<div class="card push-reminders-card" id="push-reminders-card">
+    <div class="card-title">Push reminders</div>
+    <p class="push-reminders-hint">
+        <strong>This PC (Chrome):</strong> use <code>http://127.0.0.1:5000</code> with <strong>start.bat</strong>—loopback HTTP counts as secure for workers and push.
+        <strong>Android phone:</strong> install <code>cloudflared</code> once, run <code>tunnel-cloudflare.bat</code>, then open the printed <code>https://….trycloudflare.com</code> link on your phone.
+    </p>
+    <div class="push-reminders-actions">
+        <button type="button" class="btn-push" id="push-enable-btn">Enable reminders</button>
+        <button type="button" class="btn-push btn-push-secondary" id="push-disable-btn" hidden>Disable</button>
+    </div>
+    <p class="push-reminders-status" id="push-status" aria-live="polite"></p>
+</div>
+
 <div class="btn-group" style="margin-bottom: 1.5rem;">
     <a href="{{ url_for('cards_page', week=week_key) }}" class="btn btn-primary">Open Cards</a>
-    <a href="{{ url_for('baby_page') }}" class="btn btn-secondary" style="background:var(--purple)">Baby Tracker</a>
+    <a href="{{ url_for('baby_page') }}" class="btn btn-secondary" style="background:var(--purple);border:none;">Baby Tracker</a>
     <a href="{{ url_for('routines_page') }}" class="btn btn-outline">Edit Routines</a>
 </div>
 
 <div class="card">
     <div class="card-title">This Week's Areas</div>
     {% for key, card in cards.items() %}
-    <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0; border-bottom:1px solid var(--border-light);">
-        <span style="font-size:0.85rem; font-weight:500;">{{ card.area_name }}</span>
-        <span style="font-size:0.75rem; color:var(--text-muted);">{{ card.tasks|length + (card.extra_tasks|default([])|length) }} tasks</span>
+    <div style="display:flex; justify-content:space-between; align-items:center; padding:0.45rem 0; border-bottom:1px solid var(--border-light);">
+        <span style="font-size:0.85rem; font-weight:500; color:var(--text);">{{ card.area_name }}</span>
+        <span style="font-size:0.72rem; color:var(--text-muted);">{{ card.tasks|length + (card.extra_tasks|default([])|length) }} tasks</span>
     </div>
     {% endfor %}
 </div>
