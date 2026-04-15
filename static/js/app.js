@@ -206,6 +206,154 @@ document.addEventListener("alpine:init", () => {
         }
     }));
 
+    /* ── Alpine.js: Routine Day Card (single-day view) ────────── */
+
+    Alpine.data("routineDayCard", (weekKey, areaKey, initialCard, dayIdx) => ({
+        card: initialCard,
+        dayIdx: dayIdx,
+        newExtraName: "",
+
+        init() {
+            if (!Array.isArray(this.card.extra_tasks)) {
+                this.card.extra_tasks = [];
+            }
+        },
+
+        hasDotsForDay(task) {
+            const sched = task.scheduled ? task.scheduled[this.dayIdx] : 0;
+            const row = task.days[this.dayIdx] || [];
+            return sched > 0 || row.length > 0;
+        },
+
+        dotClass(task, di, doi) {
+            const filled = task.days[di][doi];
+            const sched = task.scheduled ? task.scheduled[di] : task.days[di].length;
+            const isScheduled = doi < sched;
+            const cls = {};
+            if (filled) {
+                cls.filled = true;
+                if (!isScheduled) cls.unscheduled = true;
+                return cls;
+            }
+            if (!isScheduled) {
+                cls.unscheduled = true;
+            }
+            return cls;
+        },
+
+        async toggleDot(taskIdx, dotIdx) {
+            const dots = this.card.tasks[taskIdx].days[this.dayIdx];
+            dots[dotIdx] = !dots[dotIdx];
+            this._updateScore();
+            await api("PATCH",
+                `/api/routine-cards/${weekKey}/${areaKey}/toggle`,
+                { task: taskIdx, day: this.dayIdx, dot: dotIdx, list: "tasks" }
+            );
+        },
+
+        async toggleDotExtra(taskIdx, dotIdx) {
+            const dots = this.card.extra_tasks[taskIdx].days[this.dayIdx];
+            dots[dotIdx] = !dots[dotIdx];
+            this._updateScore();
+            await api("PATCH",
+                `/api/routine-cards/${weekKey}/${areaKey}/toggle`,
+                { task: taskIdx, day: this.dayIdx, dot: dotIdx, list: "extra_tasks" }
+            );
+        },
+
+        async addExtraRow() {
+            const name = (this.newExtraName || "").trim();
+            if (!name) return;
+            const res = await api("POST",
+                `/api/routine-cards/${weekKey}/${areaKey}/extra-task`,
+                { name }
+            );
+            if (res.ok && res.extra_tasks) {
+                this.card.extra_tasks = res.extra_tasks;
+                this.newExtraName = "";
+            }
+        },
+
+        async removeExtraRow(taskIdx) {
+            const res = await fetch(
+                `/api/routine-cards/${weekKey}/${areaKey}/extra-task/${taskIdx}`,
+                { method: "DELETE" }
+            );
+            const data = await res.json();
+            if (data.ok) {
+                this.card.extra_tasks.splice(taskIdx, 1);
+            }
+        },
+
+        async saveNotes() {
+            await api("PUT",
+                `/api/routine-cards/${weekKey}/${areaKey}/notes`,
+                { notes: this.card.notes }
+            );
+        },
+
+        _taskWeight(task) {
+            let w = Number(task.weight);
+            if (!Number.isFinite(w) || w <= 0) return 1;
+            return w;
+        },
+
+        dayProgress() {
+            const BONUS = 0.4;
+            let earned = 0, possible = 0;
+            const allTasks = [...this.card.tasks, ...(this.card.extra_tasks || [])];
+            for (const task of allTasks) {
+                const w = this._taskWeight(task);
+                const sched = task.scheduled || [];
+                let sc = Number(sched[this.dayIdx]);
+                sc = Number.isFinite(sc) ? Math.max(0, Math.floor(sc)) : 0;
+                const row = task.days[this.dayIdx] || [];
+                for (let doi = 0; doi < sc; doi++) {
+                    possible += w;
+                    if (doi < row.length && row[doi]) earned += w;
+                }
+                for (let doi = sc; doi < row.length; doi++) {
+                    const bp = w * BONUS;
+                    possible += bp;
+                    if (row[doi]) earned += bp;
+                }
+            }
+            return possible > 0 ? Math.round((earned / possible) * 100) : 0;
+        },
+
+        _updateScore() {
+            const el = document.getElementById("day-score-display");
+            if (!el) return;
+            const cards = document.querySelectorAll("[x-data]");
+            let totalEarned = 0, totalPossible = 0;
+            cards.forEach(c => {
+                const data = Alpine.$data(c);
+                if (data && typeof data.dayProgress === "function") {
+                    const BONUS = 0.4;
+                    const allTasks = [...data.card.tasks, ...(data.card.extra_tasks || [])];
+                    for (const task of allTasks) {
+                        const w = data._taskWeight(task);
+                        const sched = task.scheduled || [];
+                        let sc = Number(sched[data.dayIdx]);
+                        sc = Number.isFinite(sc) ? Math.max(0, Math.floor(sc)) : 0;
+                        const row = task.days[data.dayIdx] || [];
+                        for (let doi = 0; doi < sc; doi++) {
+                            totalPossible += w;
+                            if (doi < row.length && row[doi]) totalEarned += w;
+                        }
+                        for (let doi = sc; doi < row.length; doi++) {
+                            const bp = w * BONUS;
+                            totalPossible += bp;
+                            if (row[doi]) totalEarned += bp;
+                        }
+                    }
+                }
+            });
+            const pct = totalPossible > 0 ? Math.round((totalEarned / totalPossible) * 100) : 0;
+            el.textContent = totalPossible > 0 ? pct + "%" : "—";
+        },
+    }));
+
     /* ── Alpine.js: Budget Page ────────────────────────────────── */
 
     Alpine.data("budgetPage", (initialTxns, initialReport, initialPlan, initialCategories, currentMonth, months, initialOverview) => ({

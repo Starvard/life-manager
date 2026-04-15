@@ -164,6 +164,31 @@ def cards_page():
     )
 
 
+@app.route("/cards/day")
+def cards_day_page():
+    day_str = request.args.get("date", date.today().isoformat())
+    try:
+        selected_date = date.fromisoformat(day_str)
+    except ValueError:
+        selected_date = date.today()
+        day_str = selected_date.isoformat()
+    monday = selected_date - timedelta(days=selected_date.weekday())
+    wk = iso_week_key(monday)
+    day_idx = (selected_date - monday).days
+    day_label = config.DAYS_OF_WEEK[day_idx]
+    cards = _ordered_cards(get_routine_cards(wk))
+    _, _, day_score_pct = weighted_day_score(cards, day_idx)
+    return render_template(
+        "cards_day.html",
+        week_key=wk,
+        day_idx=day_idx,
+        day_label=day_label,
+        selected_date=day_str,
+        cards=cards,
+        day_score_pct=day_score_pct,
+    )
+
+
 @app.route("/baby")
 def baby_page():
     d = request.args.get("date", date.today().isoformat())

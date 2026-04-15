@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}{{ day_label }} - Life Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Routine Cards</h1>
+    <p class="subtitle">Tap dots to mark complete</p>
+</div>
+
+<div class="view-toggle">
+    <a href="{{ url_for('cards_page') }}" class="view-toggle-btn">Week</a>
+    <a href="{{ url_for('cards_day_page', date=selected_date) }}" class="view-toggle-btn active">Day</a>
+</div>
+
+<div class="picker">
+    <button class="picker-btn" onclick="dayNav(-1)">‹</button>
+    <input type="date" class="picker-date" value="{{ selected_date }}"
+           onchange="location.href='?date='+this.value">
+    <button class="picker-btn" onclick="dayNav(1)">›</button>
+    <span class="picker-label">{{ day_label }}</span>
+</div>
+
+<div class="cards-today-score" role="status">
+    <div class="cards-today-score-inner">
+        <span class="cards-today-score-label">{{ day_label }} Score</span>
+        <span class="cards-today-score-value" id="day-score-display">{% if day_score_pct is not none %}{{ day_score_pct }}%{% else %}—{% endif %}</span>
+    </div>
+</div>
+
+{% set area_keys = cards.keys()|list %}
+
+<div class="area-tabs">
+    {% for key in area_keys %}
+    <a href="#card-{{ key }}" class="area-tab">{{ cards[key].area_name }}</a>
+    {% endfor %}
+</div>
+
+{% for key, card in cards.items() %}
+<div id="card-{{ key }}" class="notecard" x-data='routineDayCard("{{ week_key }}", "{{ key }}", {{ card|tojson }}, {{ day_idx }})'>
+
+    <div class="notecard-header routine">
+        <span>{{ card.area_name }}</span>
+        <span class="week-label">
+            {{ day_label }}
+            &middot; <span x-text="dayProgress() + '%'"></span>
+        </span>
+    </div>
+
+    <div class="day-task-list">
+        <template x-for="(task, ti) in card.tasks" :key="'t'+ti">
+            <div class="day-task-row"
+                 :class="{
+                    'row-muted': !hasDotsForDay(task),
+                    'routine-row-carryover': task.carryover
+                 }">
+                <div class="day-task-name">
+                    <span x-text="task.name"></span>
+                    <span class="carryover-badge" x-show="task.carryover" title="Rolled from last week">↩</span>
+                </div>
+                <div class="day-task-dots">
+                    <template x-for="(filled, doi) in task.days[dayIdx]" :key="doi">
+                        <div class="dot"
+                             :class="dotClass(task, dayIdx, doi)"
+                             @click="toggleDot(ti, doi)">
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <div class="routine-extra-block">
+        <div class="routine-extra-label">This week only</div>
+        <template x-for="(task, ti) in card.extra_tasks" :key="'x'+ti">
+            <div class="day-task-row day-task-row-extra">
+                <div class="day-task-name">
+                    <span x-text="task.name"></span>
+                    <button type="button" class="btn-remove-extra" title="Remove"
+                            @click="removeExtraRow(ti)">×</button>
+                </div>
+                <div class="day-task-dots">
+                    <template x-for="(filled, doi) in task.days[dayIdx]" :key="doi">
+                        <div class="dot"
+                             :class="dotClass(task, dayIdx, doi)"
+                             @click="toggleDotExtra(ti, doi)">
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+        <div class="routine-add-extra">
+            <input type="text" x-model="newExtraName" placeholder="One-off task name…"
+                   @keydown.enter.prevent="addExtraRow()">
+            <button type="button" class="btn btn-sm btn-secondary" @click="addExtraRow()">Add</button>
+        </div>
+    </div>
+
+    <textarea class="card-notes"
+              placeholder="Notes..."
+              x-model="card.notes"
+              @blur="saveNotes()"
+              rows="1"></textarea>
+</div>
+{% endfor %}
+
+{% if not cards %}
+<div class="card" style="text-align:center; padding:2rem; color:var(--text-muted);">
+    No routine cards yet. <a href="{{ url_for('routines_page') }}">Configure routines</a> first.
+</div>
+{% endif %}
+
+<script>
+function dayNav(offset) {
+    const d = new Date("{{ selected_date }}T00:00:00");
+    d.setDate(d.getDate() + offset);
+    const iso = d.toISOString().slice(0, 10);
+    location.href = "?date=" + iso;
+}
+</script>
+{% endblock %}
