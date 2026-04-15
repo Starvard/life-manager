@@ -7,6 +7,110 @@ async function api(method, url, body) {
     return res.json();
 }
 
+/** Matches services/score_helpers: pool of scheduled completions across the week. */
+const ROUTINE_BONUS_RATIO = 0.4;
+
+function _schedInt(sched, di) {
+    if (!sched || di < 0 || di > 6) return 0;
+    const s = Number(sched[di]);
+    return Number.isFinite(s) ? Math.max(0, Math.floor(s)) : 0;
+}
+
+function _taskScheduledSlotCount(sched) {
+    let n = 0;
+    for (let di = 0; di < 7; di++) n += _schedInt(sched, di);
+    return n;
+}
+
+function _taskTotalFillCount(days) {
+    let n = 0;
+    for (let di = 0; di < Math.min(7, days.length); di++) {
+        const row = days[di] || [];
+        for (let i = 0; i < row.length; i++) if (row[i]) n++;
+    }
+    return n;
+}
+
+/** Which filled cells consume the main pool (full weight), Mon→Sun row order. */
+function poolFilledFlags(task) {
+    const sched = task.scheduled || [];
+    const days = task.days || [];
+    const nSched = _taskScheduledSlotCount(sched);
+    const nFill = _taskTotalFillCount(days);
+    const pool = Math.min(nSched, nFill);
+    let left = pool;
+    const out = [];
+    for (let di = 0; di < 7; di++) {
+        const row = days[di] || [];
+        out[di] = row.map((filled) => {
+            if (filled && left > 0) {
+                left--;
+                return true;
+            }
+            return false;
+        });
+    }
+    return out;
+}
+
+function _schedSlotIndex(sched, di, doi) {
+    let k = 0;
+    for (let d = 0; d < di; d++) k += _schedInt(sched, d);
+    return k + doi;
+}
+
+function earnedByDayForTask(task) {
+    const r = ROUTINE_BONUS_RATIO;
+    let w = Number(task.weight);
+    if (!Number.isFinite(w) || w <= 0) w = 1;
+    const sched = task.scheduled || [];
+    const days = task.days || [];
+    const nSched = _taskScheduledSlotCount(sched);
+    const nFill = _taskTotalFillCount(days);
+    let poolLeft = Math.min(nSched, nFill);
+    const out = [0, 0, 0, 0, 0, 0, 0];
+    for (let di = 0; di < 7; di++) {
+        const row = days[di] || [];
+        for (let i = 0; i < row.length; i++) {
+            if (!row[i]) continue;
+            if (poolLeft > 0) {
+                out[di] += w;
+                poolLeft--;
+            } else {
+                out[di] += w * r;
+            }
+        }
+    }
+    return out;
+}
+
+function possibleByDayForTask(task, dayIdx) {
+    let w = Number(task.weight);
+    if (!Number.isFinite(w) || w <= 0) w = 1;
+    const r = ROUTINE_BONUS_RATIO;
+    const sched = task.scheduled || [];
+    const days = task.days || [];
+    let possible = 0;
+    const sc = _schedInt(sched, dayIdx);
+    const row = days[dayIdx] || [];
+    const nrow = row.length;
+    for (let j = 0; j < sc; j++) possible += w;
+    for (let j = sc; j < nrow; j++) possible += w * r;
+    return possible;
+}
+
+function progressForTaskList(taskList) {
+    let earned = 0, possible = 0;
+    for (const task of taskList) {
+        const byDay = earnedByDayForTask(task);
+        earned += byDay.reduce((a, b) => a + b, 0);
+        for (let di = 0; di < 7; di++) {
+            possible += possibleByDayForTask(task, di);
+        }
+    }
+    return { earned, possible };
+}
+
 /* ── Alpine.js: Routine Card ──────────────────────────────────── */
 
 document.addEventListener("alpine:init", () => {
@@ -31,65 +135,56 @@ document.addEventListener("alpine:init", () => {
             return diff;
         },
 
-        _hasFill(task, day) {
-            if (day < 0 || day > 6) return false;
-            for (let i = 0; i < task.days[day].length; i++) {
-                if (task.days[day][i]) return true;
-            }
-            return false;
-        },
-
-        _overdueWindowFreq(task) {
-            let f = task.freq != null ? Number(task.freq) : 1;
-            if (f > 0 && f < 1) {
-                f = 1;
-            }
-            return f;
-        },
-
-        _overdueLevels(task) {
+        _overdueStreakLevel(task) {
             const ti = this.todayIdx;
-            if (ti < 0 || ti > 6) return {};
-
-            if (this._hasFill(task, ti)) return {};
-
-            const f = this._overdueWindowFreq(task);
-            const gap = f > 0 ? 7 / f : 7;
-            const win = f >= 7 ? 0 : Math.min(Math.max(1, Math.floor(gap / 2)), 3);
-
-            const streak = [];
+            if (ti < 0 || ti > 6) return 0;
+            const sched = task.scheduled || [];
+            const days = task.days || [];
+            const nSched = _taskScheduledSlotCount(sched);
+            const nFill = _taskTotalFillCount(days);
+            const pool = Math.min(nSched, nFill);
+            let streak = 0;
             for (let d = ti; d >= 0; d--) {
-                const sched = task.scheduled ? task.scheduled[d] : 0;
-                if (sched <= 0) continue;
-                let covered = false;
-                for (let off = -win; off <= win; off++) {
-                    const nd = d + off;
-                    if (nd < 0 || nd > 6 || nd > ti) continue;
-                    if (this._hasFill(task, nd)) { covered = true; break; }
+                const sc = _schedInt(sched, d);
+                const row = days[d] || [];
+                let unmet = false;
+                for (let doi = 0; doi < sc; doi++) {
+                    const slotK = _schedSlotIndex(sched, d, doi);
+                    if (slotK >= pool && !row[doi]) {
+                        unmet = true;
+                        break;
+                    }
                 }
-                if (covered) break;
-                streak.push(d);
+                if (unmet) streak++;
+                else break;
             }
-
-            if (streak.length === 0) return {};
-            if (streak[0] !== ti) streak.unshift(ti);
-
-            const levels = {};
-            for (let i = 0; i < streak.length; i++) {
-                levels[streak[i]] = Math.min(streak.length - i, 4);
-            }
-            return levels;
+            return streak > 0 ? Math.min(streak, 4) : 0;
         },
 
         dotClass(task, di, doi) {
-            const filled = task.days[di][doi];
-            const sched = task.scheduled ? task.scheduled[di] : task.days[di].length;
-            const isScheduled = doi < sched;
+            const sched = task.scheduled || [];
+            const sc = _schedInt(sched, di);
+            const isScheduled = doi < sc;
+            const row = task.days[di] || [];
+            const filled = !!row[doi];
+            const poolFlags = poolFilledFlags(task);
+            const poolRow = poolFlags[di] || [];
+            const poolFill = filled && poolRow[doi];
+            const slotK = isScheduled ? _schedSlotIndex(sched, di, doi) : -1;
+            const pool = Math.min(
+                _taskScheduledSlotCount(sched),
+                _taskTotalFillCount(task.days || [])
+            );
             const cls = {};
 
             if (filled) {
                 cls.filled = true;
-                if (!isScheduled) cls.unscheduled = true;
+                if (!isScheduled && !poolFill) cls.unscheduled = true;
+                return cls;
+            }
+
+            if (isScheduled && slotK >= 0 && slotK < pool) {
+                cls.filled = true;
                 return cls;
             }
 
@@ -100,18 +195,15 @@ document.addEventListener("alpine:init", () => {
                 return cls;
             }
 
-            if (ti >= 0 && ti <= 6 && di <= ti) {
-                const levels = this._overdueLevels(task);
-                if (levels[di] !== undefined) {
-                    cls["overdue-" + levels[di]] = true;
-                    if (!isScheduled) cls.unscheduled = true;
+            if (ti >= 0 && ti <= 6 && di <= ti && isScheduled && slotK >= pool) {
+                const lev = this._overdueStreakLevel(task);
+                if (lev > 0) {
+                    cls["overdue-" + lev] = true;
                     return cls;
                 }
             }
 
-            if (!isScheduled) {
-                cls.unscheduled = true;
-            }
+            if (!isScheduled) cls.unscheduled = true;
 
             return cls;
         },
@@ -171,30 +263,9 @@ document.addEventListener("alpine:init", () => {
             return w;
         },
 
-        /** Matches server score_helpers: full weight for scheduled, 0.4 for extra dots. */
+        /** Matches server score_helpers pool + bonus model. */
         _progressForTaskList(taskList) {
-            const BONUS = 0.4;
-            let earned = 0, possible = 0;
-            for (const task of taskList) {
-                const w = this._taskWeight(task);
-                const sched = task.scheduled || [];
-                for (let di = 0; di < task.days.length; di++) {
-                    let sc = sched[di];
-                    sc = Number.isFinite(Number(sc)) ? Math.max(0, Math.floor(Number(sc))) : 0;
-                    const row = task.days[di];
-                    const nrow = row.length;
-                    for (let doi = 0; doi < sc; doi++) {
-                        possible += w;
-                        if (doi < nrow && row[doi]) earned += w;
-                    }
-                    for (let doi = sc; doi < nrow; doi++) {
-                        const bp = w * BONUS;
-                        possible += bp;
-                        if (row[doi]) earned += bp;
-                    }
-                }
-            }
-            return { earned, possible };
+            return progressForTaskList(taskList);
         },
 
         cardProgress() {
@@ -229,54 +300,30 @@ document.addEventListener("alpine:init", () => {
             return diff;
         },
 
-        _hasFill(task, day) {
-            if (day < 0 || day > 6) return false;
-            for (let i = 0; i < task.days[day].length; i++) {
-                if (task.days[day][i]) return true;
-            }
-            return false;
-        },
-
-        _overdueWindowFreq(task) {
-            let f = task.freq != null ? Number(task.freq) : 1;
-            if (f > 0 && f < 1) {
-                f = 1;
-            }
-            return f;
-        },
-
-        _overdueLevels(task) {
+        _overdueStreakLevel(task) {
             const ti = this.todayIdx;
-            if (ti < 0 || ti > 6) return {};
-
-            if (this._hasFill(task, ti)) return {};
-
-            const f = this._overdueWindowFreq(task);
-            const gap = f > 0 ? 7 / f : 7;
-            const win = f >= 7 ? 0 : Math.min(Math.max(1, Math.floor(gap / 2)), 3);
-
-            const streak = [];
+            if (ti < 0 || ti > 6) return 0;
+            const sched = task.scheduled || [];
+            const days = task.days || [];
+            const nSched = _taskScheduledSlotCount(sched);
+            const nFill = _taskTotalFillCount(days);
+            const pool = Math.min(nSched, nFill);
+            let streak = 0;
             for (let d = ti; d >= 0; d--) {
-                const sched = task.scheduled ? task.scheduled[d] : 0;
-                if (sched <= 0) continue;
-                let covered = false;
-                for (let off = -win; off <= win; off++) {
-                    const nd = d + off;
-                    if (nd < 0 || nd > 6 || nd > ti) continue;
-                    if (this._hasFill(task, nd)) { covered = true; break; }
+                const sc = _schedInt(sched, d);
+                const row = days[d] || [];
+                let unmet = false;
+                for (let doi = 0; doi < sc; doi++) {
+                    const slotK = _schedSlotIndex(sched, d, doi);
+                    if (slotK >= pool && !row[doi]) {
+                        unmet = true;
+                        break;
+                    }
                 }
-                if (covered) break;
-                streak.push(d);
+                if (unmet) streak++;
+                else break;
             }
-
-            if (streak.length === 0) return {};
-            if (streak[0] !== ti) streak.unshift(ti);
-
-            const levels = {};
-            for (let i = 0; i < streak.length; i++) {
-                levels[streak[i]] = Math.min(streak.length - i, 4);
-            }
-            return levels;
+            return streak > 0 ? Math.min(streak, 4) : 0;
         },
 
         hasDotsForDay(task) {
@@ -286,14 +333,29 @@ document.addEventListener("alpine:init", () => {
         },
 
         dotClass(task, di, doi) {
-            const filled = task.days[di][doi];
-            const sched = task.scheduled ? task.scheduled[di] : task.days[di].length;
-            const isScheduled = doi < sched;
+            const sched = task.scheduled || [];
+            const sc = _schedInt(sched, di);
+            const isScheduled = doi < sc;
+            const row = task.days[di] || [];
+            const filled = !!row[doi];
+            const poolFlags = poolFilledFlags(task);
+            const poolRow = poolFlags[di] || [];
+            const poolFill = filled && poolRow[doi];
+            const slotK = isScheduled ? _schedSlotIndex(sched, di, doi) : -1;
+            const pool = Math.min(
+                _taskScheduledSlotCount(sched),
+                _taskTotalFillCount(task.days || [])
+            );
             const cls = {};
 
             if (filled) {
                 cls.filled = true;
-                if (!isScheduled) cls.unscheduled = true;
+                if (!isScheduled && !poolFill) cls.unscheduled = true;
+                return cls;
+            }
+
+            if (isScheduled && slotK >= 0 && slotK < pool) {
+                cls.filled = true;
                 return cls;
             }
 
@@ -304,18 +366,15 @@ document.addEventListener("alpine:init", () => {
                 return cls;
             }
 
-            if (ti >= 0 && ti <= 6 && di <= ti) {
-                const levels = this._overdueLevels(task);
-                if (levels[di] !== undefined) {
-                    cls["overdue-" + levels[di]] = true;
-                    if (!isScheduled) cls.unscheduled = true;
+            if (ti >= 0 && ti <= 6 && di <= ti && isScheduled && slotK >= pool) {
+                const lev = this._overdueStreakLevel(task);
+                if (lev > 0) {
+                    cls["overdue-" + lev] = true;
                     return cls;
                 }
             }
 
-            if (!isScheduled) {
-                cls.unscheduled = true;
-            }
+            if (!isScheduled) cls.unscheduled = true;
 
             return cls;
         },
@@ -378,24 +437,12 @@ document.addEventListener("alpine:init", () => {
         },
 
         dayProgress() {
-            const BONUS = 0.4;
+            const di = this.dayIdx;
             let earned = 0, possible = 0;
             const allTasks = [...this.card.tasks, ...(this.card.extra_tasks || [])];
             for (const task of allTasks) {
-                const w = this._taskWeight(task);
-                const sched = task.scheduled || [];
-                let sc = Number(sched[this.dayIdx]);
-                sc = Number.isFinite(sc) ? Math.max(0, Math.floor(sc)) : 0;
-                const row = task.days[this.dayIdx] || [];
-                for (let doi = 0; doi < sc; doi++) {
-                    possible += w;
-                    if (doi < row.length && row[doi]) earned += w;
-                }
-                for (let doi = sc; doi < row.length; doi++) {
-                    const bp = w * BONUS;
-                    possible += bp;
-                    if (row[doi]) earned += bp;
-                }
+                earned += earnedByDayForTask(task)[di];
+                possible += possibleByDayForTask(task, di);
             }
             return possible > 0 ? Math.round((earned / possible) * 100) : 0;
         },
@@ -408,23 +455,11 @@ document.addEventListener("alpine:init", () => {
             cards.forEach(c => {
                 const data = Alpine.$data(c);
                 if (data && typeof data.dayProgress === "function") {
-                    const BONUS = 0.4;
+                    const di = data.dayIdx;
                     const allTasks = [...data.card.tasks, ...(data.card.extra_tasks || [])];
                     for (const task of allTasks) {
-                        const w = data._taskWeight(task);
-                        const sched = task.scheduled || [];
-                        let sc = Number(sched[data.dayIdx]);
-                        sc = Number.isFinite(sc) ? Math.max(0, Math.floor(sc)) : 0;
-                        const row = task.days[data.dayIdx] || [];
-                        for (let doi = 0; doi < sc; doi++) {
-                            totalPossible += w;
-                            if (doi < row.length && row[doi]) totalEarned += w;
-                        }
-                        for (let doi = sc; doi < row.length; doi++) {
-                            const bp = w * BONUS;
-                            totalPossible += bp;
-                            if (row[doi]) totalEarned += bp;
-                        }
+                        totalEarned += earnedByDayForTask(task)[di];
+                        totalPossible += possibleByDayForTask(task, di);
                     }
                 }
             });
