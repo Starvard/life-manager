@@ -31,7 +31,6 @@ from services.week_planner import (
     plan_week,
     iso_week_key,
     week_start_date,
-    upcoming_week_monday,
     LastCompletedMap,
 )
 

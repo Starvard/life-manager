@@ -219,6 +219,66 @@ document.addEventListener("alpine:init", () => {
             }
         },
 
+        get todayIdx() {
+            const ws = new Date(this.card.week_start + "T00:00:00");
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            const diff = Math.floor((now - ws) / 86400000);
+            if (diff < 0) return -1;
+            if (diff > 6) return 7;
+            return diff;
+        },
+
+        _hasFill(task, day) {
+            if (day < 0 || day > 6) return false;
+            for (let i = 0; i < task.days[day].length; i++) {
+                if (task.days[day][i]) return true;
+            }
+            return false;
+        },
+
+        _overdueWindowFreq(task) {
+            let f = task.freq != null ? Number(task.freq) : 1;
+            if (f > 0 && f < 1) {
+                f = 1;
+            }
+            return f;
+        },
+
+        _overdueLevels(task) {
+            const ti = this.todayIdx;
+            if (ti < 0 || ti > 6) return {};
+
+            if (this._hasFill(task, ti)) return {};
+
+            const f = this._overdueWindowFreq(task);
+            const gap = f > 0 ? 7 / f : 7;
+            const win = f >= 7 ? 0 : Math.min(Math.max(1, Math.floor(gap / 2)), 3);
+
+            const streak = [];
+            for (let d = ti; d >= 0; d--) {
+                const sched = task.scheduled ? task.scheduled[d] : 0;
+                if (sched <= 0) continue;
+                let covered = false;
+                for (let off = -win; off <= win; off++) {
+                    const nd = d + off;
+                    if (nd < 0 || nd > 6 || nd > ti) continue;
+                    if (this._hasFill(task, nd)) { covered = true; break; }
+                }
+                if (covered) break;
+                streak.push(d);
+            }
+
+            if (streak.length === 0) return {};
+            if (streak[0] !== ti) streak.unshift(ti);
+
+            const levels = {};
+            for (let i = 0; i < streak.length; i++) {
+                levels[streak[i]] = Math.min(streak.length - i, 4);
+            }
+            return levels;
+        },
+
         hasDotsForDay(task) {
             const sched = task.scheduled ? task.scheduled[this.dayIdx] : 0;
             const row = task.days[this.dayIdx] || [];
@@ -230,14 +290,33 @@ document.addEventListener("alpine:init", () => {
             const sched = task.scheduled ? task.scheduled[di] : task.days[di].length;
             const isScheduled = doi < sched;
             const cls = {};
+
             if (filled) {
                 cls.filled = true;
                 if (!isScheduled) cls.unscheduled = true;
                 return cls;
             }
+
+            const ti = this.todayIdx;
+
+            if (ti > 6 && isScheduled) {
+                cls["overdue-4"] = true;
+                return cls;
+            }
+
+            if (ti >= 0 && ti <= 6 && di <= ti) {
+                const levels = this._overdueLevels(task);
+                if (levels[di] !== undefined) {
+                    cls["overdue-" + levels[di]] = true;
+                    if (!isScheduled) cls.unscheduled = true;
+                    return cls;
+                }
+            }
+
             if (!isScheduled) {
                 cls.unscheduled = true;
             }
+
             return cls;
         },
 
