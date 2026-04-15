@@ -28,8 +28,185 @@ def _get_lock(path: str) -> threading.Lock:
 import config
 from services.routine_manager import load_routines
 from services.week_planner import (
-    plan_week, iso_week_key, week_start_date, upcoming_week_monday,
+    plan_week,
+    iso_week_key,
+    week_start_date,
+    upcoming_week_monday,
+    LastCompletedMap,
 )
+
+
+def _monday_from_week_key(week_key: str) -> date | None:
+    parts = week_key.split("-W")
+    if len(parts) != 2:
+        return None
+    try:
+        y, wn = int(parts[0]), int(parts[1])
+        return date.fromisocalendar(y, wn, 1)
+    except ValueError:
+        return None
+
+
+def _merge_last_completed_from_this_card(
+    card: dict,
+    week_key: str,
+    acc: LastCompletedMap,
+    as_of: date,
+) -> None:
+    """Update acc with latest completion date per task from this card up to as_of."""
+    monday = _monday_from_week_key(week_key)
+    if monday is None:
+        return
+    area_key = card.get("area_key")
+    if not area_key:
+        return
+    for task in card.get("tasks", []):
+        tname = task.get("name")
+        if not tname:
+            continue
+        sched = _sched_seven(task.get("scheduled"))
+        days = task.get("days") or []
+        for di in range(min(7, len(days))):
+            day_date = monday + timedelta(days=di)
+            if day_date > as_of:
+                continue
+            nsched = sched[di] if di < len(sched) else 0
+            row = days[di] if di < len(days) else []
+            for doi in range(min(nsched, len(row))):
+                if row[doi]:
+                    key = (area_key, tname)
+                    prev = acc.get(key)
+                    acc[key] = day_date if prev is None else max(prev, day_date)
+
+
+def _collect_last_completed_before_week(
+    before_week_key: str,
+) -> LastCompletedMap:
+    """
+    For each (area_key, task_name), the latest calendar date on which any
+    scheduled routine dot was completed in a week strictly before before_week_key.
+    """
+    cutoff = _monday_from_week_key(before_week_key)
+    if cutoff is None:
+        return {}
+    acc: LastCompletedMap = {}
+    base = config.ROUTINE_CARDS_DIR
+    if not os.path.isdir(base):
+        return {}
+    for wk_name in os.listdir(base):
+        if wk_name.count("-W") != 1:
+            continue
+        wk_mon = _monday_from_week_key(wk_name)
+        if wk_mon is None or wk_mon >= cutoff:
+            continue
+        wk_dir = os.path.join(base, wk_name)
+        if not os.path.isdir(wk_dir):
+            continue
+        for fname in os.listdir(wk_dir):
+            if not fname.endswith(".json"):
+                continue
+            area_key = fname[:-5]
+            card = _load_json(os.path.join(wk_dir, fname))
+            if not card:
+                continue
+            for task in card.get("tasks", []):
+                tname = task.get("name")
+                if not tname:
+                    continue
+                sched = _sched_seven(task.get("scheduled"))
+                days = task.get("days") or []
+                for di in range(min(7, len(days))):
+                    nsched = sched[di] if di < len(sched) else 0
+                    row = days[di] if di < len(days) else []
+                    for doi in range(min(nsched, len(row))):
+                        if row[doi]:
+                            d = wk_mon + timedelta(days=di)
+                            key = (area_key, tname)
+                            prev = acc.get(key)
+                            if prev is None or d > prev:
+                                acc[key] = d
+    return acc
+
+
+def _task_has_fixed_weekdays(area_key: str, task_name: str) -> bool:
+    routines = load_routines()
+    area = routines.get("areas", {}).get(area_key) or {}
+    for t in area.get("tasks", []):
+        if t.get("name") != task_name:
+            continue
+        od = t.get("on_days")
+        if od is None:
+            return False
+        if isinstance(od, (list, tuple)) and len(od) == 0:
+            return False
+        return True
+    return False
+
+
+def _reconcile_mid_frequency_tasks_with_last_completion(
+    card: dict, week_key: str
+) -> bool:
+    """
+    For 1 <= freq < 7 tasks without fixed on_days, re-sync scheduled[] to the
+    planner when the global pattern should shift based on the last completion.
+    """
+    parts = week_key.split("-W")
+    if len(parts) != 2:
+        return False
+    y, wn = int(parts[0]), int(parts[1])
+    target = date.fromisocalendar(y, wn, 1)
+    area_key = card.get("area_key")
+    if not area_key:
+        return False
+
+    last_map = _collect_last_completed_before_week(week_key)
+    _merge_last_completed_from_this_card(card, week_key, last_map, date.today())
+    routines = load_routines()
+    plans = plan_week(
+        routines.get("areas", {}),
+        target,
+        last_completed=last_map or None,
+        as_of_date=date.today(),
+    )
+    plan = next((p for p in plans if p["key"] == area_key), None)
+    if not plan:
+        return False
+    canon = {t["name"]: t["dots"] for t in plan["tasks"]}
+    changed = False
+    for task in card.get("tasks", []):
+        name = task["name"]
+        if name not in canon:
+            continue
+        f = float(task.get("freq") or 0)
+        if not (1 <= f < 7):
+            continue
+        if _task_has_fixed_weekdays(area_key, name):
+            continue
+        if task.get("carryover") or task.get("carryover_week_key"):
+            continue
+        target_sched = _sched_seven(canon[name])
+        old_sched = _sched_seven(task.get("scheduled"))
+        grid_ok = _days_grid_matches_sched(task, target_sched)
+        if old_sched == target_sched and grid_ok:
+            continue
+        old_days = task.get("days") or [[False] for _ in range(7)]
+        new_days = []
+        for d in range(7):
+            ns = target_sched[d]
+            nlen = max(ns, 1)
+            row = [False] * nlen
+            old_row = old_days[d] if d < len(old_days) else []
+            os_ = old_sched[d]
+            for doi in range(min(ns, os_, len(old_row))):
+                row[doi] = bool(old_row[doi])
+            for doi in range(ns, nlen):
+                if doi < len(old_row):
+                    row[doi] = bool(old_row[doi])
+            new_days.append(row)
+        task["scheduled"] = target_sched
+        task["days"] = new_days
+        changed = True
+    return changed
 
 
 def _prev_week_key(week_key: str) -> str:
@@ -249,7 +426,13 @@ def _routine_path(week_key: str, area_key: str) -> str:
 def _generate_routine_cards(week_key: str, target_date: date) -> dict[str, dict]:
     """Generate all area cards for a week from routines.yaml + planner."""
     routines = load_routines()
-    plans = plan_week(routines.get("areas", {}), target_date)
+    last_map = _collect_last_completed_before_week(week_key)
+    plans = plan_week(
+        routines.get("areas", {}),
+        target_date,
+        last_completed=last_map or None,
+        as_of_date=date.today(),
+    )
 
     week_dir = _routine_dir(week_key)
     os.makedirs(week_dir, exist_ok=True)
@@ -318,6 +501,8 @@ def get_routine_cards(week_key: str) -> dict[str, dict]:
             if data is not None:
                 changed = _migrate_card(data)
                 if _reconcile_high_frequency_tasks_with_planner(data, week_key):
+                    changed = True
+                if _reconcile_mid_frequency_tasks_with_last_completion(data, week_key):
                     changed = True
                 if _ensure_carryover_on_load(data, week_key, area_key):
                     changed = True
