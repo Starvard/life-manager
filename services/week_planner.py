@@ -21,6 +21,9 @@ tasks still ignore ``on_days``).
 import math
 from datetime import date, timedelta
 
+# Optional (area_key, task_name) -> most recent calendar day any scheduled dot was completed.
+LastCompletedMap = dict[tuple[str, str], date]
+
 
 def iso_week_key(d: date) -> str:
     iso = d.isocalendar()
@@ -169,7 +172,121 @@ def _schedule_periodic_global(
         task["dots"] = dots
 
 
-def plan_week(areas: dict, target_date: date = None) -> list[dict]:
+def _scheduled_day_indices(dots: list[int]) -> list[int]:
+    return sorted(d for d in range(7) if d < len(dots) and dots[d] > 0)
+
+
+def _rotate_pattern_days(base_days: list[int], offset: int) -> list[int]:
+    return sorted(((d + offset) % 7) for d in base_days)
+
+
+def _all_rotations(base_days: list[int]) -> list[list[int]]:
+    if not base_days:
+        return []
+    seen: set[tuple[int, ...]] = set()
+    out: list[list[int]] = []
+    for r in range(7):
+        rot = _rotate_pattern_days(base_days, r)
+        key = tuple(rot)
+        if key not in seen:
+            seen.add(key)
+            out.append(rot)
+    return out
+
+
+def _dots_from_day_indices(days_hit: list[int]) -> list[int]:
+    dots = [0] * 7
+    for d in days_hit:
+        if 0 <= d <= 6:
+            dots[d] = 1
+    return dots
+
+
+def _nudge_periodic_for_last_completion(
+    task: dict,
+    monday: date,
+    last_completed: date | None,
+    as_of: date,
+) -> None:
+    """
+    Shift 1 <= freq < 7 dot pattern based on the last time any scheduled dot
+    was completed (no on_days — fixed weekday tasks stay pinned).
+
+    - If the weekly (rounded count == 1) habit was already done this ISO week,
+      drop scheduled dots for the rest of the week.
+    - Otherwise pick a rotation of the global pattern so every scheduled day
+      is strictly after ``last_completed`` on the calendar, and the first slot
+      is close to last + (7/n) days.
+    """
+    freq = float(task.get("freq") or 0)
+    if not (1 <= freq < 7):
+        return
+    if task.get("on_days"):
+        return
+    n = max(1, round(freq))
+    dots = list(task.get("dots") or [0] * 7)
+    while len(dots) < 7:
+        dots.append(0)
+    dots = dots[:7]
+    base_days = _scheduled_day_indices(dots)
+    if not base_days:
+        return
+
+    if last_completed is None:
+        task["dots"] = dots
+        return
+
+    week_end = monday + timedelta(days=6)
+    if last_completed > week_end:
+        task["dots"] = dots
+        return
+
+    if n == 1:
+        if monday <= last_completed <= week_end:
+            task["dots"] = [0] * 7
+        return
+
+    gap_days = max(1, round(7.0 / float(n)))
+    ideal_next = last_completed + timedelta(days=gap_days)
+    rotations = _all_rotations(base_days)
+    best: list[int] | None = None
+    best_score = float("inf")
+    as_di = (as_of - monday).days
+
+    for rot in rotations:
+        slot_dates = [monday + timedelta(days=d) for d in rot]
+        strict_ok = all(sd > last_completed for sd in slot_dates)
+        if strict_ok:
+            first_date = min(sd for sd in slot_dates)
+            score = float(abs((first_date - ideal_next).days))
+        else:
+            future = [sd for sd in slot_dates if sd > last_completed]
+            if not future:
+                continue
+            first_date = min(future)
+            score = 50.0 + float(abs((first_date - ideal_next).days))
+
+        if 0 <= as_di <= 6 and rot:
+            if not any(d <= as_di for d in rot):
+                score += 30.0
+
+        if score < best_score:
+            best_score = score
+            best = rot
+
+    if best is not None:
+        task["dots"] = _dots_from_day_indices(best)
+    else:
+        task["dots"] = dots
+
+
+def plan_week(
+    areas: dict,
+    target_date: date | None = None,
+    *,
+    last_completed: LastCompletedMap | None = None,
+    as_of_date: date | None = None,
+) -> list[dict]:
     """
     Build the full week plan with globally-balanced scheduling.
 
@@ -181,6 +298,7 @@ def plan_week(areas: dict, target_date: date = None) -> list[dict]:
 
     monday = week_start_date(target_date)
     wk = iso_week_key(target_date)
+    as_of = as_of_date if as_of_date is not None else date.today()
 
     # Collect every task, tag with scheduling metadata
     all_tasks = []
@@ -224,6 +342,12 @@ def plan_week(areas: dict, target_date: date = None) -> list[dict]:
             free_periodic.append(t)
     _schedule_periodic_global(free_periodic, day_loads)
 
+    if last_completed:
+        for t in free_periodic:
+            key = (t["area_key"], t["name"])
+            lc = last_completed.get(key)
+            _nudge_periodic_for_last_completion(t, monday, lc, as_of)
+
     # Phase 3: sub-weekly (freq < 1) — 1 dot on due weeks, optional fixed weekday
     sub_weekly_due = [t for t in all_tasks if t["freq"] < 1 and t["is_due"]]
     free_sw = []
@@ -254,12 +378,13 @@ def plan_week(areas: dict, target_date: date = None) -> list[dict]:
         }
         for t in all_tasks:
             if t["area_key"] == key:
-                plan["tasks"].append({
+                row = {
                     "name": t["name"],
                     "freq": t["freq"],
                     "dots": t["dots"],
                     "weight": t.get("weight", 1.0),
-                })
+                }
+                plan["tasks"].append(row)
         plans.append(plan)
 
     return plans
