@@ -12,7 +12,7 @@ import config
 
 _CACHE_BUST = str(int(time.time()))
 from services.routine_manager import load_routines, save_routines
-from services.week_planner import iso_week_key, week_start_date, upcoming_week_monday
+from services.week_planner import iso_week_key, week_start_date
 from services.score_bests import update_and_return_bests
 from services.score_helpers import (
     weighted_week_score,
@@ -105,7 +105,35 @@ def inject_network_url():
 
 
 def _default_week_key():
-    return iso_week_key(upcoming_week_monday(date.today()))
+    """ISO week containing today (Mon–Sun). Matches /cards/day with no date param."""
+    return iso_week_key(week_start_date(date.today()))
+
+
+def _anchor_date_iso_for_week(week_key: str) -> str:
+    """Pick a calendar date in week_key for Day-view links (prefer today if in-range)."""
+    parts = week_key.split("-W")
+    if len(parts) != 2:
+        return date.today().isoformat()
+    try:
+        y, wn = int(parts[0]), int(parts[1])
+        monday = date.fromisocalendar(y, wn, 1)
+    except ValueError:
+        return date.today().isoformat()
+    today = date.today()
+    sunday = monday + timedelta(days=6)
+    if monday <= today <= sunday:
+        return today.isoformat()
+    if today < monday:
+        return monday.isoformat()
+    return sunday.isoformat()
+
+
+@app.context_processor
+def routine_nav_defaults():
+    return {
+        "routine_default_week": _default_week_key(),
+        "routine_today_iso": date.today().isoformat(),
+    }
 
 
 def _ordered_cards(cards: dict) -> dict:
@@ -160,6 +188,7 @@ def cards_page():
         week_key=wk,
         cards=cards,
         weeks=weeks,
+        cards_day_date=_anchor_date_iso_for_week(wk),
         **banner,
     )
 
@@ -186,6 +215,7 @@ def cards_day_page():
         selected_date=day_str,
         cards=cards,
         day_score_pct=day_score_pct,
+        cards_week_for_toggle=wk,
     )
 
 
