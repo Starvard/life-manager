@@ -47,6 +47,13 @@ document.addEventListener("alpine:init", () => {
             return f;
         },
 
+        _mostRecentFillDay(task, upToDay) {
+            for (let d = upToDay; d >= 0; d--) {
+                if (this._hasFill(task, d)) return d;
+            }
+            return -1;
+        },
+
         _overdueLevels(task) {
             const ti = this.todayIdx;
             if (ti < 0 || ti > 6) return {};
@@ -55,18 +62,14 @@ document.addEventListener("alpine:init", () => {
 
             const f = this._overdueWindowFreq(task);
             const gap = f > 0 ? 7 / f : 7;
-            const win = f >= 7 ? 0 : Math.min(Math.max(1, Math.floor(gap / 2)), 3);
+            const maxGap = f >= 7 ? 0 : Math.ceil(gap);
 
             const streak = [];
             for (let d = ti; d >= 0; d--) {
                 const sched = task.scheduled ? task.scheduled[d] : 0;
                 if (sched <= 0) continue;
-                let covered = false;
-                for (let off = -win; off <= win; off++) {
-                    const nd = d + off;
-                    if (nd < 0 || nd > 6 || nd > ti) continue;
-                    if (this._hasFill(task, nd)) { covered = true; break; }
-                }
+                const lastFill = this._mostRecentFillDay(task, ti);
+                const covered = lastFill >= 0 && (d - lastFill) <= maxGap;
                 if (covered) break;
                 streak.push(d);
             }
