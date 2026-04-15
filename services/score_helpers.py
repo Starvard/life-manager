@@ -1,12 +1,13 @@
-"""Weighted routine scores (scheduled + partial credit for early/extra dots).
+"""Weighted routine scores (scheduled + partial credit for extra dots).
 
 Model
 -----
-- **Scheduled** dots (indices ``0 .. scheduled[day]-1``) count at full task weight
-  toward both earned and possible.
-- **Extra** dots on that day (the optional slot(s) when ``len(days[day]) > scheduled``)
-  count at ``BONUS_CREDIT_RATIO`` (default 0.4)—so doing something early or off-plan
-  helps, but not as much as hitting the plan.
+- **Scheduled** work for the week is a single pool: ``sum(scheduled[d])`` slots at full
+  weight. Any completion anywhere in the week (scheduled or bonus cell) counts toward
+  that pool in calendar order—so doing a task early satisfies the next due slot and
+  earns full credit (no 0.4 penalty for being on the bonus row).
+- **Extra** fills beyond ``min(total_scheduled, total_fills)`` count at
+  ``BONUS_CREDIT_RATIO`` (default 0.4).
 - Scores stay in **0–100%** of (scheduled + bonus) capacity.
 
 Carryover dots are part of ``scheduled``; if JSON ever has ``scheduled[d]`` longer than
@@ -50,6 +51,56 @@ def _sched_int(sched: list, di: int) -> int:
         return 0
 
 
+def _task_scheduled_slot_count(sched: list) -> int:
+    s = list(sched or [])
+    while len(s) < 7:
+        s.append(0)
+    n = 0
+    for di in range(7):
+        n += _sched_int(s, di)
+    return n
+
+
+def _task_total_fill_count(days: list) -> int:
+    n = 0
+    for di in range(min(7, len(days))):
+        row = days[di] if isinstance(days[di], list) else []
+        for cell in row:
+            if cell:
+                n += 1
+    return n
+
+
+def _task_earned_by_day_pool_match(task: dict) -> list[float]:
+    """
+    Full-weight credits for the first min(scheduled_slots, total_fills) completions
+    in Mon→Sun, row order; remaining fills get bonus ratio.
+    """
+    w = task_weight(task)
+    r = BONUS_CREDIT_RATIO
+    sched = list(task.get("scheduled") or [])
+    while len(sched) < 7:
+        sched.append(0)
+    days = task.get("days") or []
+    n_sched = _task_scheduled_slot_count(sched)
+    n_fill = _task_total_fill_count(days)
+    pool_left = min(n_sched, n_fill)
+    out = [0.0] * 7
+    for di in range(7):
+        row = days[di] if di < len(days) else []
+        if not isinstance(row, list):
+            continue
+        for cell in row:
+            if not cell:
+                continue
+            if pool_left > 0:
+                out[di] += w
+                pool_left -= 1
+            else:
+                out[di] += w * r
+    return out
+
+
 def _aggregate_task_list(
     task_list: list[dict],
     day_idx: int | None,
@@ -71,25 +122,24 @@ def _aggregate_task_list(
         while len(sched) < 7:
             sched.append(0)
         days = task.get("days") or []
-        dis = range(7) if day_idx is None else [day_idx]
+        earned_by_day = _task_earned_by_day_pool_match(task)
+
+        dis = range(7) if day_idx is None else ([day_idx] if 0 <= day_idx <= 6 else [])
         for di in dis:
-            if di < 0 or di > 6:
-                continue
             sc = _sched_int(sched, di)
             row = days[di] if di < len(days) else []
-            nrow = len(row)
-            for doi in range(sc):
+            nrow = len(row) if isinstance(row, list) else 0
+            for _ in range(sc):
                 sched_possible += w
                 possible += w
-                filled = bool(row[doi]) if doi < nrow else False
-                if filled:
-                    earned += w
             if include_bonus:
-                for doi in range(sc, nrow):
-                    bp = w * r
-                    possible += bp
-                    if row[doi]:
-                        earned += bp
+                for _ in range(sc, nrow):
+                    possible += w * r
+
+        if day_idx is None:
+            earned += sum(earned_by_day)
+        elif 0 <= day_idx <= 6:
+            earned += earned_by_day[day_idx]
 
     return earned, possible, sched_possible
 

@@ -147,7 +147,7 @@ body {
 .routine-add-extra input:focus { outline: none; border-color: var(--border-focus); box-shadow: 0 0 0 3px var(--accent-glow); }
 
 .dot-group { display: inline-flex; gap: 3px; align-items: center; justify-content: center; }
-.dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); background: transparent; cursor: pointer; transition: all 0.2s ease; -webkit-tap-highlight-color: transparent; display: flex; align-items: center; justify-content: center; }
+.dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border); background: rgba(255,255,255,0.04); cursor: pointer; transition: all 0.2s ease; -webkit-tap-highlight-color: transparent; display: flex; align-items: center; justify-content: center; }
 .dot:hover { border-color: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
 .dot.filled { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 10px rgba(99,179,255,0.3); transform: scale(1.08); }
 .dot.filled:hover { background: var(--accent-hover); border-color: var(--accent-hover); box-shadow: 0 0 14px rgba(99,179,255,0.4); }
@@ -159,6 +159,7 @@ body {
 .dot.overdue-3 { border-color: #ef4444; background: rgba(239,68,68,0.2); }
 .dot.overdue-4 { border-color: #dc2626; background: rgba(220,38,38,0.25); }
 .dot.unscheduled.overdue-1, .dot.unscheduled.overdue-2, .dot.unscheduled.overdue-3, .dot.unscheduled.overdue-4 { border-style: dashed; opacity: 0.75; }
+.dot.overdue-1, .dot.overdue-2, .dot.overdue-3, .dot.overdue-4 { opacity: 1; }
 
 .baby-track { display: flex; align-items: stretch; border-bottom: 1px solid var(--border-light); min-height: 44px; }
 .baby-track:last-child { border-bottom: none; }
