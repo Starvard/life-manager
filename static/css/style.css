@@ -432,6 +432,14 @@ select { color-scheme: dark; }
 
 /* ── Fantasy (Sleeper) ─────────────────────────────────────────── */
 .fantasy-toolbar { margin-bottom: 1.25rem; }
+.fantasy-actions-card { margin-bottom: 1rem; }
+.fantasy-msg-block { margin: 0.35rem 0 0; }
+.fantasy-advanced { margin-bottom: 1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.fantasy-advanced > summary { padding: 0.65rem 1rem; cursor: pointer; font-size: 0.82rem; font-weight: 600; color: var(--text-muted); list-style: none; }
+.fantasy-advanced > summary::-webkit-details-marker { display: none; }
+.fantasy-advanced-body { padding: 0 1rem 1rem; border-top: 1px solid var(--border-light); }
+.fantasy-notes-details { margin-top: 1.5rem; }
+.fantasy-plan-card-inner { padding-top: 0.75rem; }
 .fantasy-form-row { display: grid; grid-template-columns: 160px 1fr; gap: 0.5rem 1rem; align-items: center; margin-bottom: 0.65rem; }
 .fantasy-label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); }
 .fantasy-input { width: 100%; max-width: 420px; padding: 0.45rem 0.6rem; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-size: 0.85rem; font-family: inherit; }
