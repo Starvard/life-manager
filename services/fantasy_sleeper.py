@@ -154,6 +154,9 @@ def sync_team(settings: dict) -> dict:
             "username": user.get("username"),
             "display_name": user.get("display_name"),
         },
+        # Used for league-wide trade suggestions (same payloads Sleeper returns)
+        "league_rosters": rosters,
+        "league_users": users,
         "league": {
             "league_id": league_id,
             "name": league.get("name"),
