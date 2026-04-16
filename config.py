@@ -25,6 +25,8 @@ BUDGET_CATEGORIES_FILE = os.path.join(DATA_DIR, "budget", "categories.json")
 BUDGET_IMPORT_META_FILE = os.path.join(DATA_DIR, "budget", "import_meta.json")
 BUDGET_OVERVIEW_DIR = os.path.join(DATA_DIR, "budget", "overviews")
 
+FANTASY_DIR = os.path.join(DATA_DIR, "fantasy")
+
 CARD_WIDTH_INCHES = 5
 CARD_HEIGHT_INCHES = 3
 
