@@ -52,6 +52,22 @@ def _path() -> str:
     return os.path.join(d, "sleeper_fantasy.json")
 
 
+def state_for_client(state: dict | None) -> dict:
+    """
+    Strip multi-megabyte league payloads before JSON → HTML (Alpine x-data) or API responses.
+    Trade refresh reads full snapshot from disk on the server.
+    """
+    if not state or not isinstance(state, dict):
+        return {}
+    snap = state.get("cached_snapshot")
+    slim_snap = None
+    if isinstance(snap, dict):
+        slim_snap = {k: v for k, v in snap.items() if k not in ("league_rosters", "league_users")}
+    out = {k: v for k, v in state.items() if k != "cached_snapshot"}
+    out["cached_snapshot"] = slim_snap
+    return out
+
+
 def load_state() -> dict:
     path = _path()
     with _file_lock:

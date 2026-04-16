@@ -52,6 +52,7 @@ from services.budget_dedupe import merge_new_transactions
 from services.budget_categorizer import get_all_categories, get_display_category
 from services.fantasy_store import (
     load_state as fantasy_load_state,
+    state_for_client as fantasy_state_for_client,
     update_settings as fantasy_update_settings,
     update_plan as fantasy_update_plan,
     add_trade_idea as fantasy_add_trade_idea,
@@ -710,26 +711,29 @@ def api_budget_categories():
 @app.route("/fantasy")
 def fantasy_page():
     state = fantasy_load_state()
-    return render_template("fantasy.html", fantasy_state=state)
+    return render_template(
+        "fantasy.html",
+        fantasy_bootstrap=fantasy_state_for_client(state),
+    )
 
 
 @app.route("/api/fantasy/state")
 def api_fantasy_state():
-    return jsonify(fantasy_load_state())
+    return jsonify(fantasy_state_for_client(fantasy_load_state()))
 
 
 @app.route("/api/fantasy/settings", methods=["PUT"])
 def api_fantasy_settings():
     body = request.get_json(silent=True) or {}
     state = fantasy_update_settings(body)
-    return jsonify({"ok": True, "state": state})
+    return jsonify({"ok": True, "state": fantasy_state_for_client(state)})
 
 
 @app.route("/api/fantasy/plan", methods=["PUT"])
 def api_fantasy_plan():
     body = request.get_json(silent=True) or {}
     state = fantasy_update_plan(body)
-    return jsonify({"ok": True, "state": state})
+    return jsonify({"ok": True, "state": fantasy_state_for_client(state)})
 
 
 @app.route("/api/fantasy/trade-ideas", methods=["POST"])
@@ -737,13 +741,13 @@ def api_fantasy_trade_idea_add():
     body = request.get_json(silent=True) or {}
     text = (body.get("text") or "").strip()
     state = fantasy_add_trade_idea(text)
-    return jsonify({"ok": True, "state": state})
+    return jsonify({"ok": True, "state": fantasy_state_for_client(state)})
 
 
 @app.route("/api/fantasy/trade-ideas/<idea_id>", methods=["DELETE"])
 def api_fantasy_trade_idea_remove(idea_id):
     state = fantasy_remove_trade_idea(idea_id)
-    return jsonify({"ok": True, "state": state})
+    return jsonify({"ok": True, "state": fantasy_state_for_client(state)})
 
 
 @app.route("/api/fantasy/sync", methods=["POST"])
@@ -758,21 +762,25 @@ def api_fantasy_sync():
     body = request.get_json(silent=True) or {}
     if body.get("refresh_trades"):
         fantasy_refresh_trades()
-    return jsonify({"ok": True, "state": fantasy_load_state()})
+    return jsonify({"ok": True, "state": fantasy_state_for_client(fantasy_load_state())})
 
 
 @app.route("/api/fantasy/trade-refresh", methods=["POST"])
 def api_fantasy_trade_refresh():
     out = fantasy_refresh_trades()
     if out.get("skipped"):
-        return jsonify({"ok": True, "skipped": True, "state": fantasy_load_state()})
+        return jsonify({
+            "ok": True,
+            "skipped": True,
+            "state": fantasy_state_for_client(fantasy_load_state()),
+        })
     if not out.get("ok"):
         return jsonify({
             "ok": False,
             "error": out.get("error", "Refresh failed"),
-            "state": fantasy_load_state(),
+            "state": fantasy_state_for_client(fantasy_load_state()),
         }), 400
-    return jsonify({"ok": True, "state": fantasy_load_state()})
+    return jsonify({"ok": True, "state": fantasy_state_for_client(fantasy_load_state())})
 
 
 # \u2500\u2500 PDF Export \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
