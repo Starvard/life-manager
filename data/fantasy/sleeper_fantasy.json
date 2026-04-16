@@ -1,11 +1,15 @@
 {
-  "version": 1,
+  "version": 2,
   "settings": {
     "sleeper_username": "starvard",
     "sport": "nfl",
     "season": "2026",
     "league_id": "",
-    "league_name_hint": "Sergio Dipp"
+    "league_name_hint": "Sergio Dipp",
+    "valuation_num_qbs": 2,
+    "valuation_num_teams": 12,
+    "valuation_ppr": 1.0,
+    "trade_strategy": "rebuild"
   },
   "plan": {
     "draft_notes": "",
@@ -14,5 +18,8 @@
     "trade_ideas": []
   },
   "last_sync": null,
-  "cached_snapshot": null
+  "cached_snapshot": null,
+  "trade_suggestions": null,
+  "last_trade_refresh": null,
+  "last_trade_error": null
 }

@@ -9,6 +9,8 @@ budget/
 
 # Fantasy: large Sleeper NFL players cache (downloaded on first sync)
 data/fantasy/sleeper_players_nfl.json
+data/fantasy/fantasycalc_values_*.json
+data/fantasy/.trade_refresh.lock
 
 # Python cache
 __pycache__/

@@ -752,8 +752,13 @@ document.addEventListener("alpine:init", () => {
         plan: Object.assign({ trade_ideas: [] }, initialState?.plan || {}),
         lastSync: initialState?.last_sync || null,
         snapshot: initialState?.cached_snapshot || null,
+        tradeSuggestions: initialState?.trade_suggestions || null,
+        lastTradeRefresh: initialState?.last_trade_refresh || null,
+        lastTradeError: initialState?.last_trade_error || null,
         syncing: false,
         syncMsg: "",
+        tradeRefreshing: false,
+        tradeRefreshMsg: "",
         newIdea: "",
 
         init() {
@@ -777,17 +782,20 @@ document.addEventListener("alpine:init", () => {
             if (!this.plan.trade_ideas) this.plan.trade_ideas = [];
             this.lastSync = state.last_sync || null;
             this.snapshot = state.cached_snapshot || null;
+            this.tradeSuggestions = state.trade_suggestions || null;
+            this.lastTradeRefresh = state.last_trade_refresh || null;
+            this.lastTradeError = state.last_trade_error || null;
         },
 
         async sync() {
             this.syncing = true;
             this.syncMsg = "";
             try {
-                const res = await api("POST", "/api/fantasy/sync", {});
+                const res = await api("POST", "/api/fantasy/sync", { refresh_trades: true });
                 if (res.ok && res.state) {
                     this.applyState(res.state);
-                    this.syncMsg = "Synced.";
-                    setTimeout(() => { this.syncMsg = ""; }, 4000);
+                    this.syncMsg = "Synced. Trade ideas updated.";
+                    setTimeout(() => { this.syncMsg = ""; }, 5000);
                 } else {
                     this.syncMsg = res.error || "Sync failed.";
                 }
@@ -795,6 +803,34 @@ document.addEventListener("alpine:init", () => {
                 this.syncMsg = "Network error.";
             }
             this.syncing = false;
+        },
+
+        async refreshTrades() {
+            this.tradeRefreshing = true;
+            this.tradeRefreshMsg = "";
+            try {
+                const res = await api("POST", "/api/fantasy/trade-refresh", {});
+                if (res.ok && res.state) {
+                    this.applyState(res.state);
+                    this.tradeRefreshMsg = res.skipped ? "Refresh already running." : "Updated.";
+                    setTimeout(() => { this.tradeRefreshMsg = ""; }, 4000);
+                } else {
+                    if (res.state) this.applyState(res.state);
+                    this.tradeRefreshMsg = res.error || "Refresh failed.";
+                }
+            } catch (e) {
+                this.tradeRefreshMsg = "Network error.";
+            }
+            this.tradeRefreshing = false;
+        },
+
+        playerLine(p) {
+            if (!p) return "";
+            const bits = [p.name];
+            if (p.pos) bits.push(p.pos);
+            if (p.team) bits.push(p.team);
+            if (p.fantasy_value != null) bits.push("≈" + p.fantasy_value);
+            return bits.join(" · ");
         },
 
         recordStr() {

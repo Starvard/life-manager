@@ -19,13 +19,18 @@ DEFAULT_LEAGUE_NAME_HINT = "Sergio Dipp"
 
 _file_lock = threading.Lock()
 DEFAULT_STATE: dict = {
-    "version": 1,
+    "version": 2,
     "settings": {
         "sleeper_username": DEFAULT_USERNAME,
         "sport": "nfl",
         "season": str(date.today().year),
         "league_id": "",
         "league_name_hint": DEFAULT_LEAGUE_NAME_HINT,
+        # Match FantasyCalc query (Sergio Dipp is superflex 12)
+        "valuation_num_qbs": 2,
+        "valuation_num_teams": 12,
+        "valuation_ppr": 1.0,
+        "trade_strategy": "rebuild",
     },
     "plan": {
         "draft_notes": "",
@@ -35,6 +40,9 @@ DEFAULT_STATE: dict = {
     },
     "last_sync": None,
     "cached_snapshot": None,
+    "trade_suggestions": None,
+    "last_trade_refresh": None,
+    "last_trade_error": None,
 }
 
 
@@ -64,6 +72,9 @@ def load_state() -> dict:
         merged["settings"] = {**merged["settings"], **data["settings"]}
     if "plan" in data and isinstance(data["plan"], dict):
         merged["plan"] = {**merged["plan"], **data["plan"]}
+    for k in ("trade_suggestions", "last_trade_refresh", "last_trade_error"):
+        if k in data:
+            merged[k] = data[k]
     return merged
 
 
@@ -86,8 +97,23 @@ def update_settings(updates: dict) -> dict:
     for k, v in updates.items():
         if v is None:
             continue
-        if k in ("sleeper_username", "sport", "season", "league_id", "league_name_hint"):
+        if k in ("sleeper_username", "sport", "season", "league_id", "league_name_hint", "trade_strategy"):
             s[k] = str(v).strip() if isinstance(v, str) else v
+        elif k == "valuation_num_qbs":
+            try:
+                s[k] = max(1, min(2, int(v)))
+            except (TypeError, ValueError):
+                pass
+        elif k == "valuation_num_teams":
+            try:
+                s[k] = max(8, min(16, int(v)))
+            except (TypeError, ValueError):
+                pass
+        elif k == "valuation_ppr":
+            try:
+                s[k] = float(v)
+            except (TypeError, ValueError):
+                pass
     save_state(state)
     return state
 
@@ -127,4 +153,19 @@ def apply_sync_snapshot(snapshot: dict):
     state = load_state()
     state["last_sync"] = snapshot.get("synced_at")
     state["cached_snapshot"] = snapshot
+    save_state(state)
+
+
+def apply_trade_refresh(payload: dict):
+    """Store result from fantasy_trade_engine.run_trade_refresh."""
+    state = load_state()
+    state["trade_suggestions"] = payload
+    state["last_trade_refresh"] = payload.get("generated_at")
+    state["last_trade_error"] = None
+    save_state(state)
+
+
+def apply_trade_error(message: str):
+    state = load_state()
+    state["last_trade_error"] = message
     save_state(state)

@@ -59,6 +59,7 @@ from services.fantasy_store import (
     apply_sync_snapshot as fantasy_apply_sync_snapshot,
 )
 from services.fantasy_sleeper import sync_team as fantasy_sync_team
+from services.fantasy_trade_jobs import refresh_trade_suggestions as fantasy_refresh_trades
 
 # Seed persistent volume on first cloud deploy
 from seed_data import seed as _seed_data
@@ -754,6 +755,23 @@ def api_fantasy_sync():
         return jsonify({"ok": False, "error": result.get("error", "Sync failed")}), 400
     snap = result["snapshot"]
     fantasy_apply_sync_snapshot(snap)
+    body = request.get_json(silent=True) or {}
+    if body.get("refresh_trades"):
+        fantasy_refresh_trades()
+    return jsonify({"ok": True, "state": fantasy_load_state()})
+
+
+@app.route("/api/fantasy/trade-refresh", methods=["POST"])
+def api_fantasy_trade_refresh():
+    out = fantasy_refresh_trades()
+    if out.get("skipped"):
+        return jsonify({"ok": True, "skipped": True, "state": fantasy_load_state()})
+    if not out.get("ok"):
+        return jsonify({
+            "ok": False,
+            "error": out.get("error", "Refresh failed"),
+            "state": fantasy_load_state(),
+        }), 400
     return jsonify({"ok": True, "state": fantasy_load_state()})
 
 
@@ -836,7 +854,7 @@ def _ssl_context():
     return None
 
 
-def _start_push_scheduler():
+def _start_background_schedulers():
     if os.environ.get("WERKZEUG_RUN_MAIN") != "true" and app.debug:
         return
     try:
@@ -846,21 +864,58 @@ def _start_push_scheduler():
     try:
         from services.push_reminders import run_reminder_scan
     except ImportError:
-        return
+        run_reminder_scan = None
     try:
-        interval = int(os.environ.get("LM_REMINDER_INTERVAL_MINUTES", "30"))
-    except ValueError:
-        interval = 30
-    interval = max(5, interval)
+        from services.fantasy_trade_jobs import refresh_trade_suggestions
+    except ImportError:
+        refresh_trade_suggestions = None
+
     sched = BackgroundScheduler()
-    sched.add_job(
-        run_reminder_scan,
-        "interval",
-        minutes=interval,
-        id="life_manager_push_reminders",
-        replace_existing=True,
-    )
-    sched.start()
+    if run_reminder_scan:
+        try:
+            interval = int(os.environ.get("LM_REMINDER_INTERVAL_MINUTES", "30"))
+        except ValueError:
+            interval = 30
+        interval = max(5, interval)
+        sched.add_job(
+            run_reminder_scan,
+            "interval",
+            minutes=interval,
+            id="life_manager_push_reminders",
+            replace_existing=True,
+        )
+
+    if (
+        refresh_trade_suggestions
+        and os.environ.get("LM_FANTASY_TRADE_CRON", "1").lower() not in ("0", "false", "no")
+    ):
+        try:
+            dow = int(os.environ.get("LM_FANTASY_TRADE_CRON_DOW", "6"))
+        except ValueError:
+            dow = 6
+        dow = max(0, min(6, dow))
+        try:
+            hour = int(os.environ.get("LM_FANTASY_TRADE_CRON_HOUR", "12"))
+        except ValueError:
+            hour = 12
+        hour = max(0, min(23, hour))
+        try:
+            minute = int(os.environ.get("LM_FANTASY_TRADE_CRON_MINUTE", "0"))
+        except ValueError:
+            minute = 0
+        minute = max(0, min(59, minute))
+        sched.add_job(
+            refresh_trade_suggestions,
+            "cron",
+            day_of_week=dow,
+            hour=hour,
+            minute=minute,
+            id="fantasy_trade_weekly",
+            replace_existing=True,
+        )
+
+    if sched.get_jobs():
+        sched.start()
 
 
 # \u2500\u2500 Health check (for Fly.io / load balancers) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -872,8 +927,8 @@ def health_check():
 
 # \u2500\u2500 Startup \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
-# Start push scheduler for both dev (python app.py) and production (gunicorn)
-_start_push_scheduler()
+# Start background jobs for both dev (python app.py) and production (gunicorn)
+_start_background_schedulers()
 
 
 if __name__ == "__main__":
