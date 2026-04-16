@@ -7,6 +7,9 @@ data/push_subscriptions.json
 data/budget/
 budget/
 
+# Fantasy: large Sleeper NFL players cache (downloaded on first sync)
+data/fantasy/sleeper_players_nfl.json
+
 # Python cache
 __pycache__/
 services/__pycache__/

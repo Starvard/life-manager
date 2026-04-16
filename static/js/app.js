@@ -745,6 +745,111 @@ document.addEventListener("alpine:init", () => {
         },
     }));
 
+    /* ── Alpine.js: Fantasy (Sleeper) ─────────────────────────── */
+
+    Alpine.data("fantasyPage", (initialState) => ({
+        settings: Object.assign({}, initialState?.settings || {}),
+        plan: Object.assign({ trade_ideas: [] }, initialState?.plan || {}),
+        lastSync: initialState?.last_sync || null,
+        snapshot: initialState?.cached_snapshot || null,
+        syncing: false,
+        syncMsg: "",
+        newIdea: "",
+
+        init() {
+            if (!this.plan.trade_ideas) this.plan.trade_ideas = [];
+        },
+
+        async saveSettings() {
+            const res = await api("PUT", "/api/fantasy/settings", this.settings);
+            if (res.ok && res.state) this.applyState(res.state);
+        },
+
+        async savePlan() {
+            const res = await api("PUT", "/api/fantasy/plan", this.plan);
+            if (res.ok && res.state) this.applyState(res.state);
+        },
+
+        applyState(state) {
+            if (!state) return;
+            this.settings = Object.assign({}, state.settings || {});
+            this.plan = Object.assign({ trade_ideas: [] }, state.plan || {});
+            if (!this.plan.trade_ideas) this.plan.trade_ideas = [];
+            this.lastSync = state.last_sync || null;
+            this.snapshot = state.cached_snapshot || null;
+        },
+
+        async sync() {
+            this.syncing = true;
+            this.syncMsg = "";
+            try {
+                const res = await api("POST", "/api/fantasy/sync", {});
+                if (res.ok && res.state) {
+                    this.applyState(res.state);
+                    this.syncMsg = "Synced.";
+                    setTimeout(() => { this.syncMsg = ""; }, 4000);
+                } else {
+                    this.syncMsg = res.error || "Sync failed.";
+                }
+            } catch (e) {
+                this.syncMsg = "Network error.";
+            }
+            this.syncing = false;
+        },
+
+        recordStr() {
+            const s = this.snapshot?.team?.settings;
+            if (!s) return "";
+            const w = s.wins != null ? s.wins : "—";
+            const l = s.losses != null ? s.losses : "—";
+            const t = s.ties != null ? s.ties : 0;
+            return `${w}-${l}` + (t ? `-${t}` : "");
+        },
+
+        fpStr() {
+            const s = this.snapshot?.team?.settings;
+            if (!s || s.fpts == null) return "";
+            let out = String(s.fpts);
+            if (s.fpts_decimal != null && s.fpts_decimal !== "") {
+                const d = Number(s.fpts_decimal);
+                if (!Number.isNaN(d)) out += "." + String(d).padStart(2, "0");
+            }
+            return out;
+        },
+
+        fmtTime(iso) {
+            if (!iso) return "";
+            try {
+                const d = new Date(iso);
+                return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+            } catch (e) {
+                return iso;
+            }
+        },
+
+        posTeam(p) {
+            if (!p) return "";
+            const bits = [p.pos, p.team].filter(Boolean);
+            return bits.length ? bits.join(" · ") : "";
+        },
+
+        async addIdea() {
+            const text = (this.newIdea || "").trim();
+            if (!text) return;
+            const res = await api("POST", "/api/fantasy/trade-ideas", { text });
+            if (res.ok && res.state) {
+                this.applyState(res.state);
+                this.newIdea = "";
+            }
+        },
+
+        async removeIdea(id) {
+            const res = await fetch("/api/fantasy/trade-ideas/" + encodeURIComponent(id), { method: "DELETE" });
+            const data = await res.json();
+            if (data.ok && data.state) this.applyState(data.state);
+        },
+    }));
+
     /* ── Alpine.js: Baby Card ─────────────────────────────────── */
 
     Alpine.data("babyCard", (cardDate, initialCard) => ({

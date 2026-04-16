@@ -50,6 +50,15 @@ from services.budget_store import (
 from services.budget_import import import_from_directory
 from services.budget_dedupe import merge_new_transactions
 from services.budget_categorizer import get_all_categories, get_display_category
+from services.fantasy_store import (
+    load_state as fantasy_load_state,
+    update_settings as fantasy_update_settings,
+    update_plan as fantasy_update_plan,
+    add_trade_idea as fantasy_add_trade_idea,
+    remove_trade_idea as fantasy_remove_trade_idea,
+    apply_sync_snapshot as fantasy_apply_sync_snapshot,
+)
+from services.fantasy_sleeper import sync_team as fantasy_sync_team
 
 # Seed persistent volume on first cloud deploy
 from seed_data import seed as _seed_data
@@ -61,7 +70,7 @@ app.secret_key = os.environ.get("LM_SECRET_KEY", "life-manager-local-key")
 for d in [config.PHOTOS_DIR, config.CARDS_DIR,
           config.ROUTINE_CARDS_DIR, config.BABY_CARDS_DIR,
           config.BUDGET_DATA_DIR, config.BUDGET_PLANS_DIR,
-          config.BUDGET_OVERVIEW_DIR]:
+          config.BUDGET_OVERVIEW_DIR, config.FANTASY_DIR]:
     os.makedirs(d, exist_ok=True)
 
 
@@ -693,6 +702,59 @@ def api_budget_months():
 def api_budget_categories():
     txns = load_transactions()
     return jsonify({"categories": get_all_categories(txns)})
+
+
+# \u2500\u2500 Fantasy (Sleeper) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+@app.route("/fantasy")
+def fantasy_page():
+    state = fantasy_load_state()
+    return render_template("fantasy.html", fantasy_state=state)
+
+
+@app.route("/api/fantasy/state")
+def api_fantasy_state():
+    return jsonify(fantasy_load_state())
+
+
+@app.route("/api/fantasy/settings", methods=["PUT"])
+def api_fantasy_settings():
+    body = request.get_json(silent=True) or {}
+    state = fantasy_update_settings(body)
+    return jsonify({"ok": True, "state": state})
+
+
+@app.route("/api/fantasy/plan", methods=["PUT"])
+def api_fantasy_plan():
+    body = request.get_json(silent=True) or {}
+    state = fantasy_update_plan(body)
+    return jsonify({"ok": True, "state": state})
+
+
+@app.route("/api/fantasy/trade-ideas", methods=["POST"])
+def api_fantasy_trade_idea_add():
+    body = request.get_json(silent=True) or {}
+    text = (body.get("text") or "").strip()
+    state = fantasy_add_trade_idea(text)
+    return jsonify({"ok": True, "state": state})
+
+
+@app.route("/api/fantasy/trade-ideas/<idea_id>", methods=["DELETE"])
+def api_fantasy_trade_idea_remove(idea_id):
+    state = fantasy_remove_trade_idea(idea_id)
+    return jsonify({"ok": True, "state": state})
+
+
+@app.route("/api/fantasy/sync", methods=["POST"])
+def api_fantasy_sync():
+    state = fantasy_load_state()
+    settings = state.get("settings") or {}
+    result = fantasy_sync_team(settings)
+    if not result.get("ok"):
+        return jsonify({"ok": False, "error": result.get("error", "Sync failed")}), 400
+    snap = result["snapshot"]
+    fantasy_apply_sync_snapshot(snap)
+    return jsonify({"ok": True, "state": fantasy_load_state()})
 
 
 # \u2500\u2500 PDF Export \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
