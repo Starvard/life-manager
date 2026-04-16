@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Research - Life Manager{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Research</h1>
+    <p class="subtitle">Deep-dive notes and projects &mdash; mostly centered around additive manufacturing.</p>
+</div>
+
+<div class="research-toc card">
+    <div class="card-title">Table of Contents</div>
+    <ol class="research-toc-list">
+        {% for t in topics %}
+        <li>
+            <a href="{{ url_for(t.endpoint) }}" class="research-toc-link">
+                <span class="research-toc-title">{{ t.title }}</span>
+                <span class="research-toc-summary">{{ t.summary }}</span>
+            </a>
+        </li>
+        {% endfor %}
+    </ol>
+    {% if not topics %}
+    <p class="research-empty">No research topics yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,446 @@
+{% extends "base.html" %}
+{% block title %}AM Facility Cost - Research{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <nav class="research-breadcrumb">
+        <a href="{{ url_for('research_page') }}">&larr; Research</a>
+    </nav>
+    <h1>Cost of Running an Additive Manufacturing Facility</h1>
+    <p class="subtitle">
+        Full CapEx + OpEx breakdown for a small-to-mid sized AM shop. Figures are USD,
+        normalized to a US-based facility, 2025&ndash;2026 market. Treat every number as
+        a planning-grade estimate &plusmn;20&ndash;30%; real quotes vary heavily by
+        vendor, region, and process.
+    </p>
+</div>
+
+<!-- ── Mini TOC within the article ── -->
+<div class="card research-mini-toc">
+    <div class="card-title">On this page</div>
+    <ol class="research-toc-list research-toc-compact">
+        <li><a href="#scope">1. Scope &amp; assumptions</a></li>
+        <li><a href="#scenarios">2. Three reference facility scenarios</a></li>
+        <li><a href="#capex-machines">3. CapEx &mdash; AM machines</a></li>
+        <li><a href="#capex-peripheral">4. CapEx &mdash; peripheral &amp; post-processing equipment</a></li>
+        <li><a href="#capex-facility">5. CapEx &mdash; facility build-out &amp; infrastructure</a></li>
+        <li><a href="#capex-it">6. CapEx &mdash; IT, software &amp; licenses (one-time)</a></li>
+        <li><a href="#opex-personnel">7. OpEx &mdash; personnel</a></li>
+        <li><a href="#opex-building">8. OpEx &mdash; building, utilities &amp; insurance</a></li>
+        <li><a href="#opex-consumables">9. OpEx &mdash; consumables &amp; materials (per machine)</a></li>
+        <li><a href="#opex-maintenance">10. OpEx &mdash; maintenance &amp; service contracts</a></li>
+        <li><a href="#opex-software">11. OpEx &mdash; software subscriptions &amp; internet</a></li>
+        <li><a href="#per-machine">12. Per-machine all-in operating cost</a></li>
+        <li><a href="#totals">13. Totals by scenario</a></li>
+        <li><a href="#sources">14. Sources &amp; caveats</a></li>
+    </ol>
+</div>
+
+<!-- ── 1. Scope ── -->
+<section id="scope" class="research-section">
+    <h2>1. Scope &amp; assumptions</h2>
+    <ul class="research-list">
+        <li><strong>Location:</strong> US metro (e.g. light-industrial park), 2025&ndash;2026 pricing.</li>
+        <li><strong>Shift pattern:</strong> 1 operator shift (8&times;5) with machines running lights-out 24/7 where safe.</li>
+        <li><strong>Utilization:</strong> target 65&ndash;75% machine utilization after ramp.</li>
+        <li><strong>Depreciation:</strong> machines amortized over 5&ndash;7 years straight-line for cost-per-part math; CapEx figures below are purchase price, not depreciation.</li>
+        <li><strong>Three reference shops:</strong> (A) desktop polymer bureau, (B) mid-size industrial polymer (SLS/MJF), (C) metal LPBF job shop. All three are covered side-by-side in each table.</li>
+        <li><strong>Facility sizing:</strong> Shop A ~1,500 ft&sup2;, Shop B ~4,000 ft&sup2;, Shop C ~6,000&ndash;8,000 ft&sup2; (metal needs more footprint for powder handling, inert gas, and HPM work cell separation).</li>
+    </ul>
+</section>
+
+<!-- ── 2. Scenarios overview ── -->
+<section id="scenarios" class="research-section">
+    <h2>2. Three reference facility scenarios</h2>
+    <p>Every CapEx / OpEx section below compares these three archetypes:</p>
+    <div class="research-table-wrap">
+    <table class="research-table">
+        <thead>
+            <tr>
+                <th>&nbsp;</th>
+                <th>Shop A &mdash; Desktop polymer</th>
+                <th>Shop B &mdash; Industrial polymer (SLS/MJF)</th>
+                <th>Shop C &mdash; Metal LPBF</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><th>Primary process</th><td>FFF + MSLA resin</td><td>Polymer powder bed (SLS / HP MJF)</td><td>Laser powder-bed fusion (stainless, Ti, AlSi, Inconel)</td></tr>
+            <tr><th># of production printers</th><td>10 FFF + 4 MSLA</td><td>2 SLS + 1 MJF</td><td>2 LPBF + 1 sinter/HIP partner (outsourced)</td></tr>
+            <tr><th>Facility size</th><td>~1,500 ft&sup2;</td><td>~4,000 ft&sup2;</td><td>~6,000&ndash;8,000 ft&sup2;</td></tr>
+            <tr><th>Headcount (FTE)</th><td>2&ndash;3</td><td>4&ndash;6</td><td>6&ndash;9</td></tr>
+            <tr><th>Est. CapEx</th><td>$120k&ndash;$220k</td><td>$850k&ndash;$1.4M</td><td>$2.5M&ndash;$5.5M</td></tr>
+            <tr><th>Est. annual OpEx</th><td>$300k&ndash;$450k</td><td>$900k&ndash;$1.5M</td><td>$1.8M&ndash;$3.2M</td></tr>
+        </tbody>
+    </table>
+    </div>
+</section>
+
+<!-- ── 3. CapEx machines ── -->
+<section id="capex-machines" class="research-section">
+    <h2>3. CapEx &mdash; AM machines</h2>
+    <div class="research-table-wrap">
+    <table class="research-table">
+        <thead>
+            <tr><th>Line item</th><th>Unit price (typical)</th><th>Shop A qty / $</th><th>Shop B qty / $</th><th>Shop C qty / $</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Prosumer FFF (Bambu X1C / P1S class)</td><td>$1.5k&ndash;$2.5k</td><td>10 &times; $2k = <strong>$20k</strong></td><td>&mdash;</td><td>&mdash;</td></tr>
+            <tr><td>Industrial FFF (Markforged X7, Raise3D Pro3, Ultimaker S7)</td><td>$8k&ndash;$70k</td><td>opt. 1 &times; $15k</td><td>2 &times; $20k = <strong>$40k</strong></td><td>&mdash;</td></tr>
+            <tr><td>MSLA resin (Formlabs 3L / Phrozen Mega)</td><td>$3k&ndash;$11k</td><td>4 &times; $5k = <strong>$20k</strong></td><td>2 &times; $10k = <strong>$20k</strong></td><td>&mdash;</td></tr>
+            <tr><td>Polymer SLS (Formlabs Fuse 1+ / EOS P396)</td><td>$30k&ndash;$350k</td><td>&mdash;</td><td>2 &times; $70k = <strong>$140k</strong></td><td>&mdash;</td></tr>
+            <tr><td>HP Multi Jet Fusion (4200/5200 class)</td><td>$300k&ndash;$600k</td><td>&mdash;</td><td>1 &times; $450k = <strong>$450k</strong></td><td>&mdash;</td></tr>
+            <tr><td>Metal LPBF (EOS M290, SLM 280, Velo3D Sapphire, Nikon SLM)</td><td>$500k&ndash;$1.5M</td><td>&mdash;</td><td>&mdash;</td><td>2 &times; $900k = <strong>$1.8M</strong></td></tr>
+            <tr><td>Binder jetting metal (ExOne / Desktop Metal Shop)</td><td>$150k&ndash;$1.5M</td><td>&mdash;</td><td>&mdash;</td><td>opt.</td></tr>
+            <tr class="research-subtotal"><th>Machines subtotal</th><td>&nbsp;</td><td><strong>~$40k</strong></td><td><strong>~$650k</strong></td><td><strong>~$1.8M</strong></td></tr>
+        </tbody>
+    </table>
+    </div>
+    <p class="research-note">
+        <strong>Watch-outs:</strong> quoted metal LPBF prices usually <em>exclude</em> sieving
+        station, powder handling cart, inert gas dryer, and removal station &mdash; those
+        are covered in the peripheral section. Vendor financing (3&ndash;5 yr) typically
+        adds 6&ndash;9% effective interest.
+    </p>
+</section>
+
+<!-- ── 4. CapEx peripheral ── -->
+<section id="capex-peripheral" class="research-section">
+    <h2>4. CapEx &mdash; peripheral &amp; post-processing equipment</h2>
+    <p>Printers are rarely the whole story &mdash; peripheral gear typically adds <strong>30&ndash;80%</strong> on top of machine CapEx, and for metal LPBF it can match the machine cost. Break it down by process.</p>
+
+    <h3 class="research-h3">4.1 Polymer (FFF / MSLA) peripherals</h3>
+    <div class="research-table-wrap">
+    <table class="research-table">
+        <thead><tr><th>Item</th><th>Typical $</th><th>Notes</th></tr></thead>
+        <tbody>
+            <tr><td>Filament dryer cabinet (Polymaker PolyDryer, Sovol)</td><td>$300&ndash;$1,500</td><td>Essential for nylon, PC, PA-CF.</td></tr>
+            <tr><td>Resin wash &amp; cure station (Formlabs Form Wash + Cure, Anycubic)</td><td>$600&ndash;$6,000</td><td>One per 3&ndash;4 MSLA printers.</td></tr>
+            <tr><td>Ultrasonic cleaner (for resin parts, small FFF parts)</td><td>$150&ndash;$2,000</td><td>&nbsp;</td></tr>
+            <tr><td>UV post-cure chamber</td><td>$400&ndash;$3,500</td><td>&nbsp;</td></tr>
+            <tr><td>Support removal tools / flush cutters / heat gun / IPA station</td><td>$500&ndash;$1,500</td><td>Per bench.</td></tr>
+            <tr><td>Media blast cabinet (25&ndash;40 lb)</td><td>$1,500&ndash;$6,000</td><td>Bead/soda blast for finish.</td></tr>
+            <tr><td>Vapor-smoothing unit (ABS/ASA) or paint booth</td><td>$2,000&ndash;$25,000</td><td>Optional but common.</td></tr>
+            <tr><td>Heated annealing oven (to 200&deg;C)</td><td>$1,500&ndash;$8,000</td><td>For PA-CF, PPS, PEEK.</td></tr>
+        </tbody>
+    </table>
+    </div>
+
+    <h3 class="research-h3">4.2 Polymer powder-bed (SLS / MJF) peripherals</h3>
+    <div class="research-table-wrap">
+    <table class="research-table">
+        <thead><tr><th>Item</th><th>Typical $</th><th>Notes</th></tr></thead>
+        <tbody>
+            <tr><td>Sieve / powder recovery station (Russell Finex, Formlabs Fuse Sift)</td><td>$15k&ndash;$80k</td><td>1 per SLS line minimum.</td></tr>
+            <tr><td>Build chamber / break-out booth w/ HEPA extraction</td><td>$8k&ndash;$35k</td><td>Contains combustible powder.</td></tr>
+            <tr><td>Bead-blast cabinet (industrial)</td><td>$5k&ndash;$20k</td><td>Dedicated for PA12.</td></tr>
+            <tr><td>Dye / vapor smoothing (AMT PostPro, DyeMansion DM60)</td><td>$60k&ndash;$250k</td><td>Big CapEx but a major margin lever.</td></tr>
+            <tr><td>Powder storage (desiccant drums, climate cabinet)</td><td>$3k&ndash;$15k</td><td>&nbsp;</td></tr>
+            <tr><td>Drying oven / conditioning oven</td><td>$4k&ndash;$18k</td><td>Needed for fresh PA12 refresh ratios.</td></tr>
+            <tr><td>Combustible-dust vacuum (Nilfisk / Ruwac Class II Div 2)</td><td>$4k&ndash;$12k</td><td>NFPA 654 / 652 required.</td></tr>
+        </tbody>
+    </table>
+    </div>
+
+    <h3 class="research-h3">4.3 Metal LPBF peripherals (heaviest add-ons)</h3>
+    <div class="research-table-wrap">
+    <table class="research-table">
+        <thead><tr><th>Item</th><th>Typical $</th><th>Notes</th></tr></thead>
+        <tbody>
+            <tr><td>Inert-atmosphere powder sieve &amp; recovery (Russell, Volkmann)</td><td>$60k&ndash;$180k</td><td>One per metal printer (cross-contamination risk).</td></tr>
+            <tr><td>Depowdering / cleaning station (inert glovebox style)</td><td>$40k&ndash;$150k</td><td>&nbsp;</td></tr>
+            <tr><td>Wire EDM or bandsaw for plate cutoff</td><td>$30k&ndash;$120k</td><td>Parts must come off the build plate.</td></tr>
+            <tr><td>Stress-relief vacuum / argon furnace</td><td>$60k&ndash;$250k</td><td>Mandatory for most alloys (Ti, Inconel, tool steels).</td></tr>
+            <tr><td>Hot Isostatic Press (HIP)</td><td>$1M&ndash;$3M+</td><td>Usually outsourced in Shop C &mdash; not purchased.</td></tr>
+            <tr><td>CNC post-machining (Haas VF-2 / Tormach)</td><td>$50k&ndash;$200k</td><td>Nearly every metal AM part needs a critical face machined.</td></tr>
+            <tr><td>Industrial bead/grit blast</td><td>$15k&ndash;$40k</td><td>Ti requires dedicated unit.</td></tr>
+            <tr><td>Argon / nitrogen bulk tank + piping</td><td>$8k&ndash;$25k install</td><td>Gas itself is OpEx.</td></tr>
+            <tr><td>Class II Div 2 vacuum + powder transport carts</td><td>$20k&ndash;$60k</td><td>&nbsp;</td></tr>
+            <tr><td>Powder passivation / waste handling</td><td>$5k&ndash;$20k</td><td>Reactive alloys (Ti, Al) need passivation water tank.</td></tr>
+        </tbody>
+    </table>
+    </div>
+
+    <h3 class="research-h3">4.4 Metrology &amp; QA (all shops)</h3>
+    <div class="research-table-wrap">
+    <table class="research-table">
+        <thead><tr><th>Item</th><th>Typical $</th><th>Notes</th></tr></thead>
+        <tbody>
+            <tr><td>Digital calipers / micrometers / height gauges</td><td>$1k&ndash;$5k</td><td>Minimum viable QA.</td></tr>
+            <tr><td>Structured-light or laser 3D scanner (Revopoint, Shining3D, GOM ATOS)</td><td>$2k&ndash;$180k</td><td>Scale to dimensional tolerance requirement.</td></tr>
+            <tr><td>Coordinate Measuring Machine (CMM)</td><td>$30k&ndash;$200k</td><td>Optional for Shop A/B; likely required for Shop C aerospace work.</td></tr>
+            <tr><td>Hardness tester / tensile coupon rig</td><td>$5k&ndash;$80k</td><td>Metal only.</td></tr>
+            <tr><td>Surface roughness gauge (Mitutoyo SJ-210)</td><td>$1.5k&ndash;$6k</td><td>&nbsp;</td></tr>
+            <tr><td>CT scanner for internal porosity (shared / outsourced typical)</td><td>$150k&ndash;$1M+</td><td>Almost always outsourced.</td></tr>
+        </tbody>
+    </table>
+    </div>
+
+    <div class="research-table-wrap">
+    <table class="research-table">
+        <thead><tr><th>&nbsp;</th><th>Shop A</th><th>Shop B</th><th>Shop C</th></tr></thead>
+        <tbody>
+            <tr class="research-subtotal"><th>Peripheral subtotal</th><td><strong>$15k&ndash;$30k</strong></td><td><strong>$150k&ndash;$400k</strong></td><td><strong>$450k&ndash;$1.2M</strong></td></tr>
+        </tbody>
+    </table>
+    </div>
+</section>
+
+<!-- ── 5. Facility build-out ── -->
+<section id="capex-facility" class="research-section">
+    <h2>5. CapEx &mdash; facility build-out &amp; infrastructure</h2>
+    <p>Even in a leased shell, you pay for the fit-out (tenant improvements). Rule of thumb: $25&ndash;$80/ft&sup2; for a light-industrial fit-out, more for metal AM rooms.</p>
+    <div class="research-table-wrap">
+    <table class="research-table">
+        <thead>
+            <tr><th>Line item</th><th>Shop A</th><th>Shop B</th><th>Shop C</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Electrical upgrade (3-phase 200&ndash;400A service, dedicated circuits, UPS)</td><td>$3k&ndash;$10k</td><td>$25k&ndash;$60k</td><td>$60k&ndash;$150k</td></tr>
+            <tr><td>HVAC + climate control (humidity critical for nylon/powder/resin)</td><td>$5k&ndash;$15k</td><td>$25k&ndash;$80k</td><td>$60k&ndash;$180k</td></tr>
+            <tr><td>Compressed air (rotary-screw compressor 5&ndash;25 HP, dryer, piping)</td><td>$3k&ndash;$8k</td><td>$10k&ndash;$30k</td><td>$20k&ndash;$60k</td></tr>
+            <tr><td>Fume extraction (HEPA + activated-carbon, per-bench snorkels)</td><td>$2k&ndash;$8k</td><td>$15k&ndash;$50k</td><td>$30k&ndash;$90k</td></tr>
+            <tr><td>NFPA-compliant powder room (Class II Div 2 wiring, grounding, sprinklers)</td><td>n/a</td><td>$20k&ndash;$60k</td><td>$80k&ndash;$250k</td></tr>
+            <tr><td>Bulk argon / nitrogen farm (tank pad, piping, fail-over)</td><td>n/a</td><td>opt.</td><td>$15k&ndash;$60k</td></tr>
+            <tr><td>Flooring (ESD / chemical-resistant epoxy)</td><td>$3k&ndash;$10k</td><td>$10k&ndash;$35k</td><td>$20k&ndash;$70k</td></tr>
+            <tr><td>Work benches, racking, powder drum storage, shelving</td><td>$3k&ndash;$8k</td><td>$10k&ndash;$25k</td><td>$20k&ndash;$50k</td></tr>
+            <tr><td>Security, CCTV, access control, fire-suppression commissioning</td><td>$2k&ndash;$6k</td><td>$8k&ndash;$25k</td><td>$20k&ndash;$60k</td></tr>
+            <tr><td>Permits, architect / MEP engineering, commissioning</td><td>$3k&ndash;$8k</td><td>$15k&ndash;$40k</td><td>$40k&ndash;$120k</td></tr>
+            <tr class="research-subtotal"><th>Facility fit-out subtotal</th><td><strong>$25k&ndash;$75k</strong></td><td><strong>$140k&ndash;$400k</strong></td><td><strong>$360k&ndash;$1.1M</strong></td></tr>
+        </tbody>
+    </table>
+    </div>
+</section>
+
+<!-- ── 6. CapEx IT / software ── -->
+<section id="capex-it" class="research-section">
+    <h2>6. CapEx &mdash; IT, software &amp; licenses (one-time)</h2>
+    <p>Everything in this section is the <em>up-front</em> spend. Recurring software subscriptions live under OpEx &sect;11.</p>
+    <div class="research-table-wrap">
+    <table class="research-table">
+        <thead><tr><th>Line item</th><th>Shop A</th><th>Shop B</th><th>Shop C</th></tr></thead>
+        <tbody>
+            <tr><td>Workstations / CAD PCs (RTX-class, 64&ndash;128 GB RAM)</td><td>2 &times; $3k = $6k</td><td>5 &times; $4k = $20k</td><td>8 &times; $5k = $40k</td></tr>
+            <tr><td>File / MES server (NAS + backup)</td><td>$2k&ndash;$4k</td><td>$6k&ndash;$12k</td><td>$10k&ndash;$25k</td></tr>
+            <tr><td>Networking (managed switches, PoE, Wi-Fi 6, VLAN for machines)</td><td>$1k&ndash;$3k</td><td>$5k&ndash;$12k</td><td>$10k&ndash;$25k</td></tr>
+            <tr><td>UPS / battery back-up for machines (mid-print power loss = scrap)</td><td>$500&ndash;$2k</td><td>$5k&ndash;$15k</td><td>$15k&ndash;$40k</td></tr>
+            <tr><td>Perpetual CAD / slicer licenses (Magics, Netfabb perpetual &mdash; where offered)</td><td>$0&ndash;$5k</td><td>$10k&ndash;$30k</td><td>$25k&ndash;$80k</td></tr>
+            <tr><td>Installation / IT setup labor</td><td>$1k&ndash;$3k</td><td>$5k&ndash;$15k</td><td>$15k&ndash;$40k</td></tr>
+            <tr class="research-subtotal"><th>IT CapEx subtotal</th><td><strong>$10k&ndash;$20k</strong></td><td><strong>$50k&ndash;$100k</strong></td><td><strong>$115k&ndash;$250k</strong></td></tr>
+        </tbody>
+    </table>
+    </div>
+</section>
+
+<!-- ── 7. OpEx personnel ── -->
+<section id="opex-personnel" class="research-section">
+    <h2>7. OpEx &mdash; personnel (loaded annual cost)</h2>
+    <p>&ldquo;Loaded&rdquo; = salary + payroll tax + benefits + PTO + workers&rsquo; comp (~1.25&ndash;1.35&times; base).</p>
+    <div class="research-table-wrap">
+    <table class="research-table">
+        <thead>
+            <tr><th>Role</th><th>Base salary range</th><th>Loaded (&times;1.3)</th><th>Shop A</th><th>Shop B</th><th>Shop C</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>AM technician / operator</td><td>$45k&ndash;$65k</td><td>$60k&ndash;$85k</td><td>2 FTE</td><td>3 FTE</td><td>3 FTE</td></tr>
+            <tr><td>Senior AM engineer / process owner</td><td>$85k&ndash;$130k</td><td>$110k&ndash;$170k</td><td>0&ndash;1</td><td>1</td><td>2</td></tr>
+            <tr><td>Post-processing / finishing tech</td><td>$40k&ndash;$60k</td><td>$55k&ndash;$80k</td><td>(shared)</td><td>1</td><td>2</td></tr>
+            <tr><td>CAD / design engineer (DfAM)</td><td>$75k&ndash;$120k</td><td>$100k&ndash;$155k</td><td>0.25</td><td>1</td><td>1</td></tr>
+            <tr><td>QA / metrology tech</td><td>$55k&ndash;$80k</td><td>$75k&ndash;$105k</td><td>(shared)</td><td>0.5</td><td>1</td></tr>
+            <tr><td>Shop/operations manager</td><td>$90k&ndash;$140k</td><td>$115k&ndash;$180k</td><td>owner-operator</td><td>1</td><td>1</td></tr>
+            <tr><td>Sales / estimator</td><td>$65k&ndash;$110k + comm.</td><td>$85k&ndash;$150k</td><td>owner</td><td>0.5</td><td>1</td></tr>
+            <tr class="research-subtotal"><th>Personnel subtotal (loaded)</th><td>&nbsp;</td><td>&nbsp;</td><td><strong>$180k&ndash;$250k</strong></td><td><strong>$550k&ndash;$800k</strong></td><td><strong>$950k&ndash;$1.5M</strong></td></tr>
+        </tbody>
+    </table>
+    </div>
+    <p class="research-note"><strong>Reality check:</strong> personnel is usually the
+    #1 OpEx line, often 45&ndash;65% of total annual OpEx. A 2-printer metal shop
+    with only 1 technician will bottleneck on post-processing, not print time.</p>
+</section>
+
+<!-- ── 8. OpEx building ── -->
+<section id="opex-building" class="research-section">
+    <h2>8. OpEx &mdash; building, utilities, insurance</h2>
+    <div class="research-table-wrap">
+    <table class="research-table">
+        <thead><tr><th>Line item</th><th>Rule of thumb</th><th>Shop A</th><th>Shop B</th><th>Shop C</th></tr></thead>
+        <tbody>
+            <tr><td>Rent / lease (light industrial, NNN)</td><td>$12&ndash;$25/ft&sup2;/yr</td><td>$25k&ndash;$40k</td><td>$55k&ndash;$100k</td><td>$90k&ndash;$200k</td></tr>
+            <tr><td>Property tax / CAM / NNN pass-through</td><td>$3&ndash;$7/ft&sup2;/yr</td><td>$5k&ndash;$10k</td><td>$13k&ndash;$28k</td><td>$20k&ndash;$55k</td></tr>
+            <tr><td>Electricity</td><td>$0.10&ndash;$0.18/kWh; polymer shops ~15&ndash;40 MWh/yr, metal LPBF ~80&ndash;200 MWh/yr per printer</td><td>$4k&ndash;$10k</td><td>$20k&ndash;$55k</td><td>$60k&ndash;$160k</td></tr>
+            <tr><td>Natural gas / heating</td><td>Seasonal</td><td>$1k&ndash;$3k</td><td>$4k&ndash;$10k</td><td>$8k&ndash;$20k</td></tr>
+            <tr><td>Water / sewer / trash</td><td>&mdash;</td><td>$1k&ndash;$2k</td><td>$3k&ndash;$7k</td><td>$6k&ndash;$15k</td></tr>
+            <tr><td>Hazardous waste disposal (resin, IPA, metal fines, filters)</td><td>&mdash;</td><td>$1k&ndash;$3k</td><td>$5k&ndash;$15k</td><td>$15k&ndash;$40k</td></tr>
+            <tr><td>Insurance &mdash; GL + property + equipment floater</td><td>0.4&ndash;1.0% of insured CapEx</td><td>$3k&ndash;$6k</td><td>$10k&ndash;$20k</td><td>$30k&ndash;$60k</td></tr>
+            <tr><td>Insurance &mdash; product liability (aerospace/medical uplift)</td><td>Highly variable</td><td>$1k&ndash;$4k</td><td>$5k&ndash;$15k</td><td>$20k&ndash;$80k</td></tr>
+            <tr><td>Janitorial / pest / life-safety inspections</td><td>&mdash;</td><td>$2k&ndash;$4k</td><td>$5k&ndash;$12k</td><td>$10k&ndash;$25k</td></tr>
+            <tr class="research-subtotal"><th>Building OpEx subtotal</th><td>&nbsp;</td><td><strong>$45k&ndash;$80k</strong></td><td><strong>$125k&ndash;$250k</strong></td><td><strong>$260k&ndash;$650k</strong></td></tr>
+        </tbody>
+    </table>
+    </div>
+</section>
+
+<!-- ── 9. Consumables ── -->
+<section id="opex-consumables" class="research-section">
+    <h2>9. OpEx &mdash; consumables &amp; materials (per machine)</h2>
+    <p>Consumables scale with machine hours, not calendar time. Numbers below are <strong>per printer, per year</strong> at ~70% utilization.</p>
+    <div class="research-table-wrap">
+    <table class="research-table">
+        <thead>
+            <tr><th>Process</th><th>Feedstock cost</th><th>Annual feedstock / printer</th><th>Ancillary consumables / printer / yr</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>FFF (prosumer)</td><td>$20&ndash;$60/kg engineering</td><td>50&ndash;150 kg &rarr; <strong>$1.5k&ndash;$9k</strong></td><td>nozzles, build sheets, glue: $500&ndash;$1.5k</td></tr>
+            <tr><td>FFF (industrial + CF/PEEK)</td><td>$150&ndash;$800/kg</td><td>30&ndash;80 kg &rarr; <strong>$5k&ndash;$60k</strong></td><td>hot-ends, chambers: $2k&ndash;$6k</td></tr>
+            <tr><td>MSLA resin</td><td>$70&ndash;$300/L</td><td>10&ndash;40 L &rarr; <strong>$1k&ndash;$12k</strong></td><td>FEP film, IPA, gloves: $500&ndash;$2k</td></tr>
+            <tr><td>Polymer SLS (PA12, TPU)</td><td>$55&ndash;$120/kg virgin</td><td>300&ndash;800 kg &rarr; <strong>$20k&ndash;$90k</strong></td><td>refresh additive, blast media, filters: $6k&ndash;$20k</td></tr>
+            <tr><td>HP MJF (PA12, PA11, TPU)</td><td>$65&ndash;$130/kg + agents</td><td>800&ndash;2,000 kg &rarr; <strong>$55k&ndash;$250k</strong></td><td>fusing/detailing agents, print heads, lamps: $20k&ndash;$80k</td></tr>
+            <tr><td>Metal LPBF (SS 316L, AlSi10Mg)</td><td>$70&ndash;$180/kg</td><td>150&ndash;500 kg &rarr; <strong>$11k&ndash;$90k</strong></td><td>argon (3&ndash;8 MT), filters, build plates, wiper blades: $25k&ndash;$80k</td></tr>
+            <tr><td>Metal LPBF (Ti64, Inconel 718)</td><td>$300&ndash;$600/kg</td><td>80&ndash;250 kg &rarr; <strong>$24k&ndash;$150k</strong></td><td>as above plus passivation: $30k&ndash;$90k</td></tr>
+        </tbody>
+    </table>
+    </div>
+    <p class="research-note"><strong>Gotcha:</strong> for metal LPBF, <em>inert gas</em>
+    (argon) alone typically costs $8k&ndash;$25k/printer/yr; filters and sieve wear
+    another $5k&ndash;$15k. &ldquo;Powder&rdquo; is only one bucket in consumables.</p>
+</section>
+
+<!-- ── 10. Maintenance ── -->
+<section id="opex-maintenance" class="research-section">
+    <h2>10. OpEx &mdash; maintenance &amp; service contracts</h2>
+    <p>Service contracts are <em>strongly recommended</em> on industrial machines &mdash; a laser module on an LPBF is $40k&ndash;$80k and 4&ndash;8 weeks of lead time without a contract.</p>
+    <div class="research-table-wrap">
+    <table class="research-table">
+        <thead><tr><th>Tier</th><th>Typical annual cost</th><th>Coverage</th></tr></thead>
+        <tbody>
+            <tr><td>Prosumer FFF / MSLA</td><td>$200&ndash;$600 per printer (self-service parts)</td><td>Hotends, belts, build sheets, FEP.</td></tr>
+            <tr><td>Industrial polymer (SLS, MJF, industrial FFF)</td><td>8&ndash;15% of machine price/yr</td><td>OEM preventive maintenance, remote diagnostics, parts.</td></tr>
+            <tr><td>Metal LPBF (EOS / SLM / Velo3D)</td><td>10&ndash;15% of machine price/yr</td><td>Laser recalibration, filters, optics, build platform refurb, 24/7 phone.</td></tr>
+        </tbody>
+    </table>
+    </div>
+    <div class="research-table-wrap">
+    <table class="research-table">
+        <thead><tr><th>&nbsp;</th><th>Shop A</th><th>Shop B</th><th>Shop C</th></tr></thead>
+        <tbody>
+            <tr class="research-subtotal"><th>Maintenance subtotal</th><td><strong>$5k&ndash;$10k</strong></td><td><strong>$80k&ndash;$140k</strong></td><td><strong>$180k&ndash;$280k</strong></td></tr>
+        </tbody>
+    </table>
+    </div>
+</section>
+
+<!-- ── 11. Software + internet ── -->
+<section id="opex-software" class="research-section">
+    <h2>11. OpEx &mdash; software subscriptions &amp; internet</h2>
+    <div class="research-table-wrap">
+    <table class="research-table">
+        <thead><tr><th>Tool</th><th>List price</th><th>Notes</th></tr></thead>
+        <tbody>
+            <tr><td>Fusion 360 (commercial)</td><td>$680/user/yr</td><td>Starter DfAM workhorse.</td></tr>
+            <tr><td>SolidWorks (standard, commercial)</td><td>$1,200&ndash;$2,100/user/yr</td><td>Most common in job shops.</td></tr>
+            <tr><td>NX / Creo / CATIA</td><td>$3k&ndash;$15k/user/yr</td><td>Usually customer-driven.</td></tr>
+            <tr><td>nTopology (implicit / lattice)</td><td>~$20k/user/yr</td><td>Key for lightweighting work.</td></tr>
+            <tr><td>Materialise Magics (build prep / supports)</td><td>$8k&ndash;$20k/seat/yr maint.</td><td>Standard for industrial metal &amp; polymer powder-bed.</td></tr>
+            <tr><td>Autodesk Netfabb Ultimate</td><td>~$8,500/user/yr</td><td>Alternative / addition to Magics.</td></tr>
+            <tr><td>PrusaSlicer / Bambu Studio / Cura</td><td>free</td><td>Fine for FFF.</td></tr>
+            <tr><td>Formlabs PreForm / Chitubox Pro</td><td>free &ndash; $170/yr</td><td>MSLA / resin.</td></tr>
+            <tr><td>Simulation (Ansys Additive, Simufact, Netfabb Simulation)</td><td>$15k&ndash;$60k/user/yr</td><td>Recommended for Shop C.</td></tr>
+            <tr><td>MES / queue mgmt (3YOURMIND, AMFG, Link3D, Authentise)</td><td>$10k&ndash;$60k/yr</td><td>Pays for itself above ~5 industrial printers.</td></tr>
+            <tr><td>ERP / accounting (QuickBooks, NetSuite, Odoo)</td><td>$1k&ndash;$25k/yr</td><td>&nbsp;</td></tr>
+            <tr><td>QMS / document control (Greenlight Guru, ETQ, Qualio)</td><td>$10k&ndash;$40k/yr</td><td>Needed for ISO 9001 / AS9100 / ISO 13485 shops.</td></tr>
+            <tr><td>Business-class internet (100&ndash;1000 Mbps, static IP, SLA)</td><td>$100&ndash;$600/mo</td><td>$1.2k&ndash;$7.2k/yr.</td></tr>
+            <tr><td>Redundant LTE/5G failover</td><td>$40&ndash;$150/mo</td><td>Cheap insurance against lost prints.</td></tr>
+            <tr><td>Cloud backup / off-site (Backblaze B2, S3 Glacier)</td><td>$600&ndash;$6k/yr</td><td>Scales with CAD + machine log volume.</td></tr>
+            <tr><td>Endpoint security / MDM (Crowdstrike, Jamf)</td><td>$50&ndash;$150/seat/yr</td><td>&nbsp;</td></tr>
+            <tr><td>Microsoft 365 / Google Workspace</td><td>$12&ndash;$22/user/mo</td><td>&nbsp;</td></tr>
+        </tbody>
+    </table>
+    </div>
+    <div class="research-table-wrap">
+    <table class="research-table">
+        <thead><tr><th>&nbsp;</th><th>Shop A</th><th>Shop B</th><th>Shop C</th></tr></thead>
+        <tbody>
+            <tr class="research-subtotal"><th>Software + internet subtotal</th><td><strong>$4k&ndash;$10k</strong></td><td><strong>$50k&ndash;$120k</strong></td><td><strong>$120k&ndash;$250k</strong></td></tr>
+        </tbody>
+    </table>
+    </div>
+</section>
+
+<!-- ── 12. Per-machine ── -->
+<section id="per-machine" class="research-section">
+    <h2>12. Per-machine all-in operating cost</h2>
+    <p>Take annual OpEx (personnel + building + consumables + maintenance + software share) and divide by the number of production machines. This is the minimum hourly rate each printer must earn to break even.</p>
+    <div class="research-table-wrap">
+    <table class="research-table">
+        <thead>
+            <tr>
+                <th>Line</th>
+                <th>Shop A (14 printers)</th>
+                <th>Shop B (3 printers)</th>
+                <th>Shop C (2 printers)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td>Personnel share / printer</td><td>$13k&ndash;$18k</td><td>$180k&ndash;$270k</td><td>$475k&ndash;$750k</td></tr>
+            <tr><td>Building share / printer</td><td>$3k&ndash;$6k</td><td>$40k&ndash;$85k</td><td>$130k&ndash;$325k</td></tr>
+            <tr><td>Consumables (process-specific, see &sect;9)</td><td>$2k&ndash;$10k</td><td>$75k&ndash;$330k</td><td>$40k&ndash;$230k</td></tr>
+            <tr><td>Maintenance / printer</td><td>$300&ndash;$700</td><td>$25k&ndash;$50k</td><td>$90k&ndash;$140k</td></tr>
+            <tr><td>Software / IT share / printer</td><td>$300&ndash;$700</td><td>$15k&ndash;$40k</td><td>$60k&ndash;$125k</td></tr>
+            <tr><td>Depreciation (5-yr SL on machine + peripheral)</td><td>$0.5k&ndash;$1k</td><td>$50k&ndash;$100k</td><td>$350k&ndash;$600k</td></tr>
+            <tr class="research-subtotal"><th>All-in cost / printer / yr</th><td><strong>$19k&ndash;$37k</strong></td><td><strong>$385k&ndash;$875k</strong></td><td><strong>$1.15M&ndash;$2.2M</strong></td></tr>
+            <tr><th>Implied hourly rate @70% util. (6,132 hr/yr)</th><td><strong>$3&ndash;$6/hr</strong></td><td><strong>$65&ndash;$145/hr</strong></td><td><strong>$190&ndash;$360/hr</strong></td></tr>
+        </tbody>
+    </table>
+    </div>
+    <p class="research-note">
+        Shops routinely <em>charge</em> 1.8&ndash;3&times; the break-even hourly rate to
+        cover margin + overhead absorbed outside of production. Market rates roughly
+        land at: prosumer FFF $8&ndash;$15/hr, industrial polymer powder-bed
+        $120&ndash;$250/hr, metal LPBF $450&ndash;$900/hr.
+    </p>
+</section>
+
+<!-- ── 13. Totals ── -->
+<section id="totals" class="research-section">
+    <h2>13. Totals by scenario</h2>
+    <div class="research-table-wrap">
+    <table class="research-table">
+        <thead>
+            <tr>
+                <th>Bucket</th>
+                <th>Shop A &mdash; Desktop polymer</th>
+                <th>Shop B &mdash; Industrial polymer</th>
+                <th>Shop C &mdash; Metal LPBF</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><th>CapEx &mdash; machines</th><td>$40k</td><td>$650k</td><td>$1.8M</td></tr>
+            <tr><th>CapEx &mdash; peripheral / post-processing</th><td>$20k</td><td>$275k</td><td>$825k</td></tr>
+            <tr><th>CapEx &mdash; facility fit-out</th><td>$50k</td><td>$270k</td><td>$730k</td></tr>
+            <tr><th>CapEx &mdash; IT / software / install</th><td>$15k</td><td>$75k</td><td>$180k</td></tr>
+            <tr class="research-subtotal"><th>Total CapEx (midpoint)</th><td><strong>~$125k</strong></td><td><strong>~$1.27M</strong></td><td><strong>~$3.5M</strong></td></tr>
+            <tr><th>OpEx &mdash; personnel</th><td>$215k</td><td>$675k</td><td>$1.23M</td></tr>
+            <tr><th>OpEx &mdash; building / utilities / insurance</th><td>$62k</td><td>$190k</td><td>$455k</td></tr>
+            <tr><th>OpEx &mdash; consumables (all machines)</th><td>$25k</td><td>$250k</td><td>$180k</td></tr>
+            <tr><th>OpEx &mdash; maintenance</th><td>$7k</td><td>$110k</td><td>$230k</td></tr>
+            <tr><th>OpEx &mdash; software + internet</th><td>$7k</td><td>$85k</td><td>$185k</td></tr>
+            <tr class="research-subtotal"><th>Total OpEx / yr (midpoint)</th><td><strong>~$315k</strong></td><td><strong>~$1.31M</strong></td><td><strong>~$2.28M</strong></td></tr>
+            <tr><th>5-yr total cost (CapEx + 5 &times; OpEx)</th><td><strong>~$1.7M</strong></td><td><strong>~$7.8M</strong></td><td><strong>~$14.9M</strong></td></tr>
+        </tbody>
+    </table>
+    </div>
+</section>
+
+<!-- ── 14. Sources ── -->
+<section id="sources" class="research-section">
+    <h2>14. Sources &amp; caveats</h2>
+    <ul class="research-list">
+        <li>Machine list prices: OEM websites and reseller quotes (EOS, SLM Solutions / Nikon, Velo3D, HP, Formlabs, Stratasys, Markforged, Bambu Lab) as of late 2024&ndash;2026 Q1. Expect &plusmn;20% variance by region and configuration.</li>
+        <li>Labor rates: US BLS Occupational Outlook (Machinists / Mechanical Engineers / Production Supervisors) + AMUG salary surveys 2023&ndash;2024.</li>
+        <li>Feedstock prices: direct OEM material catalogs (HP 3D HR PA 12, EOS PA 2200, Ti64 Grade 23 from Carpenter / AP&amp;C / Tekna). Market prices for 316L and AlSi10Mg can drop 20&ndash;30% below OEM when using qualified 3rd-party powders.</li>
+        <li>Energy consumption: published machine datasheets (EOS M290 ~8.5 kW peak, HP MJF 5200 ~11 kW peak, SLS Fuse 1+ ~1.5 kW peak, FFF ~0.3 kW avg).</li>
+        <li>Service contract percentages: multiple OEM service quotes and industry reports (Wohlers 2024, SmartTech/AMPower 2024).</li>
+        <li>Facility fit-out: NFPA 652/654 compliance guidance and construction industry RSMeans cost indexes for light industrial.</li>
+        <li>All numbers are planning-grade. For a real business case, replace each line with a firm vendor quote before signing anything.</li>
+    </ul>
+</section>
+{% endblock %}
