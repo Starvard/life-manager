@@ -30,6 +30,10 @@ python3 -m py_compile app.py && for f in config.py seed_data.py services/*.py; d
 
 See `DESIGN.md` for the full file map and architecture. Key entry point is `app.py` (Flask routes + API). Business logic lives in `services/`. Templates use Jinja2 + Alpine.js. Configuration is in `routines.yaml` and `baby_config.yaml`.
 
+### Git / PR workflow (this repo)
+
+For iterative work (including Fantasy and other features), **open a new branch and a new PR for each batch of changes** instead of stacking follow-ups on an already-merged branch. The maintainer merges each PR to test on `main`. Use branch names like `cursor/<topic>-87a8` (see cloud agent rules for the suffix).
+
 ### Gotchas
 
 - The `seed_data.py` module runs at import time (called in `app.py`). It is a no-op when `LM_DATA_DIR` is unset or points to `./data` (local dev), so it won't interfere locally.
