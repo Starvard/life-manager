@@ -767,7 +767,14 @@ def api_fantasy_sync():
 
 @app.route("/api/fantasy/trade-refresh", methods=["POST"])
 def api_fantasy_trade_refresh():
-    out = fantasy_refresh_trades()
+    try:
+        out = fantasy_refresh_trades()
+    except Exception as e:
+        return jsonify({
+            "ok": False,
+            "error": str(e) or "Trade refresh crashed",
+            "state": fantasy_state_for_client(fantasy_load_state()),
+        })
     if out.get("skipped"):
         return jsonify({
             "ok": True,
@@ -775,11 +782,12 @@ def api_fantasy_trade_refresh():
             "state": fantasy_state_for_client(fantasy_load_state()),
         })
     if not out.get("ok"):
+        # Always 200 + JSON so the client never has to parse HTML error pages
         return jsonify({
             "ok": False,
             "error": out.get("error", "Refresh failed"),
             "state": fantasy_state_for_client(fantasy_load_state()),
-        }), 400
+        })
     return jsonify({"ok": True, "state": fantasy_state_for_client(fantasy_load_state())})
 
 

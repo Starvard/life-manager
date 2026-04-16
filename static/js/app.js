@@ -3,8 +3,27 @@
 async function api(method, url, body) {
     const opts = { method, headers: { "Content-Type": "application/json" } };
     if (body) opts.body = JSON.stringify(body);
-    const res = await fetch(url, opts);
-    return res.json();
+    let res;
+    try {
+        res = await fetch(url, opts);
+    } catch (e) {
+        const msg = e && e.message ? e.message : "Request failed";
+        return { ok: false, error: "Network error: " + msg };
+    }
+    const text = await res.text();
+    let data;
+    try {
+        data = text ? JSON.parse(text) : {};
+    } catch (e) {
+        const snippet = (text || "").replace(/\s+/g, " ").trim().slice(0, 160);
+        return {
+            ok: false,
+            error: snippet
+                ? `Server error (${res.status}): ${snippet}`
+                : `Server returned ${res.status} with non-JSON body`,
+        };
+    }
+    return data;
 }
 
 /** Matches services/score_helpers: pool of scheduled completions across the week. */
@@ -808,17 +827,13 @@ document.addEventListener("alpine:init", () => {
         async sync() {
             this.syncing = true;
             this.syncMsg = "";
-            try {
-                const res = await api("POST", "/api/fantasy/sync", { refresh_trades: true });
-                if (res.ok && res.state) {
-                    this.applyState(res.state);
-                    this.syncMsg = "Synced. Trade ideas updated.";
-                    setTimeout(() => { this.syncMsg = ""; }, 5000);
-                } else {
-                    this.syncMsg = res.error || "Sync failed.";
-                }
-            } catch (e) {
-                this.syncMsg = "Network error.";
+            const res = await api("POST", "/api/fantasy/sync", { refresh_trades: true });
+            if (res.state) this.applyState(res.state);
+            if (res.ok) {
+                this.syncMsg = "Synced. Trade ideas updated.";
+                setTimeout(() => { this.syncMsg = ""; }, 5000);
+            } else {
+                this.syncMsg = res.error || "Sync failed.";
             }
             this.syncing = false;
         },
@@ -826,20 +841,25 @@ document.addEventListener("alpine:init", () => {
         async refreshTrades() {
             this.tradeRefreshing = true;
             this.tradeRefreshMsg = "";
-            try {
-                const res = await api("POST", "/api/fantasy/trade-refresh", {});
-                if (res.ok && res.state) {
-                    this.applyState(res.state);
-                    this.tradeRefreshMsg = res.skipped ? "Refresh already running." : "Updated.";
-                    setTimeout(() => { this.tradeRefreshMsg = ""; }, 4000);
-                } else {
-                    if (res.state) this.applyState(res.state);
-                    this.tradeRefreshMsg = res.error || "Refresh failed.";
-                }
-            } catch (e) {
-                this.tradeRefreshMsg = "Network error.";
+            const res = await api("POST", "/api/fantasy/trade-refresh", {});
+            if (res.state) this.applyState(res.state);
+            if (res.ok) {
+                this.tradeRefreshMsg = res.skipped ? "Refresh already running." : "Updated.";
+                setTimeout(() => { this.tradeRefreshMsg = ""; }, 4000);
+            } else {
+                this.tradeRefreshMsg = this._fantasyErr(res.error) || "Refresh failed.";
             }
             this.tradeRefreshing = false;
+        },
+
+        _fantasyErr(code) {
+            if (!code) return "";
+            const m = {
+                "no snapshot": "Sync from Sleeper first, then refresh trades.",
+                "stale snapshot": "Tap “Sync lineup & trades” once (league data was saved in an older format).",
+                "bad snapshot": "Re-sync from Sleeper and try again.",
+            };
+            return m[code] || code;
         },
 
         playerLine(p) {
