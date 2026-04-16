@@ -747,14 +747,14 @@ document.addEventListener("alpine:init", () => {
 
     /* ── Alpine.js: Fantasy (Sleeper) ─────────────────────────── */
 
-    Alpine.data("fantasyPage", (initialState) => ({
-        settings: Object.assign({}, initialState?.settings || {}),
-        plan: Object.assign({ trade_ideas: [] }, initialState?.plan || {}),
-        lastSync: initialState?.last_sync || null,
-        snapshot: initialState?.cached_snapshot || null,
-        tradeSuggestions: initialState?.trade_suggestions || null,
-        lastTradeRefresh: initialState?.last_trade_refresh || null,
-        lastTradeError: initialState?.last_trade_error || null,
+    Alpine.data("fantasyPage", () => ({
+        settings: {},
+        plan: { trade_ideas: [] },
+        lastSync: null,
+        snapshot: null,
+        tradeSuggestions: null,
+        lastTradeRefresh: null,
+        lastTradeError: null,
         syncing: false,
         syncMsg: "",
         tradeRefreshing: false,
@@ -762,7 +762,25 @@ document.addEventListener("alpine:init", () => {
         newIdea: "",
 
         init() {
-            if (!this.plan.trade_ideas) this.plan.trade_ideas = [];
+            const el = document.getElementById("fantasy-bootstrap");
+            if (el) {
+                try {
+                    this.applyState(JSON.parse(el.textContent || "{}"));
+                } catch (e) {
+                    /* ignore */
+                }
+            }
+            this.loadState();
+        },
+
+        async loadState() {
+            try {
+                const res = await fetch("/api/fantasy/state");
+                const data = await res.json();
+                this.applyState(data);
+            } catch (e) {
+                /* offline */
+            }
         },
 
         async saveSettings() {
