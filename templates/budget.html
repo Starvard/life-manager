@@ -2,7 +2,7 @@
 {% block title %}Budget - Life Manager{% endblock %}
 
 {% block content %}
-<div x-data='budgetPage({{ transactions|tojson }}, {{ report|tojson }}, {{ plan|tojson }}, {{ categories|tojson }}, "{{ current_month }}", {{ months|tojson }}, {{ overview|tojson }}, {{ budgets|tojson }}, {{ budget_categories|tojson }}, {{ plaid_items|tojson }}, {{ plaid_configured|tojson }})'>
+<div x-data='budgetPage({{ transactions|tojson }}, {{ report|tojson }}, {{ plan|tojson }}, {{ categories|tojson }}, "{{ current_month }}", {{ months|tojson }}, {{ overview|tojson }}, {{ budgets|tojson }}, {{ budget_categories|tojson }}, {{ plaid_items|tojson }}, {{ plaid_configured|tojson }}, {{ plaid_status|tojson }})'>
 
 <div class="page-header">
     <h1>Budget</h1>
@@ -153,20 +153,96 @@
 {# ── Connect (Plaid / CSV upload) ─────────────────────────────── #}
 <div x-show="view === 'connect'" x-cloak>
     <div class="card">
-        <div class="card-title">Banks</div>
-        <p x-show="!plaidConfigured" class="budget-plaid-hint">
-            Plaid isn't configured on this server yet. Add
-            <code>PLAID_CLIENT_ID</code> and <code>PLAID_SECRET</code> (optionally
-            <code>PLAID_ENV</code>) in Cursor&nbsp;→&nbsp;Cloud Agents&nbsp;→&nbsp;Secrets, then
-            reload.
+        <div class="card-title">Plaid credentials</div>
+
+        {# Diagnostic strip #}
+        <div class="budget-plaid-status"
+             :class="plaidStatus.configured ? 'ok' : 'warn'">
+            <strong x-show="plaidStatus.configured">Plaid is ready.</strong>
+            <strong x-show="!plaidStatus.configured">Plaid isn't configured yet.</strong>
+            <span class="text-muted">
+                Env: <span x-text="plaidStatus.env || 'sandbox'"></span>.
+                Client&nbsp;ID:
+                <span x-show="plaidStatus.has_client_id">set
+                    (<code x-text="plaidStatus.client_id_preview"></code>,
+                    from <span x-text="plaidStatus.sources.client_id"></span>)</span>
+                <span x-show="!plaidStatus.has_client_id">missing</span>.
+                Secret:
+                <span x-show="plaidStatus.has_secret">set
+                    (from <span x-text="plaidStatus.sources.secret"></span>)</span>
+                <span x-show="!plaidStatus.has_secret">missing</span>.
+            </span>
+        </div>
+
+        <p x-show="!plaidStatus.configured" class="budget-plaid-hint">
+            <strong>Heads up:</strong> Cursor Cloud Agent secrets are only injected when a
+            <em>new</em> agent VM starts. If you just added <code>PLAID_CLIENT_ID</code>
+            / <code>PLAID_SECRET</code> in Cursor&nbsp;→&nbsp;Cloud Agents&nbsp;→&nbsp;Secrets, this running
+            agent still won't see them — either start a new cloud agent, or paste the
+            values below. They'll save to <code>data/budget/plaid_credentials.json</code>
+            (gitignored) and take effect immediately.
         </p>
-        <div x-show="plaidConfigured">
+
+        <div class="budget-plaid-form">
+            <label>
+                Client ID
+                <input type="text" x-model="plaidForm.client_id"
+                       autocomplete="off" spellcheck="false"
+                       placeholder="e.g. 5f..."
+                       class="budget-rule-input">
+            </label>
+            <label>
+                Secret
+                <input type="password" x-model="plaidForm.secret"
+                       autocomplete="off" spellcheck="false"
+                       placeholder="Sandbox / Dev / Prod secret"
+                       class="budget-rule-input">
+            </label>
+            <label>
+                Environment
+                <select x-model="plaidForm.env" class="budget-rule-input">
+                    <option value="sandbox">Sandbox</option>
+                    <option value="development">Development</option>
+                    <option value="production">Production</option>
+                </select>
+            </label>
+            <label>
+                Redirect URI (optional)
+                <input type="text" x-model="plaidForm.redirect_uri"
+                       autocomplete="off" spellcheck="false"
+                       placeholder="https://…"
+                       class="budget-rule-input">
+            </label>
+            <div class="budget-plaid-form-actions">
+                <button class="btn btn-primary" @click="savePlaidCredentials()"
+                        :disabled="savingCreds">
+                    <span x-show="!savingCreds">Save credentials</span>
+                    <span x-show="savingCreds">Saving…</span>
+                </button>
+                <button class="btn btn-sm btn-outline" @click="clearPlaidCredentials()"
+                        x-show="plaidStatus.sources.client_id === 'app' || plaidStatus.sources.secret === 'app'"
+                        title="Remove values saved by this app (env / .env / dashboard secrets remain)">
+                    Clear saved values
+                </button>
+            </div>
+            <div class="budget-csv-msg" x-show="plaidCredMsg" x-text="plaidCredMsg"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">Banks</div>
+        <div x-show="plaidStatus.configured">
             <button class="btn btn-primary" @click="startPlaidLink()" :disabled="linking">
                 <span x-show="!linking">+ Connect a bank with Plaid</span>
                 <span x-show="linking">Opening Plaid…</span>
             </button>
-            <p class="budget-plaid-env text-muted">Environment: <span x-text="plaidConfigured ? 'ready' : 'not set'"></span></p>
+            <p class="budget-plaid-env text-muted">
+                Using <strong x-text="plaidStatus.env"></strong> environment.
+            </p>
         </div>
+        <p x-show="!plaidStatus.configured" class="text-muted">
+            Save valid Plaid credentials above to enable the Link button.
+        </p>
         <div class="budget-plaid-items" x-show="plaidItems.length > 0">
             <template x-for="item in plaidItems" :key="item.item_id">
                 <div class="budget-plaid-item">

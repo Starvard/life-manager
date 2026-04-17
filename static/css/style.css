@@ -628,3 +628,17 @@ select { color-scheme: dark; }
 
 .text-muted { color: var(--text-muted); }
 .flash-danger { background: var(--danger-dim); border-left: 3px solid var(--danger); color: var(--text); padding: 0.6rem 0.9rem; border-radius: var(--radius-sm); margin-top: 0.75rem; }
+
+/* ── Plaid credentials form ────────────────────────────────── */
+.budget-plaid-status { background: var(--surface-active); border: 1px solid var(--border); border-left: 4px solid var(--accent); padding: 0.55rem 0.75rem; border-radius: var(--radius-sm); font-size: 0.82rem; margin-bottom: 0.75rem; line-height: 1.55; }
+.budget-plaid-status.ok { border-left-color: var(--success); }
+.budget-plaid-status.warn { border-left-color: var(--warning); }
+.budget-plaid-status code { background: var(--surface); padding: 0 .25rem; border-radius: 3px; font-size: .78rem; }
+.budget-plaid-form { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 0.75rem; margin-top: 0.5rem; }
+.budget-plaid-form label { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600; }
+.budget-plaid-form label .budget-rule-input { min-width: 0; width: 100%; font-size: 0.88rem; text-transform: none; letter-spacing: 0; font-weight: 400; color: var(--text-bright); }
+.budget-plaid-form-actions { grid-column: 1 / -1; display: flex; gap: 0.5rem; margin-top: 0.35rem; align-items: center; }
+
+@media (max-width: 560px) {
+    .budget-plaid-form { grid-template-columns: 1fr; }
+}

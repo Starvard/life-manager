@@ -26,6 +26,7 @@ BUDGET_IMPORT_META_FILE = os.path.join(DATA_DIR, "budget", "import_meta.json")
 BUDGET_OVERVIEW_DIR = os.path.join(DATA_DIR, "budget", "overviews")
 BUDGET_PLAID_ITEMS_FILE = os.path.join(DATA_DIR, "budget", "plaid_items.json")
 BUDGET_BUDGETS_FILE = os.path.join(DATA_DIR, "budget", "budgets.json")
+BUDGET_PLAID_CREDS_FILE = os.path.join(DATA_DIR, "budget", "plaid_credentials.json")
 
 # Plaid config (optional). Populate from Cursor Cloud secrets to enable bank sync.
 PLAID_CLIENT_ID = os.environ.get("PLAID_CLIENT_ID", "").strip()

@@ -57,7 +57,7 @@ from services.budget_categorizer import (
     learn_rule_from_override,
 )
 from services.budget_csv_import import parse_csv_text
-from services import plaid_client
+from services import plaid_client, plaid_credentials
 from services.fantasy_store import (
     load_state as fantasy_load_state,
     state_for_client as fantasy_state_for_client,
@@ -579,6 +579,17 @@ def budget_page():
     overview = load_overview(current_month) or {}
     budgets = load_budgets().get("limits") or {}
     plaid_items = plaid_client.list_items_public()
+    _creds = plaid_credentials.get_credentials()
+    plaid_status = {
+        "configured": plaid_client.is_configured(),
+        "env": _creds["env"],
+        "has_client_id": bool(_creds["client_id"]),
+        "has_secret": bool(_creds["secret"]),
+        "has_redirect_uri": bool(_creds["redirect_uri"]),
+        "client_id_preview": (_creds["client_id"][:6] + "…") if _creds["client_id"] else "",
+        "redirect_uri": _creds["redirect_uri"],
+        "sources": plaid_credentials.credential_source(),
+    }
     return render_template(
         "budget.html",
         months=months,
@@ -592,6 +603,7 @@ def budget_page():
         budget_categories=BUDGET_CATEGORIES,
         plaid_items=plaid_items,
         plaid_configured=plaid_client.is_configured(),
+        plaid_status=plaid_status,
     )
 
 
@@ -798,10 +810,64 @@ def api_budget_import_csv():
 
 @app.route("/api/budget/plaid/status")
 def api_budget_plaid_status():
+    creds = plaid_credentials.get_credentials()
+    sources = plaid_credentials.credential_source()
     return jsonify({
         "configured": plaid_client.is_configured(),
-        "env": config.PLAID_ENV,
+        "env": creds["env"],
+        "has_client_id": bool(creds["client_id"]),
+        "has_secret": bool(creds["secret"]),
+        "has_redirect_uri": bool(creds["redirect_uri"]),
+        "sources": sources,
         "items": plaid_client.list_items_public(),
+    })
+
+
+@app.route("/api/budget/plaid/credentials", methods=["GET"])
+def api_budget_plaid_get_credentials():
+    """Return non-secret info about the current Plaid credential state."""
+    creds = plaid_credentials.get_credentials()
+    sources = plaid_credentials.credential_source()
+    return jsonify({
+        "configured": bool(creds["client_id"] and creds["secret"]),
+        "env": creds["env"],
+        "has_client_id": bool(creds["client_id"]),
+        "has_secret": bool(creds["secret"]),
+        "has_redirect_uri": bool(creds["redirect_uri"]),
+        "client_id_preview": (creds["client_id"][:6] + "…") if creds["client_id"] else "",
+        "redirect_uri": creds["redirect_uri"],
+        "sources": sources,
+    })
+
+
+@app.route("/api/budget/plaid/credentials", methods=["PUT"])
+def api_budget_plaid_save_credentials():
+    """Save Plaid credentials into data/budget/plaid_credentials.json."""
+    body = request.get_json(force=True) or {}
+    updated = plaid_credentials.save_credentials(
+        client_id=body.get("client_id") if "client_id" in body else None,
+        secret=body.get("secret") if "secret" in body else None,
+        env=body.get("env") if "env" in body else None,
+        redirect_uri=body.get("redirect_uri") if "redirect_uri" in body else None,
+    )
+    return jsonify({
+        "ok": True,
+        "configured": bool(updated["client_id"] and updated["secret"]),
+        "env": updated["env"],
+        "has_client_id": bool(updated["client_id"]),
+        "has_secret": bool(updated["secret"]),
+        "has_redirect_uri": bool(updated["redirect_uri"]),
+        "sources": plaid_credentials.credential_source(),
+    })
+
+
+@app.route("/api/budget/plaid/credentials", methods=["DELETE"])
+def api_budget_plaid_clear_credentials():
+    plaid_credentials.clear_credentials()
+    return jsonify({
+        "ok": True,
+        "configured": plaid_client.is_configured(),
+        "sources": plaid_credentials.credential_source(),
     })
 
 
