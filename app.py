@@ -706,6 +706,31 @@ def api_budget_categories():
     return jsonify({"categories": get_all_categories(txns)})
 
 
+# \u2500\u2500 Research \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+@app.route("/research")
+def research_page():
+    topics = [
+        {
+            "slug": "am-facility-cost",
+            "endpoint": "research_am_facility_cost",
+            "title": "Cost of Running an Additive Manufacturing Facility",
+            "summary": (
+                "Full CapEx + OpEx breakdown for a small-to-mid sized AM shop: "
+                "printers and peripheral equipment, facility build-out, software, "
+                "personnel, internet / IT, consumables, maintenance, and "
+                "per-machine operating cost."
+            ),
+        },
+    ]
+    return render_template("research.html", topics=topics)
+
+
+@app.route("/research/am-facility-cost")
+def research_am_facility_cost():
+    return render_template("research/am_facility_cost.html")
+
+
 # \u2500\u2500 Fantasy (Sleeper) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route("/fantasy")
