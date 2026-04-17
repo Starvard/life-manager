@@ -679,6 +679,9 @@ document.addEventListener("alpine:init", () => {
             if (!cat || cat === this.displayCat(tx)) return;
             tx.category_override = cat;
             await api("PATCH", `/api/budget/transactions/${tx.id}/category`, { category: cat });
+            // Pick up the newly learned keyword rule and refresh the per-category status.
+            await this.loadRules();
+            await this.refreshReport();
         },
 
         async loadDuplicates() {

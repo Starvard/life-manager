@@ -76,7 +76,7 @@
         Connect
         <span class="budget-badge" x-show="plaidItems.length > 0" x-text="plaidItems.length"></span>
     </button>
-    <button class="budget-tab" :class="{ active: view === 'rules' }" @click="view = 'rules'">Rules</button>
+    <button class="budget-tab" :class="{ active: view === 'rules' }" @click="view = 'rules'; loadRules()">Rules</button>
     <button class="budget-tab" :class="{ active: view === 'duplicates' }" @click="view = 'duplicates'">
         Duplicates
         <span class="budget-badge" x-show="duplicateCount > 0" x-text="duplicateCount"></span>
