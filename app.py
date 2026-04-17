@@ -46,10 +46,18 @@ from services.budget_store import (
     load_categories,
     load_overview,
     refresh_overviews_from_exports,
+    load_budgets, save_budgets, set_category_budget,
 )
 from services.budget_import import import_from_directory
 from services.budget_dedupe import merge_new_transactions
-from services.budget_categorizer import get_all_categories, get_display_category
+from services.budget_categorizer import (
+    get_all_categories, get_display_category,
+    BUDGET_CATEGORIES, infer_category, recategorize_all,
+    list_keyword_rules, upsert_keyword_rule, delete_keyword_rule,
+    learn_rule_from_override,
+)
+from services.budget_csv_import import parse_csv_text
+from services import plaid_client
 from services.fantasy_store import (
     load_state as fantasy_load_state,
     state_for_client as fantasy_state_for_client,
@@ -569,6 +577,8 @@ def budget_page():
     plan = load_plan(current_month)
     categories = get_all_categories(load_transactions())
     overview = load_overview(current_month) or {}
+    budgets = load_budgets().get("limits") or {}
+    plaid_items = plaid_client.list_items_public()
     return render_template(
         "budget.html",
         months=months,
@@ -578,6 +588,10 @@ def budget_page():
         plan=plan,
         categories=categories,
         overview=overview,
+        budgets=budgets,
+        budget_categories=BUDGET_CATEGORIES,
+        plaid_items=plaid_items,
+        plaid_configured=plaid_client.is_configured(),
     )
 
 
@@ -641,14 +655,17 @@ def api_budget_transactions():
 
 @app.route("/api/budget/transactions/<tx_id>/category", methods=["PATCH"])
 def api_budget_update_category(tx_id):
-    body = request.get_json(force=True)
-    new_cat = body.get("category", "").strip()
+    body = request.get_json(force=True) or {}
+    new_cat = (body.get("category") or "").strip()
+    learn = bool(body.get("learn", True))
     if not new_cat:
         return jsonify({"ok": False, "error": "Missing category"}), 400
     txns = load_transactions()
     for tx in txns:
         if tx.get("id") == tx_id:
             tx["category_override"] = new_cat
+            if learn:
+                learn_rule_from_override(tx, new_cat)
             save_transactions(txns)
             return jsonify({"ok": True, "transaction": tx})
     return jsonify({"ok": False, "error": "Transaction not found"}), 404
@@ -703,7 +720,185 @@ def api_budget_months():
 @app.route("/api/budget/categories")
 def api_budget_categories():
     txns = load_transactions()
-    return jsonify({"categories": get_all_categories(txns)})
+    return jsonify({
+        "categories": get_all_categories(txns),
+        "defaults": BUDGET_CATEGORIES,
+    })
+
+
+# ── CSV upload (bank-agnostic fallback) ─────────────────────────
+
+@app.route("/api/budget/import-csv", methods=["POST"])
+def api_budget_import_csv():
+    """Upload one or more CSV files (bank export). Multipart or JSON {text:...}."""
+    records: list[dict] = []
+    file_names: list[str] = []
+
+    if request.files:
+        for f in request.files.getlist("files") or []:
+            if not f or not f.filename:
+                continue
+            try:
+                text = f.read().decode("utf-8", errors="replace")
+            except Exception:
+                continue
+            records.extend(parse_csv_text(text, source_name=f.filename))
+            file_names.append(f.filename)
+        # Also accept single "file" field for convenience
+        single = request.files.get("file")
+        if single and single.filename and single.filename not in file_names:
+            try:
+                text = single.read().decode("utf-8", errors="replace")
+            except Exception:
+                text = ""
+            if text:
+                records.extend(parse_csv_text(text, source_name=single.filename))
+                file_names.append(single.filename)
+    else:
+        body = request.get_json(silent=True) or {}
+        text = body.get("text") or ""
+        src = body.get("source") or "pasted.csv"
+        if text:
+            records.extend(parse_csv_text(text, source_name=src))
+            file_names.append(src)
+
+    if not records:
+        return jsonify({
+            "ok": False,
+            "error": (
+                "Could not parse any transactions. Make sure the file has a "
+                "header row with columns like Date, Description, and Amount "
+                "(or Debit/Credit)."
+            ),
+        }), 400
+
+    # Apply auto-categorization before persisting
+    for r in records:
+        r["category_display"] = infer_category(r)
+
+    existing = load_transactions()
+    merged = merge_new_transactions(existing, records)
+    save_transactions(merged)
+
+    new_count = len(merged) - len(existing)
+    import hashlib as _hl
+    fp = _hl.sha256(json.dumps([r["id"] for r in records]).encode()).hexdigest()[:16]
+    record_import(", ".join(file_names) or "csv-upload", len(records), fp)
+
+    return jsonify({
+        "ok": True,
+        "files": file_names,
+        "parsed": len(records),
+        "new": new_count,
+        "total": len(merged),
+    })
+
+
+# ── Plaid (Link / sync / items) ─────────────────────────────────
+
+@app.route("/api/budget/plaid/status")
+def api_budget_plaid_status():
+    return jsonify({
+        "configured": plaid_client.is_configured(),
+        "env": config.PLAID_ENV,
+        "items": plaid_client.list_items_public(),
+    })
+
+
+@app.route("/api/budget/plaid/link-token", methods=["POST"])
+def api_budget_plaid_link_token():
+    result = plaid_client.create_link_token()
+    if result.get("error"):
+        return jsonify({"ok": False, "error": result["error"]}), 400
+    return jsonify({"ok": True, **result})
+
+
+@app.route("/api/budget/plaid/exchange", methods=["POST"])
+def api_budget_plaid_exchange():
+    body = request.get_json(force=True) or {}
+    public_token = body.get("public_token") or ""
+    institution_name = body.get("institution_name") or ""
+    if not public_token:
+        return jsonify({"ok": False, "error": "Missing public_token"}), 400
+    result = plaid_client.exchange_public_token(public_token, institution_name)
+    if result.get("error"):
+        return jsonify({"ok": False, "error": result["error"]}), 400
+    return jsonify(result)
+
+
+@app.route("/api/budget/plaid/sync", methods=["POST"])
+def api_budget_plaid_sync():
+    result = plaid_client.sync_all_items()
+    if not result.get("ok"):
+        return jsonify(result), 400
+    # Re-categorize to apply up-to-date rules
+    txns = load_transactions()
+    recategorize_all(txns)
+    save_transactions(txns)
+    return jsonify(result)
+
+
+@app.route("/api/budget/plaid/items/<item_id>", methods=["DELETE"])
+def api_budget_plaid_remove_item(item_id):
+    ok = plaid_client.remove_item(item_id)
+    return jsonify({"ok": ok})
+
+
+# ── Budgets (simple over/under) ─────────────────────────────────
+
+@app.route("/api/budget/budgets", methods=["GET"])
+def api_budget_get_budgets():
+    return jsonify(load_budgets())
+
+
+@app.route("/api/budget/budgets", methods=["PUT"])
+def api_budget_save_budgets():
+    body = request.get_json(force=True) or {}
+    limits = body.get("limits") if isinstance(body, dict) else None
+    if not isinstance(limits, dict):
+        return jsonify({"ok": False, "error": "Expected {limits: {category: amount}}"}), 400
+    save_budgets(limits)
+    return jsonify({"ok": True, **load_budgets()})
+
+
+@app.route("/api/budget/budgets/<path:category>", methods=["PUT"])
+def api_budget_set_one_budget(category):
+    body = request.get_json(force=True) or {}
+    amount = body.get("amount")
+    res = set_category_budget(category, amount)
+    return jsonify({"ok": True, **res})
+
+
+@app.route("/api/budget/recategorize", methods=["POST"])
+def api_budget_recategorize():
+    txns = load_transactions()
+    changed = recategorize_all(txns)
+    save_transactions(txns)
+    return jsonify({"ok": True, "changed": changed, "total": len(txns)})
+
+
+# ── Keyword rules ───────────────────────────────────────────────
+
+@app.route("/api/budget/rules", methods=["GET"])
+def api_budget_list_rules():
+    return jsonify({"rules": list_keyword_rules()})
+
+
+@app.route("/api/budget/rules", methods=["POST"])
+def api_budget_upsert_rule():
+    body = request.get_json(force=True) or {}
+    keyword = (body.get("keyword") or "").strip()
+    category = (body.get("category") or "").strip()
+    if not keyword or not category:
+        return jsonify({"ok": False, "error": "Missing keyword or category"}), 400
+    upsert_keyword_rule(keyword, category)
+    return jsonify({"ok": True, "rules": list_keyword_rules()})
+
+
+@app.route("/api/budget/rules/<path:keyword>", methods=["DELETE"])
+def api_budget_delete_rule(keyword):
+    ok = delete_keyword_rule(keyword)
+    return jsonify({"ok": ok, "rules": list_keyword_rules()})
 
 
 # \u2500\u2500 Research \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
