@@ -470,7 +470,7 @@ document.addEventListener("alpine:init", () => {
 
     /* ── Alpine.js: Budget Page ────────────────────────────────── */
 
-    Alpine.data("budgetPage", (initialTxns, initialReport, initialPlan, initialCategories, currentMonth, months, initialOverview, initialBudgets, budgetCategoryList, initialPlaidItems, plaidConfigured) => ({
+    Alpine.data("budgetPage", (initialTxns, initialReport, initialPlan, initialCategories, currentMonth, months, initialOverview, initialBudgets, budgetCategoryList, initialPlaidItems, plaidConfigured, initialPlaidStatus) => ({
         transactions: initialTxns || [],
         report: initialReport || { total_income: 0, total_expenses: 0, net: 0, transaction_count: 0, categories: [], category_status: [], overall_status: {} },
         plan: initialPlan || { month: currentMonth, sections: {}, notes: "" },
@@ -493,6 +493,19 @@ document.addEventListener("alpine:init", () => {
         budgetCategoryList: budgetCategoryList || [],
         plaidItems: initialPlaidItems || [],
         plaidConfigured: !!plaidConfigured,
+        plaidStatus: initialPlaidStatus || {
+            configured: !!plaidConfigured,
+            env: "sandbox",
+            has_client_id: false,
+            has_secret: false,
+            has_redirect_uri: false,
+            client_id_preview: "",
+            redirect_uri: "",
+            sources: { client_id: "missing", secret: "missing", env: "missing", redirect_uri: "missing" },
+        },
+        plaidForm: { client_id: "", secret: "", env: "sandbox", redirect_uri: "" },
+        savingCreds: false,
+        plaidCredMsg: "",
         linking: false,
         syncing: false,
         recategorizing: false,
@@ -520,6 +533,9 @@ document.addEventListener("alpine:init", () => {
             this.filterTxns();
             this.loadDuplicates();
             this.loadRules();
+            // Seed the credentials form with non-secret metadata so env is preselected.
+            this.plaidForm.env = (this.plaidStatus && this.plaidStatus.env) || "sandbox";
+            this.plaidForm.redirect_uri = (this.plaidStatus && this.plaidStatus.redirect_uri) || "";
             if (this.allMonths.indexOf(this.currentMonth) === -1) {
                 this.allMonths = this.allMonths.concat([this.currentMonth]).sort();
             }
@@ -790,6 +806,81 @@ document.addEventListener("alpine:init", () => {
         async refreshReport() {
             const res = await fetch(`/api/budget/report?month=${this.currentMonth}`);
             if (res.ok) this.report = await res.json();
+        },
+
+        /* Plaid credentials */
+
+        async savePlaidCredentials() {
+            this.savingCreds = true;
+            this.plaidCredMsg = "";
+            try {
+                const body = {
+                    client_id: (this.plaidForm.client_id || "").trim(),
+                    secret: (this.plaidForm.secret || "").trim(),
+                    env: (this.plaidForm.env || "sandbox").trim(),
+                    redirect_uri: (this.plaidForm.redirect_uri || "").trim(),
+                };
+                const res = await api("PUT", "/api/budget/plaid/credentials", body);
+                if (res && res.ok) {
+                    this.plaidStatus = {
+                        configured: res.configured,
+                        env: res.env,
+                        has_client_id: res.has_client_id,
+                        has_secret: res.has_secret,
+                        has_redirect_uri: res.has_redirect_uri,
+                        client_id_preview: body.client_id ? body.client_id.slice(0, 6) + "…" : this.plaidStatus.client_id_preview,
+                        redirect_uri: body.redirect_uri || this.plaidStatus.redirect_uri,
+                        sources: res.sources,
+                    };
+                    this.plaidConfigured = res.configured;
+                    // Never keep the secret in memory after save
+                    this.plaidForm.secret = "";
+                    this.plaidCredMsg = res.configured
+                        ? "Saved. Plaid is now ready."
+                        : "Saved, but Plaid still isn't fully configured — check Client ID and Secret.";
+                    setTimeout(() => { this.plaidCredMsg = ""; }, 6000);
+                } else {
+                    this.plaidCredMsg = (res && res.error) || "Could not save credentials.";
+                }
+            } catch (e) {
+                this.plaidCredMsg = "Save error.";
+            }
+            this.savingCreds = false;
+        },
+
+        async clearPlaidCredentials() {
+            if (!confirm("Remove Plaid credentials saved by this app? Env / .env / Cursor secrets (if any) will still apply.")) return;
+            const res = await fetch("/api/budget/plaid/credentials", { method: "DELETE" });
+            const data = await res.json();
+            if (data) {
+                this.plaidConfigured = !!data.configured;
+                this.plaidStatus.configured = !!data.configured;
+                this.plaidStatus.sources = data.sources || this.plaidStatus.sources;
+                // Re-fetch full status so UI reflects env/has_* correctly
+                await this.refreshPlaidStatus();
+                this.plaidCredMsg = "Cleared app-saved credentials.";
+                setTimeout(() => { this.plaidCredMsg = ""; }, 4000);
+            }
+        },
+
+        async refreshPlaidStatus() {
+            try {
+                const res = await fetch("/api/budget/plaid/credentials");
+                if (res.ok) {
+                    const data = await res.json();
+                    this.plaidStatus = {
+                        configured: data.configured,
+                        env: data.env,
+                        has_client_id: data.has_client_id,
+                        has_secret: data.has_secret,
+                        has_redirect_uri: data.has_redirect_uri,
+                        client_id_preview: data.client_id_preview || "",
+                        redirect_uri: data.redirect_uri || "",
+                        sources: data.sources,
+                    };
+                    this.plaidConfigured = !!data.configured;
+                }
+            } catch (e) { /* ignore */ }
         },
 
         /* Plaid */
