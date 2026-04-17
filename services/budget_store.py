@@ -248,12 +248,57 @@ def record_import(source_file: str, tx_count: int, fingerprint: str):
     save_import_meta(meta)
 
 
+# ── Category budgets (simple over/under) ─────────────────────────
+
+def load_budgets() -> dict:
+    """Return {category: monthly_limit} map. Stored in budgets.json."""
+    _ensure_dirs()
+    data = _load_json(config.BUDGET_BUDGETS_FILE)
+    if isinstance(data, dict) and isinstance(data.get("limits"), dict):
+        out = {}
+        for k, v in data["limits"].items():
+            try:
+                out[str(k)] = float(v)
+            except (TypeError, ValueError):
+                continue
+        return {"limits": out}
+    if isinstance(data, dict):
+        return {"limits": {}}
+    return {"limits": {}}
+
+
+def save_budgets(limits: dict) -> None:
+    _ensure_dirs()
+    cleaned = {}
+    for k, v in (limits or {}).items():
+        try:
+            amt = float(v)
+        except (TypeError, ValueError):
+            continue
+        cleaned[str(k).strip()] = round(amt, 2)
+    _save_json(config.BUDGET_BUDGETS_FILE, {"limits": cleaned})
+
+
+def set_category_budget(category: str, amount: float | None) -> dict:
+    budgets = load_budgets()
+    limits = dict(budgets.get("limits") or {})
+    if amount is None or amount == "" or float(amount) <= 0:
+        limits.pop(category, None)
+    else:
+        limits[category] = round(float(amount), 2)
+    save_budgets(limits)
+    return {"limits": limits}
+
+
 # ── Monthly Report (computed) ─────────────────────────────────────
 
 def compute_monthly_report(month: str) -> dict:
     """Compute income/expense/net totals and category breakdown for a month."""
+    from services.budget_categorizer import get_display_category
+
     txns = get_transactions_by_month(month)
     plan = load_plan(month)
+    budgets = load_budgets().get("limits") or {}
 
     total_income = 0.0
     total_expenses = 0.0
@@ -263,7 +308,7 @@ def compute_monthly_report(month: str) -> dict:
         if tx.get("is_duplicate"):
             continue
         amt = float(tx.get("amount", 0))
-        cat = tx.get("category_override") or tx.get("category_display") or tx.get("category", "Other")
+        cat = get_display_category(tx) or "Other"
 
         by_category[cat] = by_category.get(cat, 0) + amt
 
@@ -277,6 +322,67 @@ def compute_monthly_report(month: str) -> dict:
     cat_breakdown = []
     for cat, total in sorted(by_category.items(), key=lambda x: x[1]):
         cat_breakdown.append({"category": cat, "total": round(total, 2)})
+
+    # Simple budget status: per-category over/under, and overall.
+    category_status: list[dict] = []
+    for cat, limit in budgets.items():
+        # For expense-style categories the spent total is the absolute value of
+        # negative sums. For income categories the "spent" concept doesn't
+        # apply — we still report progress toward the goal.
+        raw = by_category.get(cat, 0.0)
+        if cat.lower() == "income" or raw >= 0:
+            spent = raw  # treat as income received
+            remaining = round(limit - spent, 2)
+            over = spent > limit and limit > 0
+            pct = (spent / limit * 100) if limit > 0 else 0
+        else:
+            spent = abs(raw)
+            remaining = round(limit - spent, 2)
+            over = spent > limit
+            pct = (spent / limit * 100) if limit > 0 else 0
+        category_status.append(
+            {
+                "category": cat,
+                "limit": round(limit, 2),
+                "spent": round(spent, 2),
+                "remaining": remaining,
+                "percent": round(pct, 1),
+                "over": bool(over),
+                "kind": "income" if (cat.lower() == "income" or raw >= 0) else "expense",
+            }
+        )
+    # Also surface categories that have activity but no budget set
+    for cat, raw in by_category.items():
+        if cat in budgets:
+            continue
+        if raw >= 0 and cat.lower() != "income":
+            continue
+        category_status.append(
+            {
+                "category": cat,
+                "limit": 0.0,
+                "spent": round(abs(raw) if raw < 0 else raw, 2),
+                "remaining": 0.0,
+                "percent": 0,
+                "over": False,
+                "kind": "income" if (raw >= 0 or cat.lower() == "income") else "expense",
+                "no_budget": True,
+            }
+        )
+    category_status.sort(key=lambda r: (r.get("no_budget", False), -r["spent"]))
+
+    total_budget_limit = sum(v for k, v in budgets.items() if k.lower() != "income")
+    total_spent = abs(total_expenses)
+    overall_status = {
+        "total_budget": round(total_budget_limit, 2),
+        "total_spent": round(total_spent, 2),
+        "total_remaining": round(total_budget_limit - total_spent, 2),
+        "over": bool(total_budget_limit > 0 and total_spent > total_budget_limit),
+        "percent": round((total_spent / total_budget_limit * 100), 1)
+        if total_budget_limit > 0
+        else 0,
+        "has_budget": total_budget_limit > 0,
+    }
 
     sections = plan.get("sections") or {}
 
@@ -320,4 +426,6 @@ def compute_monthly_report(month: str) -> dict:
         "categories": cat_breakdown,
         "has_plan": bool(plan.get("sections", {}).get("income", {}).get("items")),
         "snapshot": snapshot,
+        "category_status": category_status,
+        "overall_status": overall_status,
     }

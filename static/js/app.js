@@ -470,15 +470,15 @@ document.addEventListener("alpine:init", () => {
 
     /* ── Alpine.js: Budget Page ────────────────────────────────── */
 
-    Alpine.data("budgetPage", (initialTxns, initialReport, initialPlan, initialCategories, currentMonth, months, initialOverview) => ({
+    Alpine.data("budgetPage", (initialTxns, initialReport, initialPlan, initialCategories, currentMonth, months, initialOverview, initialBudgets, budgetCategoryList, initialPlaidItems, plaidConfigured) => ({
         transactions: initialTxns || [],
-        report: initialReport || { total_income: 0, total_expenses: 0, net: 0, transaction_count: 0, categories: [] },
+        report: initialReport || { total_income: 0, total_expenses: 0, net: 0, transaction_count: 0, categories: [], category_status: [], overall_status: {} },
         plan: initialPlan || { month: currentMonth, sections: {}, notes: "" },
         allCategories: initialCategories || [],
         overview: initialOverview || {},
         currentMonth: currentMonth,
         allMonths: months || [],
-        view: "overview",
+        view: "status",
         searchQuery: "",
         filterCategory: "",
         filteredTxns: [],
@@ -487,7 +487,19 @@ document.addEventListener("alpine:init", () => {
         editCatValue: "",
         importing: false,
         importMsg: "",
+        errorMsg: "",
         importReplaceAll: false,
+        budgetLimits: Object.assign({}, initialBudgets || {}),
+        budgetCategoryList: budgetCategoryList || [],
+        plaidItems: initialPlaidItems || [],
+        plaidConfigured: !!plaidConfigured,
+        linking: false,
+        syncing: false,
+        recategorizing: false,
+        csvMsg: "",
+        rules: [],
+        newRuleKeyword: "",
+        newRuleCategory: "",
 
         init() {
             if (!this.report.snapshot) {
@@ -507,6 +519,10 @@ document.addEventListener("alpine:init", () => {
             }
             this.filterTxns();
             this.loadDuplicates();
+            this.loadRules();
+            if (this.allMonths.indexOf(this.currentMonth) === -1) {
+                this.allMonths = this.allMonths.concat([this.currentMonth]).sort();
+            }
             if (!this.plan.sections || Object.keys(this.plan.sections).length === 0) {
                 this.plan.sections = {
                     income: { label: "Income", items: [] },
@@ -742,6 +758,176 @@ document.addEventListener("alpine:init", () => {
             if (!this.report.categories || this.report.categories.length === 0) return 0;
             const maxAbs = Math.max(...this.report.categories.map(c => Math.abs(c.total)), 1);
             return Math.round((Math.abs(total) / maxAbs) * 100);
+        },
+
+        /* Budget over/under helpers */
+
+        overallStatus() {
+            return this.report.overall_status || { has_budget: false, total_budget: 0, total_spent: 0, total_remaining: 0, percent: 0, over: false };
+        },
+
+        spentForCategory(cat) {
+            const row = (this.report.category_status || []).find(r => r.category === cat);
+            return row ? row.spent : 0;
+        },
+
+        async saveBudgets() {
+            // Strip empty/NaN entries before saving
+            const cleaned = {};
+            for (const [k, v] of Object.entries(this.budgetLimits)) {
+                if (v == null || v === "" || Number.isNaN(Number(v))) continue;
+                const num = Number(v);
+                if (num > 0) cleaned[k] = num;
+            }
+            this.budgetLimits = cleaned;
+            await api("PUT", "/api/budget/budgets", { limits: cleaned });
+            await this.refreshReport();
+        },
+
+        async refreshReport() {
+            const res = await fetch(`/api/budget/report?month=${this.currentMonth}`);
+            if (res.ok) this.report = await res.json();
+        },
+
+        /* Plaid */
+
+        async startPlaidLink() {
+            if (!this.plaidConfigured) return;
+            if (typeof window.Plaid === "undefined") {
+                this.errorMsg = "Plaid SDK hasn't loaded yet. Please reload the page.";
+                setTimeout(() => { this.errorMsg = ""; }, 4000);
+                return;
+            }
+            this.linking = true;
+            const res = await api("POST", "/api/budget/plaid/link-token", {});
+            if (!res.ok) {
+                this.linking = false;
+                this.errorMsg = res.error || "Couldn't create Plaid Link token.";
+                setTimeout(() => { this.errorMsg = ""; }, 6000);
+                return;
+            }
+            const self = this;
+            const handler = window.Plaid.create({
+                token: res.link_token,
+                onSuccess: async (publicToken, metadata) => {
+                    const inst = (metadata && metadata.institution && metadata.institution.name) || "";
+                    const ex = await api("POST", "/api/budget/plaid/exchange", {
+                        public_token: publicToken,
+                        institution_name: inst,
+                    });
+                    if (ex && ex.ok) {
+                        self.plaidItems.push({
+                            item_id: ex.item_id,
+                            institution_name: ex.institution_name,
+                            accounts: ex.accounts || [],
+                            last_sync: null,
+                        });
+                        self.importMsg = `Connected ${ex.institution_name}. Syncing…`;
+                        setTimeout(() => { self.importMsg = ""; }, 4000);
+                        await self.syncPlaid();
+                    } else {
+                        self.errorMsg = (ex && ex.error) || "Exchange failed.";
+                        setTimeout(() => { self.errorMsg = ""; }, 6000);
+                    }
+                },
+                onExit: () => { self.linking = false; },
+            });
+            handler.open();
+            // Note: Plaid's modal handles "linking" state itself; we reset on exit.
+        },
+
+        async syncPlaid() {
+            if (this.syncing) return;
+            this.syncing = true;
+            try {
+                const res = await api("POST", "/api/budget/plaid/sync", {});
+                if (res && res.ok) {
+                    const parts = [];
+                    if (res.added) parts.push(`${res.added} new`);
+                    if (res.modified) parts.push(`${res.modified} updated`);
+                    if (res.removed) parts.push(`${res.removed} removed`);
+                    this.importMsg = parts.length ? `Synced: ${parts.join(", ")}.` : "Already up to date.";
+                    setTimeout(() => { this.importMsg = ""; }, 5000);
+                    setTimeout(() => window.location.reload(), 900);
+                } else {
+                    this.errorMsg = (res && res.error) || "Sync failed.";
+                    setTimeout(() => { this.errorMsg = ""; }, 6000);
+                }
+            } catch (e) {
+                this.errorMsg = "Sync error.";
+                setTimeout(() => { this.errorMsg = ""; }, 4000);
+            }
+            this.syncing = false;
+        },
+
+        async removePlaidItem(item) {
+            if (!confirm(`Disconnect ${item.institution_name}? Imported transactions stay.`)) return;
+            await fetch(`/api/budget/plaid/items/${encodeURIComponent(item.item_id)}`, { method: "DELETE" });
+            this.plaidItems = this.plaidItems.filter(p => p.item_id !== item.item_id);
+        },
+
+        async recategorizeAll() {
+            this.recategorizing = true;
+            try {
+                const res = await api("POST", "/api/budget/recategorize", {});
+                if (res && res.ok) {
+                    this.importMsg = `Recategorized ${res.changed} transaction(s).`;
+                    setTimeout(() => { this.importMsg = ""; }, 4000);
+                    setTimeout(() => window.location.reload(), 800);
+                }
+            } catch (e) { /* ignore */ }
+            this.recategorizing = false;
+        },
+
+        /* CSV upload */
+
+        async uploadCsv(ev) {
+            const input = ev.target;
+            const files = (input && input.files) ? Array.from(input.files) : [];
+            if (files.length === 0) return;
+            this.csvMsg = "Uploading…";
+            const form = new FormData();
+            for (const f of files) form.append("files", f);
+            try {
+                const res = await fetch("/api/budget/import-csv", { method: "POST", body: form });
+                const data = await res.json();
+                if (data && data.ok) {
+                    this.csvMsg = `Imported ${data.new} new / ${data.parsed} parsed from ${files.length} file(s).`;
+                    setTimeout(() => window.location.reload(), 900);
+                } else {
+                    this.csvMsg = (data && data.error) || "Upload failed.";
+                }
+            } catch (e) {
+                this.csvMsg = "Upload error.";
+            }
+            input.value = "";
+        },
+
+        /* Keyword rules */
+
+        async loadRules() {
+            try {
+                const res = await api("GET", "/api/budget/rules");
+                this.rules = (res && res.rules) || [];
+            } catch (e) { /* ignore */ }
+        },
+
+        async addRule() {
+            const k = (this.newRuleKeyword || "").trim();
+            const c = (this.newRuleCategory || "").trim();
+            if (!k || !c) return;
+            const res = await api("POST", "/api/budget/rules", { keyword: k, category: c });
+            if (res && res.ok) {
+                this.rules = res.rules;
+                this.newRuleKeyword = "";
+                this.newRuleCategory = "";
+            }
+        },
+
+        async deleteRule(r) {
+            const res = await fetch(`/api/budget/rules/${encodeURIComponent(r.keyword)}`, { method: "DELETE" });
+            const data = await res.json();
+            if (data) this.rules = data.rules || [];
         },
     }));
 

@@ -24,6 +24,14 @@ BUDGET_PLANS_DIR = os.path.join(DATA_DIR, "budget", "plans")
 BUDGET_CATEGORIES_FILE = os.path.join(DATA_DIR, "budget", "categories.json")
 BUDGET_IMPORT_META_FILE = os.path.join(DATA_DIR, "budget", "import_meta.json")
 BUDGET_OVERVIEW_DIR = os.path.join(DATA_DIR, "budget", "overviews")
+BUDGET_PLAID_ITEMS_FILE = os.path.join(DATA_DIR, "budget", "plaid_items.json")
+BUDGET_BUDGETS_FILE = os.path.join(DATA_DIR, "budget", "budgets.json")
+
+# Plaid config (optional). Populate from Cursor Cloud secrets to enable bank sync.
+PLAID_CLIENT_ID = os.environ.get("PLAID_CLIENT_ID", "").strip()
+PLAID_SECRET = os.environ.get("PLAID_SECRET", "").strip()
+PLAID_ENV = os.environ.get("PLAID_ENV", "sandbox").strip().lower()  # sandbox | development | production
+PLAID_REDIRECT_URI = os.environ.get("PLAID_REDIRECT_URI", "").strip()
 
 FANTASY_DIR = os.path.join(DATA_DIR, "fantasy")
 
