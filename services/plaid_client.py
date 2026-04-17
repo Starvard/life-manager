@@ -30,6 +30,7 @@ from datetime import datetime
 from typing import Any
 
 import config
+from services import plaid_credentials
 
 _items_lock = threading.Lock()
 
@@ -37,15 +38,17 @@ _items_lock = threading.Lock()
 # ── Credential / client bootstrap ─────────────────────────────────
 
 def is_configured() -> bool:
-    return bool(config.PLAID_CLIENT_ID and config.PLAID_SECRET)
+    return plaid_credentials.is_configured()
 
 
 def _get_client():
     """Lazily construct a Plaid API client. Raises RuntimeError if missing creds/SDK."""
-    if not is_configured():
+    creds = plaid_credentials.get_credentials()
+    if not (creds["client_id"] and creds["secret"]):
         raise RuntimeError(
-            "Plaid is not configured. Set PLAID_CLIENT_ID and PLAID_SECRET (env / "
-            "Cursor Cloud secrets) to enable bank sync."
+            "Plaid is not configured. Paste PLAID_CLIENT_ID and PLAID_SECRET on the "
+            "Connect tab, or set them in Cursor \u2192 Cloud Agents \u2192 Secrets "
+            "(only picked up when a new agent VM starts)."
         )
     try:
         import plaid
@@ -59,13 +62,13 @@ def _get_client():
         "sandbox": plaid.Environment.Sandbox,
         "development": getattr(plaid.Environment, "Development", plaid.Environment.Sandbox),
         "production": plaid.Environment.Production,
-    }.get(config.PLAID_ENV, plaid.Environment.Sandbox)
+    }.get(creds["env"], plaid.Environment.Sandbox)
 
     configuration = plaid.Configuration(
         host=host,
         api_key={
-            "clientId": config.PLAID_CLIENT_ID,
-            "secret": config.PLAID_SECRET,
+            "clientId": creds["client_id"],
+            "secret": creds["secret"],
         },
     )
     api_client = plaid.ApiClient(configuration)
@@ -132,6 +135,7 @@ def create_link_token(user_id: str = "life-manager-user") -> dict:
 
     try:
         client = _get_client()
+        creds = plaid_credentials.get_credentials()
         req_kwargs: dict[str, Any] = dict(
             products=[Products("transactions")],
             client_name="Life Manager",
@@ -139,13 +143,13 @@ def create_link_token(user_id: str = "life-manager-user") -> dict:
             language="en",
             user=LinkTokenCreateRequestUser(client_user_id=user_id),
         )
-        if config.PLAID_REDIRECT_URI:
-            req_kwargs["redirect_uri"] = config.PLAID_REDIRECT_URI
+        if creds.get("redirect_uri"):
+            req_kwargs["redirect_uri"] = creds["redirect_uri"]
         response = client.link_token_create(LinkTokenCreateRequest(**req_kwargs))
         return {
             "link_token": response["link_token"],
             "expiration": str(response.get("expiration") or ""),
-            "env": config.PLAID_ENV,
+            "env": creds["env"],
         }
     except Exception as e:  # pragma: no cover - surface nicely in UI
         return {"error": f"Plaid link_token_create failed: {e}"}
