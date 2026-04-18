@@ -658,7 +658,8 @@ def api_budget_transactions():
     if month:
         txns = get_transactions_by_month(month)
     else:
-        txns = load_transactions()
+        # Copy: load_transactions returns a cached list shared between callers.
+        txns = list(load_transactions())
     if not show_dupes:
         txns = [t for t in txns if not t.get("is_duplicate")]
     txns.sort(key=lambda t: t.get("date", ""), reverse=True)
