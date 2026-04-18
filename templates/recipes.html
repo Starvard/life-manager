@@ -1,0 +1,877 @@
+{% extends "base.html" %}
+{% block title %}Recipes - Life Manager{% endblock %}
+
+{% block content %}
+<script type="application/json" id="recipes-bootstrap">{{ recipes_bootstrap|tojson }}</script>
+<div x-data="recipesPage()" x-cloak>
+
+<div class="page-header">
+    <h1>Home Recipes</h1>
+    <p class="subtitle">Recipes, grocery list, pantry &amp; meal plan — all in one place.</p>
+</div>
+
+<div class="rcp-tabs">
+    <button type="button" class="rcp-tab" :class="{active: tab === 'recipes'}" @click="tab = 'recipes'">
+        Recipes <span class="rcp-tab-count" x-text="recipes.length"></span>
+    </button>
+    <button type="button" class="rcp-tab" :class="{active: tab === 'grocery'}" @click="tab = 'grocery'">
+        Grocery <span class="rcp-tab-count" x-text="grocery.length"></span>
+    </button>
+    <button type="button" class="rcp-tab" :class="{active: tab === 'inventory'}" @click="tab = 'inventory'">
+        Inventory <span class="rcp-tab-count" x-text="inventory.length"></span>
+    </button>
+    <button type="button" class="rcp-tab" :class="{active: tab === 'meal-plan'}" @click="tab = 'meal-plan'">Meal plan</button>
+</div>
+
+<p class="rcp-msg" x-show="message" x-text="message"></p>
+<p class="rcp-error" x-show="error" x-text="error"></p>
+
+<!-- ── Recipes tab ──────────────────────────────────────── -->
+<section x-show="tab === 'recipes'">
+    <div class="rcp-toolbar">
+        <input type="search" class="rcp-search" placeholder="Search your saved recipes…" x-model="recipeQuery">
+        <button type="button" class="btn btn-secondary btn-sm" @click="openCreate()">+ Add recipe</button>
+        <button type="button" class="btn btn-outline btn-sm" @click="onlinePanelOpen = !onlinePanelOpen">
+            <span x-text="onlinePanelOpen ? 'Hide search-online' : 'Search online &amp; import'"></span>
+        </button>
+    </div>
+
+    <div class="card rcp-online-panel" x-show="onlinePanelOpen">
+        <div class="card-title">Search online (TheMealDB)</div>
+        <div class="rcp-online-row">
+            <input type="search" class="rcp-search" placeholder="e.g. chicken tikka, tacos, pancakes…"
+                   x-model="onlineQuery" @keydown.enter.prevent="searchOnline()">
+            <button type="button" class="btn btn-primary btn-sm" @click="searchOnline()" :disabled="onlineLoading">
+                <span x-show="!onlineLoading">Search</span>
+                <span x-show="onlineLoading">Searching…</span>
+            </button>
+        </div>
+        <p class="rcp-hint" x-show="onlineMsg" x-text="onlineMsg"></p>
+        <div class="rcp-online-results">
+            <template x-for="hit in onlineResults" :key="hit.external_id || hit.name">
+                <div class="rcp-online-card">
+                    <div class="rcp-online-thumb-wrap" x-show="hit.image_url">
+                        <img :src="hit.image_url" :alt="hit.name" class="rcp-online-thumb" loading="lazy">
+                    </div>
+                    <div class="rcp-online-body">
+                        <div class="rcp-online-name" x-text="hit.name"></div>
+                        <div class="rcp-online-tags" x-show="hit.tags && hit.tags.length">
+                            <template x-for="t in (hit.tags || []).slice(0, 4)" :key="t">
+                                <span class="rcp-tag" x-text="t"></span>
+                            </template>
+                        </div>
+                        <div class="rcp-online-actions">
+                            <button type="button" class="btn btn-sm btn-secondary" @click="previewOnline(hit)">Preview</button>
+                            <button type="button" class="btn btn-sm btn-primary" @click="importOnline(hit)" :disabled="importing">
+                                Import
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+            <p class="rcp-empty" x-show="!onlineLoading && onlineSearched && onlineResults.length === 0">
+                No matches. Try another search term.
+            </p>
+        </div>
+    </div>
+
+    <div class="rcp-recipe-grid">
+        <template x-for="rec in filteredRecipes" :key="rec.id">
+            <div class="rcp-recipe-card">
+                <div class="rcp-recipe-thumb-wrap" x-show="rec.image_url">
+                    <img :src="rec.image_url" :alt="rec.name" class="rcp-recipe-thumb" loading="lazy">
+                </div>
+                <div class="rcp-recipe-body">
+                    <div class="rcp-recipe-name" x-text="rec.name"></div>
+                    <div class="rcp-recipe-meta">
+                        <span x-show="rec.servings" x-text="rec.servings + ' servings'"></span>
+                        <span x-show="rec.prep_time" x-text="'· prep ' + rec.prep_time"></span>
+                        <span x-show="rec.cook_time" x-text="'· cook ' + rec.cook_time"></span>
+                    </div>
+                    <div class="rcp-recipe-tags" x-show="rec.tags && rec.tags.length">
+                        <template x-for="t in rec.tags" :key="t">
+                            <span class="rcp-tag" x-text="t"></span>
+                        </template>
+                    </div>
+                    <div class="rcp-recipe-actions">
+                        <button type="button" class="btn btn-sm btn-secondary" @click="openRecipe(rec)">Open</button>
+                        <button type="button" class="btn btn-sm btn-outline" @click="addRecipeToGrocery(rec)">+ Grocery</button>
+                        <button type="button" class="btn btn-sm btn-outline" @click="openEdit(rec)">Edit</button>
+                        <button type="button" class="btn btn-sm btn-outline rcp-del" @click="deleteRecipe(rec)" title="Delete">×</button>
+                    </div>
+                </div>
+            </div>
+        </template>
+        <p class="rcp-empty" x-show="filteredRecipes.length === 0 && recipes.length > 0">No recipes match.</p>
+        <p class="rcp-empty" x-show="recipes.length === 0">No recipes yet. Add one or search online to get started.</p>
+    </div>
+</section>
+
+<!-- ── Grocery tab ──────────────────────────────────────── -->
+<section x-show="tab === 'grocery'">
+    <div class="card">
+        <div class="card-title">Add to grocery list</div>
+        <div class="rcp-form-row">
+            <input type="text" class="rcp-input rcp-input-grow" placeholder="Item name (e.g. milk)" x-model="newGrocery.name" @keydown.enter.prevent="addGrocery()">
+            <input type="text" class="rcp-input rcp-input-narrow" placeholder="Qty" x-model="newGrocery.qty">
+            <input type="text" class="rcp-input rcp-input-narrow" placeholder="Unit" x-model="newGrocery.unit">
+            <select class="rcp-input rcp-input-narrow" x-model="newGrocery.category">
+                <template x-for="c in categories" :key="c">
+                    <option :value="c" x-text="c"></option>
+                </template>
+            </select>
+            <button type="button" class="btn btn-primary btn-sm" @click="addGrocery()">Add</button>
+        </div>
+    </div>
+
+    <div class="rcp-list-actions">
+        <span class="rcp-hint" x-text="groceryProgressText"></span>
+        <div class="btn-group">
+            <button type="button" class="btn btn-outline btn-sm" @click="moveCheckedToInventory()" :disabled="!hasCheckedGrocery">
+                Move checked → inventory
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" @click="clearCheckedGrocery()" :disabled="!hasCheckedGrocery">
+                Clear checked
+            </button>
+        </div>
+    </div>
+
+    <template x-for="group in groceryGroups" :key="group.category">
+        <div class="rcp-grocery-group">
+            <div class="rcp-grocery-group-head" x-text="group.category"></div>
+            <template x-for="item in group.items" :key="item.id">
+                <div class="rcp-grocery-row" :class="{checked: item.checked}">
+                    <label class="rcp-check">
+                        <input type="checkbox" :checked="item.checked" @change="toggleGrocery(item)">
+                        <span></span>
+                    </label>
+                    <div class="rcp-grocery-name">
+                        <span x-text="item.name"></span>
+                        <span class="rcp-grocery-qty" x-show="item.qty || item.unit"
+                              x-text="(item.qty ? item.qty + ' ' : '') + (item.unit || '')"></span>
+                    </div>
+                    <button type="button" class="rcp-row-del" @click="deleteGrocery(item)" title="Remove">×</button>
+                </div>
+            </template>
+        </div>
+    </template>
+    <p class="rcp-empty" x-show="grocery.length === 0">Grocery list is empty.</p>
+</section>
+
+<!-- ── Inventory tab ────────────────────────────────────── -->
+<section x-show="tab === 'inventory'">
+    <div class="card">
+        <div class="card-title">Add to inventory</div>
+        <div class="rcp-form-row">
+            <input type="text" class="rcp-input rcp-input-grow" placeholder="Item name (e.g. eggs)" x-model="newInventory.name" @keydown.enter.prevent="addInventory()">
+            <input type="text" class="rcp-input rcp-input-narrow" placeholder="Qty" x-model="newInventory.qty">
+            <input type="text" class="rcp-input rcp-input-narrow" placeholder="Unit" x-model="newInventory.unit">
+            <select class="rcp-input rcp-input-narrow" x-model="newInventory.category">
+                <template x-for="c in categories" :key="c">
+                    <option :value="c" x-text="c"></option>
+                </template>
+            </select>
+            <input type="date" class="rcp-input rcp-input-narrow" x-model="newInventory.expires" title="Expires">
+            <button type="button" class="btn btn-primary btn-sm" @click="addInventory()">Add</button>
+        </div>
+    </div>
+
+    <input type="search" class="rcp-search rcp-search-inline" placeholder="Search pantry…" x-model="inventoryQuery">
+
+    <template x-for="group in inventoryGroups" :key="group.category">
+        <div class="rcp-inv-group">
+            <div class="rcp-inv-group-head" x-text="group.category"></div>
+            <table class="rcp-inv-table">
+                <thead>
+                    <tr><th>Item</th><th>Qty</th><th>Expires</th><th></th></tr>
+                </thead>
+                <tbody>
+                    <template x-for="item in group.items" :key="item.id">
+                        <tr>
+                            <td>
+                                <input type="text" class="rcp-cell-input" x-model="item.name"
+                                       @change="patchInventory(item, {name: item.name})">
+                            </td>
+                            <td>
+                                <div class="rcp-qty-cell">
+                                    <input type="text" class="rcp-cell-input rcp-cell-narrow" x-model="item.qty"
+                                           @change="patchInventory(item, {qty: item.qty})">
+                                    <input type="text" class="rcp-cell-input rcp-cell-narrow" x-model="item.unit"
+                                           placeholder="unit"
+                                           @change="patchInventory(item, {unit: item.unit})">
+                                </div>
+                            </td>
+                            <td>
+                                <input type="date" class="rcp-cell-input" x-model="item.expires"
+                                       @change="patchInventory(item, {expires: item.expires})">
+                            </td>
+                            <td>
+                                <button type="button" class="rcp-row-del" @click="deleteInventory(item)" title="Remove">×</button>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </template>
+    <p class="rcp-empty" x-show="inventory.length === 0">Inventory is empty.</p>
+</section>
+
+<!-- ── Meal plan tab ────────────────────────────────────── -->
+<section x-show="tab === 'meal-plan'">
+    <div class="rcp-week-toolbar">
+        <button type="button" class="picker-btn" @click="shiftWeek(-1)" title="Previous week">‹</button>
+        <span class="picker-label" x-text="weekRangeLabel"></span>
+        <button type="button" class="picker-btn" @click="shiftWeek(1)" title="Next week">›</button>
+        <button type="button" class="btn btn-outline btn-sm" @click="resetWeek()">This week</button>
+        <button type="button" class="btn btn-secondary btn-sm" @click="planToGrocery()">Add week to grocery</button>
+    </div>
+
+    <div class="rcp-week-grid">
+        <template x-for="day in weekDays" :key="day.iso">
+            <div class="rcp-day-card" :class="{today: day.iso === today}">
+                <div class="rcp-day-head">
+                    <span class="rcp-day-name" x-text="day.label"></span>
+                    <span class="rcp-day-date" x-text="day.short"></span>
+                </div>
+                <template x-for="slot in mealSlots" :key="slot">
+                    <div class="rcp-slot">
+                        <div class="rcp-slot-head" x-text="slotLabel(slot)"></div>
+                        <template x-for="entry in entriesFor(day.iso, slot)" :key="entry.id">
+                            <div class="rcp-slot-entry">
+                                <span class="rcp-slot-entry-name" x-text="entry.name"></span>
+                                <span class="rcp-slot-entry-meta" x-show="entry.servings" x-text="'· ' + entry.servings + ' srv'"></span>
+                                <button type="button" class="rcp-row-del" @click="removeMealEntry(day.iso, slot, entry)" title="Remove">×</button>
+                            </div>
+                        </template>
+                        <div class="rcp-slot-add">
+                            <select class="rcp-input rcp-input-narrow"
+                                    x-model="addMeal[day.iso + '|' + slot + '|recipe']">
+                                <option value="">Pick recipe…</option>
+                                <template x-for="rec in recipes" :key="rec.id">
+                                    <option :value="rec.id" x-text="rec.name"></option>
+                                </template>
+                            </select>
+                            <input type="text" class="rcp-input rcp-input-grow" placeholder="…or free text"
+                                   x-model="addMeal[day.iso + '|' + slot + '|name']"
+                                   @keydown.enter.prevent="addMealEntry(day.iso, slot)">
+                            <button type="button" class="btn btn-sm btn-outline" @click="addMealEntry(day.iso, slot)">+</button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+</section>
+
+<!-- ── Recipe Modal ─────────────────────────────────────── -->
+<div class="rcp-modal-overlay" x-show="modal === 'view' && activeRecipe" x-cloak @click.self="closeModal()">
+    <div class="rcp-modal" x-show="modal === 'view' && activeRecipe">
+        <div class="rcp-modal-head">
+            <h2 x-text="activeRecipe && activeRecipe.name"></h2>
+            <button type="button" class="rcp-modal-close" @click="closeModal()">×</button>
+        </div>
+        <div class="rcp-modal-body" x-show="activeRecipe">
+            <div class="rcp-recipe-thumb-wrap" x-show="activeRecipe.image_url">
+                <img :src="activeRecipe.image_url" :alt="activeRecipe.name" class="rcp-recipe-thumb">
+            </div>
+            <div class="rcp-recipe-meta">
+                <span x-show="activeRecipe.servings" x-text="activeRecipe.servings + ' servings'"></span>
+                <span x-show="activeRecipe.prep_time" x-text="'· prep ' + activeRecipe.prep_time"></span>
+                <span x-show="activeRecipe.cook_time" x-text="'· cook ' + activeRecipe.cook_time"></span>
+                <span x-show="activeRecipe.source" x-text="'· ' + activeRecipe.source"></span>
+            </div>
+            <div class="rcp-recipe-tags" x-show="activeRecipe.tags && activeRecipe.tags.length">
+                <template x-for="t in activeRecipe.tags" :key="t">
+                    <span class="rcp-tag" x-text="t"></span>
+                </template>
+            </div>
+
+            <h3 class="rcp-h3">Ingredients</h3>
+            <ul class="rcp-ingredient-list">
+                <template x-for="(ing, idx) in activeRecipe.ingredients" :key="idx">
+                    <li>
+                        <span x-text="ing.name"></span>
+                        <span class="rcp-ingredient-qty" x-show="ing.qty || ing.unit"
+                              x-text="' — ' + (ing.qty || '') + (ing.unit ? ' ' + ing.unit : '')"></span>
+                    </li>
+                </template>
+            </ul>
+
+            <h3 class="rcp-h3">Steps</h3>
+            <ol class="rcp-step-list">
+                <template x-for="(step, idx) in activeRecipe.instructions" :key="idx">
+                    <li x-text="step"></li>
+                </template>
+            </ol>
+
+            <p class="rcp-recipe-notes" x-show="activeRecipe.notes" x-text="activeRecipe.notes"></p>
+            <p x-show="activeRecipe.source_url">
+                <a :href="activeRecipe.source_url" target="_blank" rel="noopener">Source</a>
+            </p>
+        </div>
+        <div class="rcp-modal-actions">
+            <button type="button" class="btn btn-secondary btn-sm" @click="addRecipeToGrocery(activeRecipe)">Send ingredients to grocery</button>
+            <button type="button" class="btn btn-outline btn-sm" @click="openEdit(activeRecipe)">Edit</button>
+            <button type="button" class="btn btn-outline btn-sm" @click="closeModal()">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Edit / Create Modal ──────────────────────────────── -->
+<div class="rcp-modal-overlay" x-show="modal === 'edit'" x-cloak @click.self="closeModal()">
+    <div class="rcp-modal">
+        <div class="rcp-modal-head">
+            <h2 x-text="editing && editing.id ? 'Edit recipe' : 'New recipe'"></h2>
+            <button type="button" class="rcp-modal-close" @click="closeModal()">×</button>
+        </div>
+        <div class="rcp-modal-body" x-show="editing">
+            <label class="rcp-field">
+                <span>Name</span>
+                <input type="text" class="rcp-input" x-model="editing.name">
+            </label>
+            <div class="rcp-field-grid">
+                <label class="rcp-field">
+                    <span>Servings</span>
+                    <input type="text" class="rcp-input" x-model="editing.servings">
+                </label>
+                <label class="rcp-field">
+                    <span>Prep time</span>
+                    <input type="text" class="rcp-input" x-model="editing.prep_time">
+                </label>
+                <label class="rcp-field">
+                    <span>Cook time</span>
+                    <input type="text" class="rcp-input" x-model="editing.cook_time">
+                </label>
+            </div>
+            <label class="rcp-field">
+                <span>Image URL</span>
+                <input type="text" class="rcp-input" x-model="editing.image_url">
+            </label>
+            <label class="rcp-field">
+                <span>Source URL</span>
+                <input type="text" class="rcp-input" x-model="editing.source_url">
+            </label>
+            <label class="rcp-field">
+                <span>Tags (comma-separated)</span>
+                <input type="text" class="rcp-input" x-model="editingTags">
+            </label>
+
+            <div class="rcp-field">
+                <span class="rcp-field-label">Ingredients</span>
+                <template x-for="(ing, idx) in editing.ingredients" :key="idx">
+                    <div class="rcp-form-row">
+                        <input type="text" class="rcp-input rcp-input-narrow" placeholder="Qty" x-model="ing.qty">
+                        <input type="text" class="rcp-input rcp-input-narrow" placeholder="Unit" x-model="ing.unit">
+                        <input type="text" class="rcp-input rcp-input-grow" placeholder="Item" x-model="ing.name">
+                        <button type="button" class="rcp-row-del" @click="editing.ingredients.splice(idx, 1)">×</button>
+                    </div>
+                </template>
+                <button type="button" class="btn btn-sm btn-outline" @click="editing.ingredients.push({name:'', qty:'', unit:''})">+ Ingredient</button>
+            </div>
+
+            <div class="rcp-field">
+                <span class="rcp-field-label">Steps</span>
+                <template x-for="(step, idx) in editing.instructions" :key="idx">
+                    <div class="rcp-form-row">
+                        <span class="rcp-step-num" x-text="(idx + 1) + '.'"></span>
+                        <textarea class="rcp-input" rows="2" x-model="editing.instructions[idx]"></textarea>
+                        <button type="button" class="rcp-row-del" @click="editing.instructions.splice(idx, 1)">×</button>
+                    </div>
+                </template>
+                <button type="button" class="btn btn-sm btn-outline" @click="editing.instructions.push('')">+ Step</button>
+            </div>
+
+            <label class="rcp-field">
+                <span>Notes</span>
+                <textarea class="rcp-input" rows="3" x-model="editing.notes"></textarea>
+            </label>
+        </div>
+        <div class="rcp-modal-actions">
+            <button type="button" class="btn btn-primary btn-sm" @click="saveEditing()">Save</button>
+            <button type="button" class="btn btn-outline btn-sm" @click="closeModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+</div>
+
+<script>
+document.addEventListener("alpine:init", () => {
+    Alpine.data("recipesPage", () => ({
+        recipes: [],
+        grocery: [],
+        inventory: [],
+        mealPlan: { days: {} },
+        categories: [],
+        mealSlots: [],
+        today: "",
+        tab: "recipes",
+
+        recipeQuery: "",
+        inventoryQuery: "",
+        message: "",
+        error: "",
+
+        onlinePanelOpen: false,
+        onlineQuery: "",
+        onlineLoading: false,
+        onlineSearched: false,
+        onlineMsg: "",
+        onlineResults: [],
+        importing: false,
+
+        newGrocery: { name: "", qty: "", unit: "", category: "Other" },
+        newInventory: { name: "", qty: "", unit: "", category: "Other", expires: "" },
+
+        modal: null,
+        activeRecipe: null,
+        editing: null,
+        editingTags: "",
+
+        weekStart: null,
+        addMeal: {},
+
+        init() {
+            const el = document.getElementById("recipes-bootstrap");
+            if (el) {
+                try {
+                    const data = JSON.parse(el.textContent || "{}");
+                    this.recipes = data.recipes || [];
+                    this.grocery = data.grocery || [];
+                    this.inventory = data.inventory || [];
+                    this.mealPlan = data.meal_plan || { days: {} };
+                    this.categories = data.categories || [];
+                    this.mealSlots = data.meal_slots || ["breakfast", "lunch", "dinner", "snack"];
+                    this.today = data.today || new Date().toISOString().slice(0, 10);
+                } catch (e) { /* ignore */ }
+            }
+            if (!this.categories.length) this.categories = ["Other"];
+            if (!this.newGrocery.category) this.newGrocery.category = this.categories[0];
+            if (!this.newInventory.category) this.newInventory.category = this.categories[0];
+            this.weekStart = this.startOfWeek(new Date());
+        },
+
+        flash(msg, isError) {
+            if (isError) {
+                this.error = msg;
+                this.message = "";
+                setTimeout(() => { if (this.error === msg) this.error = ""; }, 5000);
+            } else {
+                this.message = msg;
+                this.error = "";
+                setTimeout(() => { if (this.message === msg) this.message = ""; }, 4000);
+            }
+        },
+
+        // ── Recipes ────────────────────────────────────────
+        get filteredRecipes() {
+            const q = (this.recipeQuery || "").toLowerCase().trim();
+            if (!q) return this.recipes;
+            return this.recipes.filter(r => {
+                const hay = [r.name, ...(r.tags || []), ...(r.ingredients || []).map(i => i.name)]
+                    .join(" ").toLowerCase();
+                return hay.includes(q);
+            });
+        },
+
+        emptyRecipe() {
+            return {
+                id: null, name: "", servings: "", prep_time: "", cook_time: "",
+                image_url: "", source_url: "", source: "manual",
+                ingredients: [{ name: "", qty: "", unit: "" }],
+                instructions: [""], tags: [], notes: "",
+            };
+        },
+
+        openCreate() {
+            this.editing = this.emptyRecipe();
+            this.editingTags = "";
+            this.modal = "edit";
+        },
+
+        openEdit(rec) {
+            this.editing = JSON.parse(JSON.stringify(rec));
+            this.editing.ingredients = (this.editing.ingredients || []).slice();
+            if (this.editing.ingredients.length === 0) this.editing.ingredients.push({ name: "", qty: "", unit: "" });
+            this.editing.instructions = (this.editing.instructions || []).slice();
+            if (this.editing.instructions.length === 0) this.editing.instructions.push("");
+            this.editingTags = (this.editing.tags || []).join(", ");
+            this.modal = "edit";
+        },
+
+        openRecipe(rec) {
+            this.activeRecipe = rec;
+            this.modal = "view";
+        },
+
+        closeModal() {
+            this.modal = null;
+            this.activeRecipe = null;
+            this.editing = null;
+        },
+
+        async saveEditing() {
+            if (!this.editing || !(this.editing.name || "").trim()) {
+                this.flash("Name is required", true);
+                return;
+            }
+            const payload = JSON.parse(JSON.stringify(this.editing));
+            payload.tags = (this.editingTags || "").split(",").map(t => t.trim()).filter(Boolean);
+            payload.ingredients = (payload.ingredients || []).filter(i => (i.name || "").trim());
+            payload.instructions = (payload.instructions || []).filter(s => (s || "").trim());
+            const isUpdate = !!payload.id;
+            const url = isUpdate ? `/api/recipes/${payload.id}` : "/api/recipes";
+            const method = isUpdate ? "PUT" : "POST";
+            const res = await fetch(url, {
+                method,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (!data.ok) {
+                this.flash(data.error || "Save failed", true);
+                return;
+            }
+            if (isUpdate) {
+                this.recipes = this.recipes.map(r => r.id === data.recipe.id ? data.recipe : r);
+            } else {
+                this.recipes.push(data.recipe);
+            }
+            this.flash("Saved.");
+            this.closeModal();
+        },
+
+        async deleteRecipe(rec) {
+            if (!confirm(`Delete "${rec.name}"?`)) return;
+            const res = await fetch(`/api/recipes/${rec.id}`, { method: "DELETE" });
+            const data = await res.json();
+            if (data.ok) {
+                this.recipes = this.recipes.filter(r => r.id !== rec.id);
+                this.flash("Deleted.");
+            } else {
+                this.flash(data.error || "Delete failed", true);
+            }
+        },
+
+        async addRecipeToGrocery(rec) {
+            if (!rec) return;
+            const res = await fetch(`/api/recipes/${rec.id}/to-grocery`, { method: "POST" });
+            const data = await res.json();
+            if (data.ok) {
+                this.grocery = data.items || this.grocery;
+                this.flash(`Added ${data.added} item(s) to grocery (${data.skipped} already on hand or listed).`);
+            } else {
+                this.flash(data.error || "Could not add to grocery list.", true);
+            }
+        },
+
+        // ── Online search ─────────────────────────────────
+        async searchOnline() {
+            const q = (this.onlineQuery || "").trim();
+            if (!q) return;
+            this.onlineLoading = true;
+            this.onlineMsg = "";
+            this.onlineSearched = true;
+            try {
+                const res = await fetch(`/api/recipes/search-online?q=${encodeURIComponent(q)}`);
+                const data = await res.json();
+                if (data.ok) {
+                    this.onlineResults = data.results || [];
+                    this.onlineMsg = `${this.onlineResults.length} result(s) from ${data.source || "online"}.`;
+                } else {
+                    this.onlineResults = [];
+                    this.onlineMsg = data.error || "Search failed.";
+                }
+            } catch (e) {
+                this.onlineMsg = "Network error contacting recipe search.";
+                this.onlineResults = [];
+            }
+            this.onlineLoading = false;
+        },
+
+        previewOnline(hit) {
+            this.activeRecipe = JSON.parse(JSON.stringify(hit));
+            this.activeRecipe.id = "preview-" + (hit.external_id || Math.random());
+            this.modal = "view";
+        },
+
+        async importOnline(hit) {
+            this.importing = true;
+            try {
+                const res = await fetch("/api/recipes/import-online", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ recipe: hit }),
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    this.recipes.push(data.recipe);
+                    this.flash(`Imported "${data.recipe.name}"`);
+                } else {
+                    this.flash(data.error || "Import failed", true);
+                }
+            } catch (e) {
+                this.flash("Import error.", true);
+            }
+            this.importing = false;
+        },
+
+        // ── Grocery ───────────────────────────────────────
+        get hasCheckedGrocery() {
+            return this.grocery.some(i => i.checked);
+        },
+
+        get groceryProgressText() {
+            const total = this.grocery.length;
+            if (!total) return "";
+            const done = this.grocery.filter(i => i.checked).length;
+            return `${done} / ${total} checked`;
+        },
+
+        get groceryGroups() {
+            const map = new Map();
+            for (const item of this.grocery) {
+                const cat = item.category || "Other";
+                if (!map.has(cat)) map.set(cat, []);
+                map.get(cat).push(item);
+            }
+            const order = this.categories.concat(["Other"]);
+            const groups = [];
+            const seen = new Set();
+            for (const c of order) {
+                if (map.has(c) && !seen.has(c)) {
+                    groups.push({ category: c, items: map.get(c) });
+                    seen.add(c);
+                }
+            }
+            for (const [c, items] of map.entries()) {
+                if (!seen.has(c)) groups.push({ category: c, items });
+            }
+            return groups;
+        },
+
+        async addGrocery() {
+            const name = (this.newGrocery.name || "").trim();
+            if (!name) return;
+            const res = await fetch("/api/recipes/grocery", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(this.newGrocery),
+            });
+            const data = await res.json();
+            if (data.ok) {
+                this.grocery.push(data.item);
+                this.newGrocery = { name: "", qty: "", unit: "", category: this.newGrocery.category };
+            } else {
+                this.flash(data.error || "Could not add", true);
+            }
+        },
+
+        async toggleGrocery(item) {
+            const next = !item.checked;
+            item.checked = next;
+            await fetch(`/api/recipes/grocery/${item.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ checked: next }),
+            });
+        },
+
+        async deleteGrocery(item) {
+            const res = await fetch(`/api/recipes/grocery/${item.id}`, { method: "DELETE" });
+            const data = await res.json();
+            if (data.ok) this.grocery = this.grocery.filter(i => i.id !== item.id);
+        },
+
+        async clearCheckedGrocery() {
+            if (!confirm("Remove all checked items?")) return;
+            const res = await fetch("/api/recipes/grocery/clear-checked", { method: "POST" });
+            const data = await res.json();
+            if (data.ok) {
+                this.grocery = data.items || [];
+                this.flash(`Removed ${data.removed} item(s).`);
+            }
+        },
+
+        async moveCheckedToInventory() {
+            const res = await fetch("/api/recipes/grocery/move-checked-to-inventory", { method: "POST" });
+            const data = await res.json();
+            if (data.ok) {
+                this.grocery = data.items || [];
+                this.inventory = data.inventory || this.inventory;
+                this.flash(`Moved ${data.moved} item(s) to inventory.`);
+            }
+        },
+
+        // ── Inventory ─────────────────────────────────────
+        get filteredInventory() {
+            const q = (this.inventoryQuery || "").toLowerCase().trim();
+            if (!q) return this.inventory;
+            return this.inventory.filter(i =>
+                (i.name || "").toLowerCase().includes(q) ||
+                (i.category || "").toLowerCase().includes(q)
+            );
+        },
+
+        get inventoryGroups() {
+            const map = new Map();
+            for (const item of this.filteredInventory) {
+                const cat = item.category || "Other";
+                if (!map.has(cat)) map.set(cat, []);
+                map.get(cat).push(item);
+            }
+            const order = this.categories.concat(["Other"]);
+            const groups = [];
+            const seen = new Set();
+            for (const c of order) {
+                if (map.has(c) && !seen.has(c)) {
+                    groups.push({ category: c, items: map.get(c) });
+                    seen.add(c);
+                }
+            }
+            for (const [c, items] of map.entries()) {
+                if (!seen.has(c)) groups.push({ category: c, items });
+            }
+            return groups;
+        },
+
+        async addInventory() {
+            const name = (this.newInventory.name || "").trim();
+            if (!name) return;
+            const res = await fetch("/api/recipes/inventory", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(this.newInventory),
+            });
+            const data = await res.json();
+            if (data.ok) {
+                this.inventory.push(data.item);
+                this.newInventory = { name: "", qty: "", unit: "", category: this.newInventory.category, expires: "" };
+            }
+        },
+
+        async patchInventory(item, updates) {
+            await fetch(`/api/recipes/inventory/${item.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updates),
+            });
+        },
+
+        async deleteInventory(item) {
+            const res = await fetch(`/api/recipes/inventory/${item.id}`, { method: "DELETE" });
+            const data = await res.json();
+            if (data.ok) this.inventory = this.inventory.filter(i => i.id !== item.id);
+        },
+
+        // ── Meal plan ─────────────────────────────────────
+        startOfWeek(d) {
+            const day = d.getDay();
+            const diff = (day + 6) % 7;
+            const start = new Date(d.getFullYear(), d.getMonth(), d.getDate() - diff);
+            return start;
+        },
+
+        toIso(d) {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, "0");
+            const day = String(d.getDate()).padStart(2, "0");
+            return `${y}-${m}-${day}`;
+        },
+
+        get weekDays() {
+            const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+            const out = [];
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(this.weekStart.getTime());
+                d.setDate(d.getDate() + i);
+                out.push({
+                    iso: this.toIso(d),
+                    label: labels[i],
+                    short: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+                });
+            }
+            return out;
+        },
+
+        get weekRangeLabel() {
+            const days = this.weekDays;
+            if (!days.length) return "";
+            return `${days[0].short} – ${days[6].short}`;
+        },
+
+        shiftWeek(deltaWeeks) {
+            const d = new Date(this.weekStart.getTime());
+            d.setDate(d.getDate() + deltaWeeks * 7);
+            this.weekStart = d;
+        },
+
+        resetWeek() {
+            this.weekStart = this.startOfWeek(new Date());
+        },
+
+        slotLabel(slot) {
+            return slot.charAt(0).toUpperCase() + slot.slice(1);
+        },
+
+        entriesFor(dayIso, slot) {
+            const day = (this.mealPlan && this.mealPlan.days && this.mealPlan.days[dayIso]) || {};
+            return day[slot] || [];
+        },
+
+        async addMealEntry(dayIso, slot) {
+            const recipeId = this.addMeal[dayIso + "|" + slot + "|recipe"] || "";
+            const name = (this.addMeal[dayIso + "|" + slot + "|name"] || "").trim();
+            const payload = {};
+            if (recipeId) {
+                payload.recipe_id = recipeId;
+                const rec = this.recipes.find(r => r.id === recipeId);
+                if (rec) payload.name = rec.name;
+            }
+            if (name) payload.name = name;
+            if (!payload.name) return;
+            const res = await fetch(`/api/recipes/meal-plan/${dayIso}/${slot}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (data.ok) {
+                this.mealPlan = data.plan || this.mealPlan;
+                this.addMeal[dayIso + "|" + slot + "|recipe"] = "";
+                this.addMeal[dayIso + "|" + slot + "|name"] = "";
+            } else {
+                this.flash(data.error || "Could not add meal.", true);
+            }
+        },
+
+        async removeMealEntry(dayIso, slot, entry) {
+            const res = await fetch(`/api/recipes/meal-plan/${dayIso}/${slot}/${entry.id}`, { method: "DELETE" });
+            const data = await res.json();
+            if (data.ok) this.mealPlan = data.plan || this.mealPlan;
+        },
+
+        async planToGrocery() {
+            const days = this.weekDays.map(d => d.iso);
+            let totalAdded = 0, totalSkipped = 0, totalRecipes = 0;
+            for (const day of days) {
+                const res = await fetch("/api/recipes/meal-plan/to-grocery", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ day }),
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    totalAdded += data.added || 0;
+                    totalSkipped += data.skipped || 0;
+                    totalRecipes += data.recipes || 0;
+                    this.grocery = data.items || this.grocery;
+                }
+            }
+            this.flash(`Added ${totalAdded} ingredient(s) from ${totalRecipes} recipe(s) (${totalSkipped} skipped).`);
+        },
+    }));
+});
+</script>
+{% endblock %}

@@ -35,6 +35,7 @@ PLAID_ENV = os.environ.get("PLAID_ENV", "sandbox").strip().lower()  # sandbox | 
 PLAID_REDIRECT_URI = os.environ.get("PLAID_REDIRECT_URI", "").strip()
 
 FANTASY_DIR = os.path.join(DATA_DIR, "fantasy")
+RECIPES_DIR = os.path.join(DATA_DIR, "recipes")
 
 CARD_WIDTH_INCHES = 5
 CARD_HEIGHT_INCHES = 3

@@ -22,6 +22,8 @@ life-manager/
     card_generator.py        PDF export for routine cards
     baby_card_generator.py   PDF export for baby cards
     review.py                Legacy review/suggestion engine
+    recipes_store.py         JSON CRUD for recipes/grocery/inventory/meal_plan
+    recipes_search.py        Online recipe search via TheMealDB
 
   templates/
     base.html                Shell: sidebar (desktop) / bottom tabs (mobile), Alpine.js CDN
@@ -30,6 +32,7 @@ life-manager/
     baby.html                Interactive baby cards (Alpine.js components)
     routines.html            Edit areas and tasks
     review.html              Weekly review
+    recipes.html             Home Recipes: recipes / grocery / inventory / meal plan tabs
 
   static/
     css/style.css            Mobile-first responsive styles
@@ -48,7 +51,23 @@ life-manager/
       ...
     cards/                   Generated PDFs (export)
     photos/                  Uploaded review photos
+    recipes/                 Home Recipes module
+      recipes.json
+      grocery.json
+      inventory.json
+      meal_plan.json
 ```
+
+### Home Recipes
+
+Single page (`/recipes`) with four tabs powered by Alpine.js:
+
+- **Recipes**: searchable card grid of saved recipes; create / edit / delete with full ingredient + step editor; "Search online" panel hits TheMealDB and imports any result with one click; each recipe can push its ingredients to the grocery list (deduped against pantry inventory).
+- **Grocery**: quick-add row plus grouped checklist with Move-checked → Inventory and Clear-checked actions.
+- **Inventory**: pantry/fridge tracker grouped by category, with editable quantities and expiration dates.
+- **Meal plan**: 7-day Mon–Sun grid with breakfast/lunch/dinner/snack slots; each slot accepts a saved recipe or free text. "Add week to grocery" generates a shopping list from every planned recipe in the visible week.
+
+API base path: `/api/recipes/...` (CRUD for recipes, grocery, inventory, meal-plan + `/search-online` and `/import-online`). Storage is plain JSON files under `data/recipes/`.
 
 ## Data Models
 

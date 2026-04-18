@@ -69,6 +69,7 @@ from services.fantasy_store import (
 )
 from services.fantasy_sleeper import sync_team as fantasy_sync_team
 from services.fantasy_trade_jobs import refresh_trade_suggestions as fantasy_refresh_trades
+from services import recipes_store, recipes_search
 
 # Seed persistent volume on first cloud deploy
 from seed_data import seed as _seed_data
@@ -80,7 +81,8 @@ app.secret_key = os.environ.get("LM_SECRET_KEY", "life-manager-local-key")
 for d in [config.PHOTOS_DIR, config.CARDS_DIR,
           config.ROUTINE_CARDS_DIR, config.BABY_CARDS_DIR,
           config.BUDGET_DATA_DIR, config.BUDGET_PLANS_DIR,
-          config.BUDGET_OVERVIEW_DIR, config.FANTASY_DIR]:
+          config.BUDGET_OVERVIEW_DIR, config.FANTASY_DIR,
+          config.RECIPES_DIR]:
     os.makedirs(d, exist_ok=True)
 
 
@@ -1067,6 +1069,202 @@ def api_fantasy_trade_refresh():
             "state": fantasy_state_for_client(fantasy_load_state()),
         }), 400
     return jsonify({"ok": True, "state": fantasy_state_for_client(fantasy_load_state())})
+
+
+# ── Home Recipes ────────────────────────────────────────────────
+
+@app.route("/recipes")
+def recipes_page():
+    return render_template(
+        "recipes.html",
+        recipes_bootstrap={
+            "recipes": recipes_store.list_recipes(),
+            "grocery": recipes_store.list_grocery(),
+            "inventory": recipes_store.list_inventory(),
+            "meal_plan": recipes_store.get_meal_plan(),
+            "categories": recipes_store.DEFAULT_CATEGORIES,
+            "meal_slots": recipes_store.MEAL_SLOTS,
+            "today": date.today().isoformat(),
+        },
+    )
+
+
+@app.route("/api/recipes")
+def api_recipes_list():
+    q = request.args.get("q", "")
+    if q:
+        return jsonify({"recipes": recipes_store.search_recipes_local(q)})
+    return jsonify({"recipes": recipes_store.list_recipes()})
+
+
+@app.route("/api/recipes", methods=["POST"])
+def api_recipes_create():
+    body = request.get_json(silent=True) or {}
+    recipe = recipes_store.create_recipe(body)
+    return jsonify({"ok": True, "recipe": recipe})
+
+
+@app.route("/api/recipes/<recipe_id>")
+def api_recipes_get(recipe_id):
+    rec = recipes_store.get_recipe(recipe_id)
+    if not rec:
+        return jsonify({"ok": False, "error": "Not found"}), 404
+    return jsonify({"ok": True, "recipe": rec})
+
+
+@app.route("/api/recipes/<recipe_id>", methods=["PUT"])
+def api_recipes_update(recipe_id):
+    body = request.get_json(silent=True) or {}
+    rec = recipes_store.update_recipe(recipe_id, body)
+    if not rec:
+        return jsonify({"ok": False, "error": "Not found"}), 404
+    return jsonify({"ok": True, "recipe": rec})
+
+
+@app.route("/api/recipes/<recipe_id>", methods=["DELETE"])
+def api_recipes_delete(recipe_id):
+    ok = recipes_store.delete_recipe(recipe_id)
+    return jsonify({"ok": ok})
+
+
+@app.route("/api/recipes/<recipe_id>/to-grocery", methods=["POST"])
+def api_recipes_to_grocery(recipe_id):
+    res = recipes_store.add_recipe_ingredients_to_grocery(recipe_id)
+    if res.get("error"):
+        return jsonify({"ok": False, **res}), 404
+    return jsonify({"ok": True, **res, "items": recipes_store.list_grocery()})
+
+
+@app.route("/api/recipes/search-online")
+def api_recipes_search_online():
+    q = request.args.get("q", "")
+    return jsonify(recipes_search.search_online(q))
+
+
+@app.route("/api/recipes/import-online", methods=["POST"])
+def api_recipes_import_online():
+    body = request.get_json(silent=True) or {}
+    payload = body.get("recipe") or {}
+    external_id = payload.get("external_id") or body.get("external_id")
+    if external_id and not payload.get("ingredients"):
+        fetched = recipes_search.lookup_online(external_id)
+        if fetched:
+            payload = fetched
+    if not payload or not (payload.get("name") or "").strip():
+        return jsonify({"ok": False, "error": "Could not import recipe."}), 400
+    recipe = recipes_store.create_recipe(payload)
+    return jsonify({"ok": True, "recipe": recipe})
+
+
+# Grocery list ----------------------------------------------------
+
+@app.route("/api/recipes/grocery")
+def api_grocery_list():
+    return jsonify({"items": recipes_store.list_grocery()})
+
+
+@app.route("/api/recipes/grocery", methods=["POST"])
+def api_grocery_add():
+    body = request.get_json(silent=True) or {}
+    try:
+        item = recipes_store.add_grocery_item(body)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    return jsonify({"ok": True, "item": item})
+
+
+@app.route("/api/recipes/grocery/<item_id>", methods=["PATCH"])
+def api_grocery_update(item_id):
+    body = request.get_json(silent=True) or {}
+    item = recipes_store.update_grocery_item(item_id, body)
+    if not item:
+        return jsonify({"ok": False, "error": "Not found"}), 404
+    return jsonify({"ok": True, "item": item})
+
+
+@app.route("/api/recipes/grocery/<item_id>", methods=["DELETE"])
+def api_grocery_delete(item_id):
+    ok = recipes_store.delete_grocery_item(item_id)
+    return jsonify({"ok": ok})
+
+
+@app.route("/api/recipes/grocery/clear-checked", methods=["POST"])
+def api_grocery_clear_checked():
+    removed = recipes_store.clear_grocery_checked()
+    return jsonify({"ok": True, "removed": removed, "items": recipes_store.list_grocery()})
+
+
+@app.route("/api/recipes/grocery/move-checked-to-inventory", methods=["POST"])
+def api_grocery_move_to_inventory():
+    res = recipes_store.move_checked_grocery_to_inventory()
+    return jsonify({
+        "ok": True,
+        **res,
+        "items": recipes_store.list_grocery(),
+        "inventory": recipes_store.list_inventory(),
+    })
+
+
+# Inventory -------------------------------------------------------
+
+@app.route("/api/recipes/inventory")
+def api_inventory_list():
+    return jsonify({"items": recipes_store.list_inventory()})
+
+
+@app.route("/api/recipes/inventory", methods=["POST"])
+def api_inventory_add():
+    body = request.get_json(silent=True) or {}
+    try:
+        item = recipes_store.add_inventory_item(body)
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    return jsonify({"ok": True, "item": item})
+
+
+@app.route("/api/recipes/inventory/<item_id>", methods=["PATCH"])
+def api_inventory_update(item_id):
+    body = request.get_json(silent=True) or {}
+    item = recipes_store.update_inventory_item(item_id, body)
+    if not item:
+        return jsonify({"ok": False, "error": "Not found"}), 404
+    return jsonify({"ok": True, "item": item})
+
+
+@app.route("/api/recipes/inventory/<item_id>", methods=["DELETE"])
+def api_inventory_delete(item_id):
+    ok = recipes_store.delete_inventory_item(item_id)
+    return jsonify({"ok": ok})
+
+
+# Meal plan -------------------------------------------------------
+
+@app.route("/api/recipes/meal-plan")
+def api_meal_plan_get():
+    return jsonify(recipes_store.get_meal_plan())
+
+
+@app.route("/api/recipes/meal-plan/<day>/<slot>", methods=["POST"])
+def api_meal_plan_add(day, slot):
+    body = request.get_json(silent=True) or {}
+    entry = recipes_store.add_meal_plan_entry(day, slot, body)
+    if not entry:
+        return jsonify({"ok": False, "error": "Invalid day, slot, or empty entry."}), 400
+    return jsonify({"ok": True, "entry": entry, "plan": recipes_store.get_meal_plan()})
+
+
+@app.route("/api/recipes/meal-plan/<day>/<slot>/<entry_id>", methods=["DELETE"])
+def api_meal_plan_remove(day, slot, entry_id):
+    ok = recipes_store.remove_meal_plan_entry(day, slot, entry_id)
+    return jsonify({"ok": ok, "plan": recipes_store.get_meal_plan()})
+
+
+@app.route("/api/recipes/meal-plan/to-grocery", methods=["POST"])
+def api_meal_plan_to_grocery():
+    body = request.get_json(silent=True) or {}
+    day = body.get("day") if isinstance(body, dict) else None
+    res = recipes_store.add_meal_plan_to_grocery(day)
+    return jsonify({"ok": True, **res, "items": recipes_store.list_grocery()})
 
 
 # \u2500\u2500 PDF Export \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
