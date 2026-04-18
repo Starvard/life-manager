@@ -863,10 +863,20 @@ def api_budget_plaid_save_credentials():
 
 @app.route("/api/budget/plaid/credentials", methods=["DELETE"])
 def api_budget_plaid_clear_credentials():
-    plaid_credentials.clear_credentials()
+    """Clear specific fields (?field=PLAID_SECRET) or everything if no field."""
+    field = (request.args.get("field") or "").strip()
+    if field:
+        updated = plaid_credentials.clear_field(field)
+    else:
+        plaid_credentials.clear_credentials()
+        updated = plaid_credentials.get_credentials()
     return jsonify({
         "ok": True,
-        "configured": plaid_client.is_configured(),
+        "configured": bool(updated["client_id"] and updated["secret"]),
+        "env": updated["env"],
+        "has_client_id": bool(updated["client_id"]),
+        "has_secret": bool(updated["secret"]),
+        "has_redirect_uri": bool(updated["redirect_uri"]),
         "sources": plaid_credentials.credential_source(),
     })
 
