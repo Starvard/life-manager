@@ -63,6 +63,7 @@ from services.fantasy_store import (
     state_for_client as fantasy_state_for_client,
     update_settings as fantasy_update_settings,
     update_plan as fantasy_update_plan,
+    update_rebuild_board_patches as fantasy_update_rebuild_board,
     add_trade_idea as fantasy_add_trade_idea,
     remove_trade_idea as fantasy_remove_trade_idea,
     apply_sync_snapshot as fantasy_apply_sync_snapshot,
@@ -1025,6 +1026,17 @@ def api_fantasy_plan():
     return jsonify({"ok": True, "state": fantasy_state_for_client(state)})
 
 
+@app.route("/api/fantasy/rebuild-board", methods=["PATCH"])
+def api_fantasy_rebuild_board():
+    body = request.get_json(silent=True) or {}
+    assets_patch = body.get("assets")
+    patches = assets_patch if isinstance(assets_patch, dict) else body
+    if not isinstance(patches, dict):
+        patches = {}
+    state = fantasy_update_rebuild_board(patches)
+    return jsonify({"ok": True, "state": fantasy_state_for_client(state)})
+
+
 @app.route("/api/fantasy/trade-ideas", methods=["POST"])
 def api_fantasy_trade_idea_add():
     body = request.get_json(silent=True) or {}
@@ -1056,7 +1068,14 @@ def api_fantasy_sync():
 
 @app.route("/api/fantasy/trade-refresh", methods=["POST"])
 def api_fantasy_trade_refresh():
-    out = fantasy_refresh_trades()
+    try:
+        out = fantasy_refresh_trades()
+    except Exception as e:
+        return jsonify({
+            "ok": False,
+            "error": str(e) or "Trade refresh crashed",
+            "state": fantasy_state_for_client(fantasy_load_state()),
+        })
     if out.get("skipped"):
         return jsonify({
             "ok": True,
@@ -1068,7 +1087,7 @@ def api_fantasy_trade_refresh():
             "ok": False,
             "error": out.get("error", "Refresh failed"),
             "state": fantasy_state_for_client(fantasy_load_state()),
-        }), 400
+        })
     return jsonify({"ok": True, "state": fantasy_state_for_client(fantasy_load_state())})
 
 

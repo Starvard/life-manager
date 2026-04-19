@@ -3,8 +3,27 @@
 async function api(method, url, body) {
     const opts = { method, headers: { "Content-Type": "application/json" } };
     if (body) opts.body = JSON.stringify(body);
-    const res = await fetch(url, opts);
-    return res.json();
+    let res;
+    try {
+        res = await fetch(url, opts);
+    } catch (e) {
+        const msg = e && e.message ? e.message : "Request failed";
+        return { ok: false, error: "Network error: " + msg };
+    }
+    const text = await res.text();
+    let data;
+    try {
+        data = text ? JSON.parse(text) : {};
+    } catch (e) {
+        const snippet = (text || "").replace(/\s+/g, " ").trim().slice(0, 160);
+        return {
+            ok: false,
+            error: snippet
+                ? `Server error (${res.status}): ${snippet}`
+                : `Server returned ${res.status} with non-JSON body`,
+        };
+    }
+    return data;
 }
 
 /** Matches services/score_helpers: pool of scheduled completions across the week. */
@@ -1029,7 +1048,8 @@ document.addEventListener("alpine:init", () => {
 
     Alpine.data("fantasyPage", () => ({
         settings: {},
-        plan: { trade_ideas: [] },
+        plan: { trade_ideas: [], rebuild_horizon_years: 3 },
+        rebuildBoard: { order: [], assets: {} },
         lastSync: null,
         snapshot: null,
         tradeSuggestions: null,
@@ -1046,9 +1066,7 @@ document.addEventListener("alpine:init", () => {
             if (el) {
                 try {
                     this.applyState(JSON.parse(el.textContent || "{}"));
-                } catch (e) {
-                    /* ignore */
-                }
+                } catch (e) { /* ignore */ }
             }
             this.loadState();
         },
@@ -1058,9 +1076,7 @@ document.addEventListener("alpine:init", () => {
                 const res = await fetch("/api/fantasy/state");
                 const data = await res.json();
                 this.applyState(data);
-            } catch (e) {
-                /* offline */
-            }
+            } catch (e) { /* offline */ }
         },
 
         async saveSettings() {
@@ -1075,9 +1091,13 @@ document.addEventListener("alpine:init", () => {
 
         applyState(state) {
             if (!state) return;
-            this.settings = Object.assign({}, state.settings || {});
-            this.plan = Object.assign({ trade_ideas: [] }, state.plan || {});
+            this.settings = Object.assign({ trade_strategy: "rebuild" }, state.settings || {});
+            this.plan = Object.assign({ trade_ideas: [], rebuild_horizon_years: 3 }, state.plan || {});
             if (!this.plan.trade_ideas) this.plan.trade_ideas = [];
+            if (this.plan.rebuild_horizon_years == null) this.plan.rebuild_horizon_years = 3;
+            this.rebuildBoard = state.rebuild_board || { order: [], assets: {} };
+            if (!this.rebuildBoard.assets) this.rebuildBoard.assets = {};
+            if (!this.rebuildBoard.order) this.rebuildBoard.order = [];
             this.lastSync = state.last_sync || null;
             this.snapshot = state.cached_snapshot || null;
             this.tradeSuggestions = state.trade_suggestions || null;
@@ -1088,17 +1108,13 @@ document.addEventListener("alpine:init", () => {
         async sync() {
             this.syncing = true;
             this.syncMsg = "";
-            try {
-                const res = await api("POST", "/api/fantasy/sync", { refresh_trades: true });
-                if (res.ok && res.state) {
-                    this.applyState(res.state);
-                    this.syncMsg = "Synced. Trade ideas updated.";
-                    setTimeout(() => { this.syncMsg = ""; }, 5000);
-                } else {
-                    this.syncMsg = res.error || "Sync failed.";
-                }
-            } catch (e) {
-                this.syncMsg = "Network error.";
+            const res = await api("POST", "/api/fantasy/sync", { refresh_trades: true });
+            if (res.state) this.applyState(res.state);
+            if (res.ok) {
+                this.syncMsg = "Synced. Trade ideas updated.";
+                setTimeout(() => { this.syncMsg = ""; }, 5000);
+            } else {
+                this.syncMsg = res.error || "Sync failed.";
             }
             this.syncing = false;
         },
@@ -1106,20 +1122,59 @@ document.addEventListener("alpine:init", () => {
         async refreshTrades() {
             this.tradeRefreshing = true;
             this.tradeRefreshMsg = "";
-            try {
-                const res = await api("POST", "/api/fantasy/trade-refresh", {});
-                if (res.ok && res.state) {
-                    this.applyState(res.state);
-                    this.tradeRefreshMsg = res.skipped ? "Refresh already running." : "Updated.";
-                    setTimeout(() => { this.tradeRefreshMsg = ""; }, 4000);
-                } else {
-                    if (res.state) this.applyState(res.state);
-                    this.tradeRefreshMsg = res.error || "Refresh failed.";
-                }
-            } catch (e) {
-                this.tradeRefreshMsg = "Network error.";
+            const res = await api("POST", "/api/fantasy/trade-refresh", {});
+            if (res.state) this.applyState(res.state);
+            if (res.ok) {
+                this.tradeRefreshMsg = res.skipped ? "Refresh already running." : "Updated.";
+                setTimeout(() => { this.tradeRefreshMsg = ""; }, 4000);
+            } else {
+                this.tradeRefreshMsg = this._fantasyErr(res.error) || "Refresh failed.";
             }
             this.tradeRefreshing = false;
+        },
+
+        _fantasyErr(code) {
+            if (!code) return "";
+            const m = {
+                "no snapshot": "Sync from Sleeper first, then refresh trades.",
+                "stale snapshot": "Tap Sync once — league data was saved in an older format.",
+                "bad snapshot": "Re-sync from Sleeper and try again.",
+            };
+            return m[code] || code;
+        },
+
+        playerLabelForAsset(aid) {
+            const a = this.rebuildBoard.assets[aid];
+            if (!a) return "";
+            if (a.kind === "pick") return a.label || aid;
+            const pl = this._findPlayer(a.player_id);
+            if (!pl) return "Player " + a.player_id;
+            const bits = [pl.name];
+            if (pl.pos) bits.push(pl.pos);
+            if (pl.team) bits.push(pl.team);
+            if (a.slot) bits.push(a.slot);
+            return bits.join(" · ");
+        },
+
+        _findPlayer(pid) {
+            if (!this.snapshot || !pid) return null;
+            const id = String(pid);
+            for (const row of this.snapshot.starters || []) {
+                if (!row.empty && row.player && String(row.player.id) === id) return row.player;
+            }
+            for (const list of [this.snapshot.bench, this.snapshot.reserve, this.snapshot.taxi]) {
+                for (const p of list || []) {
+                    if (String(p.id) === id) return p;
+                }
+            }
+            return null;
+        },
+
+        async patchRebuildUpgrade(aid, text) {
+            const res = await api("PATCH", "/api/fantasy/rebuild-board", {
+                assets: { [aid]: { desired_upgrade: text } },
+            });
+            if (res.ok && res.state) this.applyState(res.state);
         },
 
         playerLine(p) {
@@ -1178,9 +1233,8 @@ document.addEventListener("alpine:init", () => {
         },
 
         async removeIdea(id) {
-            const res = await fetch("/api/fantasy/trade-ideas/" + encodeURIComponent(id), { method: "DELETE" });
-            const data = await res.json();
-            if (data.ok && data.state) this.applyState(data.state);
+            const res = await api("DELETE", "/api/fantasy/trade-ideas/" + encodeURIComponent(id));
+            if (res.ok && res.state) this.applyState(res.state);
         },
     }));
 
