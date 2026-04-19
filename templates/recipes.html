@@ -7,10 +7,13 @@
 
 <div class="page-header">
     <h1>Home Recipes</h1>
-    <p class="subtitle">Recipes, grocery list, pantry &amp; meal plan — all in one place.</p>
+    <p class="subtitle">This week's menu, recipes, grocery list &amp; pantry — all in one place.</p>
 </div>
 
 <div class="rcp-tabs">
+    <button type="button" class="rcp-tab" :class="{active: tab === 'menu'}" @click="tab = 'menu'">
+        Menu <span class="rcp-tab-count" x-text="menuCount"></span>
+    </button>
     <button type="button" class="rcp-tab" :class="{active: tab === 'recipes'}" @click="tab = 'recipes'">
         Recipes <span class="rcp-tab-count" x-text="recipes.length"></span>
     </button>
@@ -20,7 +23,6 @@
     <button type="button" class="rcp-tab" :class="{active: tab === 'inventory'}" @click="tab = 'inventory'">
         Inventory <span class="rcp-tab-count" x-text="inventory.length"></span>
     </button>
-    <button type="button" class="rcp-tab" :class="{active: tab === 'meal-plan'}" @click="tab = 'meal-plan'">Meal plan</button>
 </div>
 
 <p class="rcp-msg" x-show="message" x-text="message"></p>
@@ -217,51 +219,60 @@
     <p class="rcp-empty" x-show="inventory.length === 0">Inventory is empty.</p>
 </section>
 
-<!-- ── Meal plan tab ────────────────────────────────────── -->
-<section x-show="tab === 'meal-plan'">
-    <div class="rcp-week-toolbar">
-        <button type="button" class="picker-btn" @click="shiftWeek(-1)" title="Previous week">‹</button>
-        <span class="picker-label" x-text="weekRangeLabel"></span>
-        <button type="button" class="picker-btn" @click="shiftWeek(1)" title="Next week">›</button>
-        <button type="button" class="btn btn-outline btn-sm" @click="resetWeek()">This week</button>
-        <button type="button" class="btn btn-secondary btn-sm" @click="planToGrocery()">Add week to grocery</button>
+<!-- ── Menu tab (default) ─────────────────────────────────── -->
+<section x-show="tab === 'menu'">
+    <div class="rcp-menu-header">
+        <div class="rcp-menu-title">
+            <span class="rcp-menu-week" x-text="weekLabel"></span>
+            <span class="rcp-menu-sub">A simple pool of meals to choose from this week.</span>
+        </div>
+        <div class="rcp-menu-actions">
+            <button type="button" class="btn btn-primary btn-sm" @click="menuToGrocery()" :disabled="menuToGroceryBusy">
+                <span x-show="!menuToGroceryBusy">Send menu → grocery</span>
+                <span x-show="menuToGroceryBusy">Adding…</span>
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" @click="clearMenu()" :disabled="!menuCount">Clear week</button>
+        </div>
     </div>
 
-    <div class="rcp-week-grid">
-        <template x-for="day in weekDays" :key="day.iso">
-            <div class="rcp-day-card" :class="{today: day.iso === today}">
-                <div class="rcp-day-head">
-                    <span class="rcp-day-name" x-text="day.label"></span>
-                    <span class="rcp-day-date" x-text="day.short"></span>
-                </div>
-                <template x-for="slot in mealSlots" :key="slot">
-                    <div class="rcp-slot">
-                        <div class="rcp-slot-head" x-text="slotLabel(slot)"></div>
-                        <template x-for="entry in entriesFor(day.iso, slot)" :key="entry.id">
-                            <div class="rcp-slot-entry">
-                                <span class="rcp-slot-entry-name" x-text="entry.name"></span>
-                                <span class="rcp-slot-entry-meta" x-show="entry.servings" x-text="'· ' + entry.servings + ' srv'"></span>
-                                <button type="button" class="rcp-row-del" @click="removeMealEntry(day.iso, slot, entry)" title="Remove">×</button>
-                            </div>
-                        </template>
-                        <div class="rcp-slot-add">
-                            <select class="rcp-input rcp-input-narrow"
-                                    x-model="addMeal[day.iso + '|' + slot + '|recipe']">
-                                <option value="">Pick recipe…</option>
-                                <template x-for="rec in recipes" :key="rec.id">
-                                    <option :value="rec.id" x-text="rec.name"></option>
-                                </template>
-                            </select>
-                            <input type="text" class="rcp-input rcp-input-grow" placeholder="…or free text"
-                                   x-model="addMeal[day.iso + '|' + slot + '|name']"
-                                   @keydown.enter.prevent="addMealEntry(day.iso, slot)">
-                            <button type="button" class="btn btn-sm btn-outline" @click="addMealEntry(day.iso, slot)">+</button>
-                        </div>
-                    </div>
-                </template>
+    <p class="rcp-empty rcp-menu-empty-hint" x-show="menuCount === 0">
+        Empty for this week. Add 1-2 breakfasts, 1-2 lunches, and 4-6 dinners to choose from.
+    </p>
+
+    <template x-for="slot in menuSlots" :key="slot">
+        <div class="rcp-menu-row">
+            <div class="rcp-menu-row-head">
+                <span class="rcp-menu-slot" x-text="slotLabel(slot)"></span>
+                <span class="rcp-menu-target"
+                      x-text="(menu[slot] || []).length + ' / ' + (menuTargets[slot] && (menuTargets[slot].min + '-' + menuTargets[slot].max) || '?') + ' planned'"></span>
             </div>
-        </template>
-    </div>
+            <div class="rcp-menu-chips">
+                <template x-for="entry in (menu[slot] || [])" :key="entry.id">
+                    <span class="rcp-menu-chip" :class="{'rcp-menu-chip-link': entry.recipe_id}"
+                          @click="entry.recipe_id && openRecipeById(entry.recipe_id)"
+                          :title="entry.recipe_id ? 'Open recipe' : ''">
+                        <span class="rcp-menu-chip-name" x-text="entry.name"></span>
+                        <button type="button" class="rcp-menu-chip-del"
+                                @click.stop="removeMenuEntry(slot, entry)"
+                                title="Remove">×</button>
+                    </span>
+                </template>
+                <span class="rcp-menu-chip-empty" x-show="!(menu[slot] && menu[slot].length)">— nothing yet —</span>
+            </div>
+            <div class="rcp-menu-add">
+                <select class="rcp-input rcp-menu-add-select" x-model="addMenuRecipe[slot]" @change="addMenuFromRecipe(slot)">
+                    <option value="">+ Add saved recipe…</option>
+                    <template x-for="rec in recipes" :key="'menu-' + slot + '-' + rec.id">
+                        <option :value="rec.id" x-text="rec.name"></option>
+                    </template>
+                </select>
+                <input type="text" class="rcp-input rcp-menu-add-text" placeholder="…or quick idea (e.g. tacos)"
+                       x-model="addMenuText[slot]"
+                       @keydown.enter.prevent="addMenuFromText(slot)">
+                <button type="button" class="btn btn-sm btn-outline" @click="addMenuFromText(slot)">+</button>
+            </div>
+        </div>
+    </template>
 </section>
 
 <!-- ── Recipe Modal ─────────────────────────────────────── -->
@@ -402,11 +413,17 @@ document.addEventListener("alpine:init", () => {
         recipes: [],
         grocery: [],
         inventory: [],
-        mealPlan: { days: {} },
+        menu: { week_key: "", breakfast: [], lunch: [], dinner: [] },
+        menuSlots: ["breakfast", "lunch", "dinner"],
+        menuTargets: {
+            breakfast: { min: 1, max: 2 },
+            lunch: { min: 1, max: 2 },
+            dinner: { min: 4, max: 6 },
+        },
+        currentWeek: "",
         categories: [],
-        mealSlots: [],
         today: "",
-        tab: "recipes",
+        tab: "menu",
 
         recipeQuery: "",
         inventoryQuery: "",
@@ -429,8 +446,9 @@ document.addEventListener("alpine:init", () => {
         editing: null,
         editingTags: "",
 
-        weekStart: null,
-        addMeal: {},
+        addMenuRecipe: { breakfast: "", lunch: "", dinner: "" },
+        addMenuText: { breakfast: "", lunch: "", dinner: "" },
+        menuToGroceryBusy: false,
 
         init() {
             const el = document.getElementById("recipes-bootstrap");
@@ -440,16 +458,56 @@ document.addEventListener("alpine:init", () => {
                     this.recipes = data.recipes || [];
                     this.grocery = data.grocery || [];
                     this.inventory = data.inventory || [];
-                    this.mealPlan = data.meal_plan || { days: {} };
                     this.categories = data.categories || [];
-                    this.mealSlots = data.meal_slots || ["breakfast", "lunch", "dinner", "snack"];
+                    this.menuSlots = data.menu_slots || this.menuSlots;
+                    this.menuTargets = data.menu_targets || this.menuTargets;
+                    this.currentWeek = data.current_week || "";
                     this.today = data.today || new Date().toISOString().slice(0, 10);
+                    if (data.menu) {
+                        this.menu = {
+                            week_key: data.menu.week_key || this.currentWeek,
+                            breakfast: data.menu.breakfast || [],
+                            lunch: data.menu.lunch || [],
+                            dinner: data.menu.dinner || [],
+                        };
+                        this.currentWeek = this.menu.week_key || this.currentWeek;
+                    }
                 } catch (e) { /* ignore */ }
             }
             if (!this.categories.length) this.categories = ["Other"];
             if (!this.newGrocery.category) this.newGrocery.category = this.categories[0];
             if (!this.newInventory.category) this.newInventory.category = this.categories[0];
-            this.weekStart = this.startOfWeek(new Date());
+        },
+
+        get menuCount() {
+            return this.menuSlots.reduce((n, s) => n + ((this.menu && this.menu[s]) || []).length, 0);
+        },
+
+        get weekLabel() {
+            const wk = this.currentWeek || "";
+            const m = wk.match(/^(\d{4})-W(\d{1,2})$/);
+            if (!m) return wk || "This week";
+            const year = parseInt(m[1], 10);
+            const week = parseInt(m[2], 10);
+            const monday = this._isoWeekMonday(year, week);
+            const sunday = new Date(monday.getTime());
+            sunday.setDate(sunday.getDate() + 6);
+            const fmt = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+            return `Week of ${fmt(monday)} – ${fmt(sunday)}`;
+        },
+
+        _isoWeekMonday(year, week) {
+            // Monday of the given ISO year/week.
+            const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+            const dow = simple.getUTCDay() || 7;
+            const monday = new Date(simple);
+            if (dow <= 4) monday.setUTCDate(simple.getUTCDate() - dow + 1);
+            else monday.setUTCDate(simple.getUTCDate() + 8 - dow);
+            return new Date(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate());
+        },
+
+        slotLabel(slot) {
+            return slot.charAt(0).toUpperCase() + slot.slice(1);
         },
 
         flash(msg, isError) {
@@ -560,7 +618,10 @@ document.addEventListener("alpine:init", () => {
             const data = await res.json();
             if (data.ok) {
                 this.grocery = data.items || this.grocery;
-                this.flash(`Added ${data.added} item(s) to grocery (${data.skipped} already on hand or listed).`);
+                const parts = [`${data.added || 0} added`];
+                if (data.on_list) parts.push(`${data.on_list} already on list`);
+                if (data.on_hand) parts.push(`${data.on_hand} already on hand`);
+                this.flash(`${rec.name}: ${parts.join(", ")}.`);
             } else {
                 this.flash(data.error || "Could not add to grocery list.", true);
             }
@@ -765,111 +826,120 @@ document.addEventListener("alpine:init", () => {
             if (data.ok) this.inventory = this.inventory.filter(i => i.id !== item.id);
         },
 
-        // ── Meal plan ─────────────────────────────────────
-        startOfWeek(d) {
-            const day = d.getDay();
-            const diff = (day + 6) % 7;
-            const start = new Date(d.getFullYear(), d.getMonth(), d.getDate() - diff);
-            return start;
+        // ── Weekly menu ───────────────────────────────────
+        openRecipeById(id) {
+            const rec = this.recipes.find(r => r.id === id);
+            if (rec) this.openRecipe(rec);
         },
 
-        toIso(d) {
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, "0");
-            const day = String(d.getDate()).padStart(2, "0");
-            return `${y}-${m}-${day}`;
-        },
-
-        get weekDays() {
-            const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-            const out = [];
-            for (let i = 0; i < 7; i++) {
-                const d = new Date(this.weekStart.getTime());
-                d.setDate(d.getDate() + i);
-                out.push({
-                    iso: this.toIso(d),
-                    label: labels[i],
-                    short: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
-                });
-            }
-            return out;
-        },
-
-        get weekRangeLabel() {
-            const days = this.weekDays;
-            if (!days.length) return "";
-            return `${days[0].short} – ${days[6].short}`;
-        },
-
-        shiftWeek(deltaWeeks) {
-            const d = new Date(this.weekStart.getTime());
-            d.setDate(d.getDate() + deltaWeeks * 7);
-            this.weekStart = d;
-        },
-
-        resetWeek() {
-            this.weekStart = this.startOfWeek(new Date());
-        },
-
-        slotLabel(slot) {
-            return slot.charAt(0).toUpperCase() + slot.slice(1);
-        },
-
-        entriesFor(dayIso, slot) {
-            const day = (this.mealPlan && this.mealPlan.days && this.mealPlan.days[dayIso]) || {};
-            return day[slot] || [];
-        },
-
-        async addMealEntry(dayIso, slot) {
-            const recipeId = this.addMeal[dayIso + "|" + slot + "|recipe"] || "";
-            const name = (this.addMeal[dayIso + "|" + slot + "|name"] || "").trim();
-            const payload = {};
-            if (recipeId) {
-                payload.recipe_id = recipeId;
-                const rec = this.recipes.find(r => r.id === recipeId);
-                if (rec) payload.name = rec.name;
-            }
-            if (name) payload.name = name;
-            if (!payload.name) return;
-            const res = await fetch(`/api/recipes/meal-plan/${dayIso}/${slot}`, {
+        async _postMenu(slot, payload) {
+            const res = await fetch(`/api/recipes/menu/${slot}?week=${encodeURIComponent(this.currentWeek)}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
+                body: JSON.stringify({ week_key: this.currentWeek, ...payload }),
             });
-            const data = await res.json();
-            if (data.ok) {
-                this.mealPlan = data.plan || this.mealPlan;
-                this.addMeal[dayIso + "|" + slot + "|recipe"] = "";
-                this.addMeal[dayIso + "|" + slot + "|name"] = "";
-            } else {
-                this.flash(data.error || "Could not add meal.", true);
+            return res.json();
+        },
+
+        _applyMenuFromResponse(data) {
+            if (data && data.menu) {
+                this.menu = {
+                    week_key: data.menu.week_key || this.currentWeek,
+                    breakfast: data.menu.breakfast || [],
+                    lunch: data.menu.lunch || [],
+                    dinner: data.menu.dinner || [],
+                };
             }
         },
 
-        async removeMealEntry(dayIso, slot, entry) {
-            const res = await fetch(`/api/recipes/meal-plan/${dayIso}/${slot}/${entry.id}`, { method: "DELETE" });
-            const data = await res.json();
-            if (data.ok) this.mealPlan = data.plan || this.mealPlan;
+        async addMenuFromRecipe(slot) {
+            const id = this.addMenuRecipe[slot];
+            if (!id) return;
+            const rec = this.recipes.find(r => r.id === id);
+            const data = await this._postMenu(slot, {
+                recipe_id: id,
+                name: rec ? rec.name : "",
+            });
+            this.addMenuRecipe[slot] = "";
+            if (data.ok) {
+                this._applyMenuFromResponse(data);
+            } else {
+                this.flash(data.error || "Could not add to menu.", true);
+            }
         },
 
-        async planToGrocery() {
-            const days = this.weekDays.map(d => d.iso);
-            let totalAdded = 0, totalSkipped = 0, totalRecipes = 0;
-            for (const day of days) {
-                const res = await fetch("/api/recipes/meal-plan/to-grocery", {
+        async addMenuFromText(slot) {
+            const name = (this.addMenuText[slot] || "").trim();
+            if (!name) return;
+            const data = await this._postMenu(slot, { name });
+            this.addMenuText[slot] = "";
+            if (data.ok) {
+                this._applyMenuFromResponse(data);
+            } else {
+                this.flash(data.error || "Could not add to menu.", true);
+            }
+        },
+
+        async removeMenuEntry(slot, entry) {
+            const res = await fetch(
+                `/api/recipes/menu/${slot}/${entry.id}?week=${encodeURIComponent(this.currentWeek)}`,
+                { method: "DELETE" }
+            );
+            const data = await res.json();
+            if (data.ok) this._applyMenuFromResponse(data);
+        },
+
+        async clearMenu() {
+            if (this.menuCount === 0) return;
+            if (!confirm("Clear this week's menu?")) return;
+            const res = await fetch("/api/recipes/menu/clear", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ week_key: this.currentWeek }),
+            });
+            const data = await res.json();
+            if (data.ok || data.menu) this._applyMenuFromResponse(data);
+            this.flash("Cleared this week's menu.");
+        },
+
+        async menuToGrocery() {
+            if (this.menuToGroceryBusy) return;
+            const recipeCount = this.menuSlots
+                .flatMap(s => this.menu[s] || [])
+                .filter(e => e.recipe_id).length;
+            if (recipeCount === 0) {
+                this.flash(
+                    "Nothing to send: add at least one saved recipe to the menu (free-text ideas don't have ingredients).",
+                    true
+                );
+                return;
+            }
+            this.menuToGroceryBusy = true;
+            try {
+                const res = await fetch("/api/recipes/menu/to-grocery", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ day }),
+                    body: JSON.stringify({ week_key: this.currentWeek }),
                 });
                 const data = await res.json();
                 if (data.ok) {
-                    totalAdded += data.added || 0;
-                    totalSkipped += data.skipped || 0;
-                    totalRecipes += data.recipes || 0;
                     this.grocery = data.items || this.grocery;
+                    const parts = [];
+                    parts.push(`${data.added || 0} added`);
+                    if (data.on_list) parts.push(`${data.on_list} already on list`);
+                    if (data.on_hand) parts.push(`${data.on_hand} already on hand`);
+                    if (data.free_text_skipped)
+                        parts.push(`${data.free_text_skipped} free-text idea(s) skipped`);
+                    const recipesPart = `${data.recipes || 0} recipe(s)`;
+                    this.flash(`From ${recipesPart}: ${parts.join(", ")}.`);
+                    if ((data.added || 0) > 0) this.tab = "grocery";
+                } else {
+                    this.flash(data.error || "Could not add menu to grocery.", true);
                 }
+            } catch (e) {
+                this.flash("Network error.", true);
             }
-            this.flash(`Added ${totalAdded} ingredient(s) from ${totalRecipes} recipe(s) (${totalSkipped} skipped).`);
+            this.menuToGroceryBusy = false;
         },
     }));
 });

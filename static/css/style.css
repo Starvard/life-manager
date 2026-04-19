@@ -703,21 +703,29 @@ select { color-scheme: dark; }
 .rcp-cell-narrow { width: 70px; }
 .rcp-qty-cell { display: flex; gap: 0.3rem; }
 
-.rcp-week-toolbar { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1rem; }
-.rcp-week-grid { display: grid; grid-template-columns: repeat(7, minmax(170px, 1fr)); gap: 0.6rem; overflow-x: auto; padding-bottom: 0.5rem; }
-.rcp-day-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.55rem 0.6rem; display: flex; flex-direction: column; gap: 0.45rem; min-width: 170px; }
-.rcp-day-card.today { border-color: rgba(99,179,255,0.35); box-shadow: 0 0 12px rgba(99,179,255,0.1); }
-.rcp-day-head { display: flex; justify-content: space-between; align-items: baseline; }
-.rcp-day-name { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-bright); }
-.rcp-day-date { font-size: 0.7rem; color: var(--text-muted); }
-.rcp-slot { background: var(--bg-elevated); border-radius: var(--radius-sm); padding: 0.4rem 0.5rem; }
-.rcp-slot-head { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.3rem; }
-.rcp-slot-entry { display: flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.4rem; background: var(--surface); border-radius: 6px; margin-bottom: 0.25rem; font-size: 0.78rem; }
-.rcp-slot-entry-name { flex: 1; min-width: 0; color: var(--text); }
-.rcp-slot-entry-meta { font-size: 0.7rem; color: var(--text-muted); }
-.rcp-slot-add { display: flex; flex-direction: column; gap: 0.25rem; margin-top: 0.25rem; }
-.rcp-slot-add .rcp-input { font-size: 0.78rem; padding: 0.3rem 0.45rem; }
-.rcp-slot-add .btn { align-self: flex-end; }
+/* Weekly menu (one-page pool of breakfasts/lunches/dinners) */
+.rcp-menu-header { display: flex; flex-wrap: wrap; gap: 0.65rem 1rem; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.rcp-menu-title { display: flex; flex-direction: column; gap: 0.1rem; }
+.rcp-menu-week { font-size: 1rem; font-weight: 700; color: var(--text-bright); letter-spacing: -0.01em; }
+.rcp-menu-sub { font-size: 0.78rem; color: var(--text-muted); }
+.rcp-menu-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.rcp-menu-empty-hint { padding: 0.65rem 0; }
+.rcp-menu-row { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.7rem 0.95rem; margin-bottom: 0.75rem; display: flex; flex-direction: column; gap: 0.45rem; transition: border-color 0.2s; }
+.rcp-menu-row:hover { border-color: var(--glass-border); }
+.rcp-menu-row-head { display: flex; align-items: baseline; justify-content: space-between; gap: 0.65rem; flex-wrap: wrap; }
+.rcp-menu-slot { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-bright); }
+.rcp-menu-target { font-size: 0.7rem; color: var(--text-muted); font-weight: 500; }
+.rcp-menu-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; min-height: 2rem; }
+.rcp-menu-chip { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.55rem 0.35rem 0.7rem; background: var(--surface-hover); border: 1px solid var(--border); border-radius: 999px; font-size: 0.85rem; color: var(--text); transition: all 0.15s; }
+.rcp-menu-chip-link { cursor: pointer; }
+.rcp-menu-chip-link:hover { border-color: var(--accent); background: var(--accent-glow); color: var(--text-bright); }
+.rcp-menu-chip-name { white-space: nowrap; max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+.rcp-menu-chip-del { background: transparent; border: none; color: var(--text-muted); font-size: 1.05rem; line-height: 1; cursor: pointer; padding: 0 0.2rem; border-radius: 999px; }
+.rcp-menu-chip-del:hover { color: var(--danger); background: var(--danger-dim); }
+.rcp-menu-chip-empty { font-size: 0.78rem; color: var(--text-light); font-style: italic; }
+.rcp-menu-add { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+.rcp-menu-add-select { flex: 1 1 220px; min-width: 180px; max-width: 280px; }
+.rcp-menu-add-text { flex: 1 1 220px; min-width: 180px; }
 
 .rcp-modal-overlay { position: fixed; inset: 0; background: rgba(8,9,15,0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 200; display: flex; align-items: flex-start; justify-content: center; padding: 2rem 1rem; overflow-y: auto; }
 .rcp-modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); width: min(640px, 100%); max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow-lg); }
@@ -738,10 +746,11 @@ select { color-scheme: dark; }
 .rcp-step-num { font-size: 0.75rem; color: var(--text-muted); padding-top: 0.4rem; min-width: 1.2rem; }
 
 @media (max-width: 768px) {
-    .rcp-week-grid { grid-template-columns: repeat(7, 170px); }
     .rcp-recipe-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
     .rcp-tab { padding: 0.45rem 0.65rem; font-size: 0.78rem; }
     .rcp-modal { max-height: 92vh; }
+    .rcp-menu-add-select, .rcp-menu-add-text { flex-basis: 100%; max-width: none; }
+    .rcp-menu-chip-name { max-width: 180px; }
 }
 
 .text-muted { color: var(--text-muted); }
