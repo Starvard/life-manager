@@ -16,7 +16,22 @@ COPY . .
 # Falls back to local ./data if no volume is mounted
 ENV LM_DATA_DIR=/data
 ENV LM_PORT=8080
+# Make Python a bit lighter and tame malloc fragmentation under low RAM.
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    MALLOC_ARENA_MAX=2
 
 EXPOSE 8080
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--timeout", "120", "app:app"]
+# Single worker + a few threads keeps RSS roughly halved vs. 2 workers, which
+# matters a lot on Fly's 256 MB shared-cpu-1x. We deliberately do NOT use
+# --preload because the APScheduler background thread (push reminders, weekly
+# fantasy trade refresh) needs to live inside the request-handling worker.
+CMD ["gunicorn", \
+     "--bind", "0.0.0.0:8080", \
+     "--workers", "1", \
+     "--threads", "4", \
+     "--max-requests", "500", \
+     "--max-requests-jitter", "75", \
+     "--timeout", "120", \
+     "app:app"]

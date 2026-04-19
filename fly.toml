@@ -6,10 +6,18 @@ primary_region = "atl"
 [env]
   LM_DATA_DIR = "/data"
   LM_PORT = "8080"
+  # Tame glibc malloc fragmentation under low RAM (helps avoid OOM).
+  MALLOC_ARENA_MAX = "2"
+  # Set to "1" if you don't use the Fantasy tab — it skips the multi-MB
+  # Sleeper players download and the weekly trade-refresh job, freeing RAM.
+  # LM_DISABLE_FANTASY = "1"
 
 [http_service]
   internal_port = 8080
   force_https = true
+  # Spinning the machine down between requests is a memory "reset" — handy
+  # when you only use the app a few times a day. If you want it always-on,
+  # set auto_stop_machines = "off" and min_machines_running = 1.
   auto_stop_machines = "stop"
   auto_start_machines = true
   min_machines_running = 0
@@ -20,6 +28,12 @@ primary_region = "atl"
   destination = "/data"
 
 [[vm]]
-  memory = "256mb"
+  # The Flask + reportlab + pillow + pywebpush + bs4 + plaid stack alone is
+  # ~110 MB resident on a fresh boot. 256 MB left almost no headroom for
+  # request buffers and was OOM-killing the machine when the Budget or
+  # Fantasy tabs loaded. 512 MB ($1.94/mo on Fly's shared-cpu-1x) is the
+  # cheapest size that holds the whole app comfortably; 1 GB is the safe
+  # default if you also use the Fantasy tab heavily.
+  memory = "512mb"
   cpu_kind = "shared"
   cpus = 1

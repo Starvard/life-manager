@@ -25,6 +25,15 @@ def _get_lock(path: str) -> threading.Lock:
             _file_locks[path] = threading.Lock()
         return _file_locks[path]
 
+
+# Cache for `_collect_last_completed_before_week`. Recomputing this scans
+# every prior week's JSON, and on a dashboard render with N areas it was
+# previously called N+1 times. The cache is keyed by `before_week_key` and
+# the directory mtime so it auto-invalidates when any week file changes.
+_last_completed_cache_lock = threading.Lock()
+_last_completed_cache: dict[str, tuple[float | None, dict]] = {}
+
+
 import config
 from services.routine_manager import load_routines
 from services.week_planner import (
@@ -88,10 +97,21 @@ def _collect_last_completed_before_week(
     cutoff = _monday_from_week_key(before_week_key)
     if cutoff is None:
         return {}
-    acc: LastCompletedMap = {}
     base = config.ROUTINE_CARDS_DIR
     if not os.path.isdir(base):
         return {}
+
+    try:
+        dir_mtime = os.path.getmtime(base)
+    except OSError:
+        dir_mtime = None
+    cache_key = before_week_key
+    with _last_completed_cache_lock:
+        cached = _last_completed_cache.get(cache_key)
+        if cached is not None and cached[0] == dir_mtime:
+            return cached[1]
+
+    acc: LastCompletedMap = {}
     for wk_name in os.listdir(base):
         if wk_name.count("-W") != 1:
             continue
@@ -124,6 +144,9 @@ def _collect_last_completed_before_week(
                             prev = acc.get(key)
                             if prev is None or d > prev:
                                 acc[key] = d
+
+    with _last_completed_cache_lock:
+        _last_completed_cache[cache_key] = (dir_mtime, acc)
     return acc
 
 
@@ -158,7 +181,7 @@ def _reconcile_mid_frequency_tasks_with_last_completion(
     if not area_key:
         return False
 
-    last_map = _collect_last_completed_before_week(week_key)
+    last_map = dict(_collect_last_completed_before_week(week_key))
     _merge_last_completed_from_this_card(card, week_key, last_map, date.today())
     routines = load_routines()
     plans = plan_week(

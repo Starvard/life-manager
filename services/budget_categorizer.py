@@ -15,8 +15,11 @@ future similar transactions pick up the same category.
 
 from __future__ import annotations
 
+import os
 import re
+import threading
 
+import config
 from services.budget_store import load_categories, save_categories
 
 # ── Built-in display categories for our simple budget ────────────
@@ -197,24 +200,56 @@ _DEFAULT_KEYWORD_RULES: list[tuple[str, str]] = [
 ]
 
 
+# Cached merged ruleset, invalidated by categories.json mtime. Each cache hit
+# also returns the keys pre-sorted by length-desc so we don't re-sort on every
+# transaction.
+_rules_lock = threading.Lock()
+_rules_cache: tuple[float | None, dict[str, str], list[str]] | None = None
+
+
+def _load_rules_cached() -> tuple[dict[str, str], list[str]]:
+    """Return (rules, sorted_keys). Cached against ``categories.json`` mtime."""
+    global _rules_cache
+    try:
+        mtime = os.path.getmtime(config.BUDGET_CATEGORIES_FILE)
+    except OSError:
+        mtime = None
+
+    with _rules_lock:
+        if _rules_cache is not None and _rules_cache[0] == mtime:
+            return _rules_cache[1], _rules_cache[2]
+        cats = load_categories()
+        learned = cats.get("rules") or {}
+        merged: dict[str, str] = {
+            k.lower(): v for k, v in dict(_DEFAULT_KEYWORD_RULES).items()
+        }
+        for k, v in learned.items():
+            if k and v:
+                merged[str(k).lower()] = str(v)
+        sorted_keys = sorted([k for k in merged.keys() if k], key=len, reverse=True)
+        _rules_cache = (mtime, merged, sorted_keys)
+        return merged, sorted_keys
+
+
+def _invalidate_rules_cache() -> None:
+    global _rules_cache
+    with _rules_lock:
+        _rules_cache = None
+
+
 def _load_rules() -> dict[str, str]:
     """Return merged rules: built-ins overlaid with learned overrides."""
-    cats = load_categories()
-    learned = cats.get("rules") or {}
-    merged: dict[str, str] = {k.lower(): v for k, v in dict(_DEFAULT_KEYWORD_RULES).items()}
-    for k, v in learned.items():
-        if k and v:
-            merged[str(k).lower()] = str(v)
-    return merged
+    rules, _ = _load_rules_cached()
+    return rules
 
 
 def _match_rule(description: str, rules: dict[str, str]) -> str | None:
     if not description:
         return None
     hay = description.lower()
-    # Prefer longer keyword matches first
-    for kw in sorted(rules.keys(), key=len, reverse=True):
-        if kw and kw in hay:
+    _, sorted_keys = _load_rules_cached()
+    for kw in sorted_keys:
+        if kw in hay:
             return rules[kw]
     return None
 
@@ -294,6 +329,7 @@ def learn_rule_from_override(tx: dict, new_category: str) -> None:
     rules[keyword] = new_category
     cats["rules"] = rules
     save_categories(cats)
+    _invalidate_rules_cache()
 
 
 def set_category_override(tx: dict, new_category: str) -> dict:
@@ -330,6 +366,7 @@ def upsert_keyword_rule(keyword: str, category: str) -> None:
     rules[(keyword or "").strip().lower()] = (category or "").strip()
     cats["rules"] = {k: v for k, v in rules.items() if k and v}
     save_categories(cats)
+    _invalidate_rules_cache()
 
 
 def delete_keyword_rule(keyword: str) -> bool:
@@ -340,6 +377,7 @@ def delete_keyword_rule(keyword: str) -> bool:
         del rules[key]
         cats["rules"] = rules
         save_categories(cats)
+        _invalidate_rules_cache()
         return True
     return False
 

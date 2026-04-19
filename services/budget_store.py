@@ -17,6 +17,12 @@ import config
 _file_locks: dict[str, threading.Lock] = {}
 _locks_lock = threading.Lock()
 
+# Cache (mtime, list) for transactions.json. The full list is parsed many
+# times per Budget page render; on a 256 MB Fly machine this both burns CPU
+# and creates a lot of short-lived objects which fragment the heap.
+_txn_cache_lock = threading.Lock()
+_txn_cache: tuple[float | None, list[dict]] | None = None
+
 
 def _get_lock(path: str) -> threading.Lock:
     with _locks_lock:
@@ -55,16 +61,38 @@ def _save_json(path: str, data):
 # ── Transactions ──────────────────────────────────────────────────
 
 def load_transactions() -> list[dict]:
+    """Load the full transactions list, cached against file mtime.
+
+    The cached list is shared between callers; treat it as read-mostly. Any
+    mutation must go through ``save_transactions`` so the cache stays in sync.
+    """
+    global _txn_cache
     _ensure_dirs()
-    data = _load_json(config.BUDGET_TRANSACTIONS_FILE)
-    if isinstance(data, list):
-        return data
-    return []
+    path = config.BUDGET_TRANSACTIONS_FILE
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:
+        mtime = None
+
+    with _txn_cache_lock:
+        if _txn_cache is not None and _txn_cache[0] == mtime:
+            return _txn_cache[1]
+        data = _load_json(path)
+        result = data if isinstance(data, list) else []
+        _txn_cache = (mtime, result)
+        return result
 
 
 def save_transactions(txns: list[dict]):
+    global _txn_cache
     _ensure_dirs()
     _save_json(config.BUDGET_TRANSACTIONS_FILE, txns)
+    try:
+        mtime = os.path.getmtime(config.BUDGET_TRANSACTIONS_FILE)
+    except OSError:
+        mtime = None
+    with _txn_cache_lock:
+        _txn_cache = (mtime, txns)
 
 
 def get_transaction_by_id(tx_id: str) -> dict | None:

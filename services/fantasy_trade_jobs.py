@@ -20,6 +20,8 @@ def refresh_trade_suggestions() -> dict:
     Recompute trade ideas from cached Sleeper league data + FantasyCalc values.
     Safe to call from a scheduler; uses an exclusive lock so only one run at a time.
     """
+    if os.environ.get("LM_DISABLE_FANTASY", "").lower() in ("1", "true", "yes"):
+        return {"ok": False, "skipped": True, "reason": "fantasy disabled"}
     os.makedirs(config.FANTASY_DIR, exist_ok=True)
     lock_f = None
     try:
@@ -70,6 +72,12 @@ def refresh_trade_suggestions() -> dict:
             apply_trade_refresh(result)
         else:
             apply_trade_error(result.get("error") or "Trade refresh failed.")
+        # Drop large refs before releasing the lock to keep peak RSS in check.
+        players_map = None  # noqa: F841
+        rosters = None  # noqa: F841
+        users = None  # noqa: F841
+        import gc as _gc
+        _gc.collect()
         return result
     finally:
         if lock_f is not None:

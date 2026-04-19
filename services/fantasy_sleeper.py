@@ -78,6 +78,8 @@ def _slot_rows(
 
 
 def sync_team(settings: dict) -> dict:
+    if os.environ.get("LM_DISABLE_FANTASY", "").lower() in ("1", "true", "yes"):
+        return {"ok": False, "error": "Fantasy is disabled on this deployment (LM_DISABLE_FANTASY=1)."}
     username = (settings.get("sleeper_username") or "").strip()
     if not username:
         return {"ok": False, "error": "Set a Sleeper username in settings."}
@@ -147,6 +149,10 @@ def sync_team(settings: dict) -> dict:
     rs = my_roster.get("settings") or {}
     synced_at = datetime.now(timezone.utc).isoformat()
 
+    # Release the big players_map ref before constructing the snapshot so
+    # peak RSS during the JSON dump is lower on tiny VMs.
+    import gc as _gc
+
     snapshot = {
         "synced_at": synced_at,
         "user": {
@@ -185,4 +191,6 @@ def sync_team(settings: dict) -> dict:
         "taxi": taxi_list,
         "players_resolved": bool(players_map),
     }
+    players_map = None  # noqa: F841 (drop local ref to help GC)
+    _gc.collect()
     return {"ok": True, "snapshot": snapshot}
