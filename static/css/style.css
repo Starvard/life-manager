@@ -493,6 +493,33 @@ select { color-scheme: dark; }
 .fantasy-suggest-fair { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--text-muted); font-size: 0.78rem; }
 .fantasy-suggest-body ul { margin: 0.25rem 0 0.65rem 1rem; padding: 0; font-size: 0.82rem; color: var(--text); }
 .fantasy-suggest-note { font-size: 0.78rem; color: var(--text-muted); margin: 0.35rem 0 0; line-height: 1.45; }
+.fantasy-rebuild-board-card { margin-bottom: 1.25rem; }
+.fantasy-rebuild-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.fantasy-rebuild-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.fantasy-rebuild-table th { text-align: left; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); padding: 0.35rem 0.5rem 0.35rem 0; border-bottom: 1px solid var(--border); }
+.fantasy-rebuild-table td { padding: 0.45rem 0.5rem 0.45rem 0; border-bottom: 1px solid var(--border-light); vertical-align: middle; }
+.fantasy-rebuild-table tr:last-child td { border-bottom: none; }
+.fantasy-rb-group { color: var(--text-muted); white-space: nowrap; font-size: 0.78rem; max-width: 7rem; }
+.fantasy-rb-name { font-weight: 500; min-width: 10rem; }
+.fantasy-rebuild-input { width: 100%; max-width: none; font-size: 0.8rem; }
+.fantasy-pick-list { list-style: none; margin: 0; padding: 0; font-size: 0.85rem; }
+.fantasy-pick-list li { padding: 0.3rem 0; border-bottom: 1px solid var(--border-light); }
+.fantasy-pick-list li:last-child { border-bottom: none; }
+.fantasy-plan-doc-card { margin-bottom: 1.25rem; }
+.fantasy-plan-doc {
+    margin: 0.75rem 0 0;
+    padding: 1rem;
+    background: var(--surface-hover);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--text);
+    max-height: 28rem;
+    overflow-y: auto;
+}
 
 /* ── Research ──────────────────────────────────────────────── */
 .research-toc { margin-top: 0.5rem; }
