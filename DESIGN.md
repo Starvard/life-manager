@@ -22,7 +22,7 @@ life-manager/
     card_generator.py        PDF export for routine cards
     baby_card_generator.py   PDF export for baby cards
     review.py                Legacy review/suggestion engine
-    recipes_store.py         JSON CRUD for recipes/grocery/inventory/meal_plan
+    recipes_store.py         JSON CRUD for recipes/grocery/inventory/weekly menu
     recipes_search.py        Online recipe search via TheMealDB
 
   templates/
@@ -32,7 +32,7 @@ life-manager/
     baby.html                Interactive baby cards (Alpine.js components)
     routines.html            Edit areas and tasks
     review.html              Weekly review
-    recipes.html             Home Recipes: recipes / grocery / inventory / meal plan tabs
+    recipes.html             Home Recipes: weekly menu (default) / recipes / grocery / inventory tabs
 
   static/
     css/style.css            Mobile-first responsive styles
@@ -60,14 +60,16 @@ life-manager/
 
 ### Home Recipes
 
-Single page (`/recipes`) with four tabs powered by Alpine.js:
+Single page (`/recipes`) with four tabs powered by Alpine.js. **Menu** is the default front tab.
 
+- **Menu** (default): a single-page, one-line-per-meal pool for the current ISO week — 1-2 breakfasts, 1-2 lunches, 4-6 dinners. Each slot is a chip row; chips link back to the saved recipe (if any). One button — `Send menu → grocery` — pushes the ingredients of every saved recipe in the menu to the grocery list and reports `added / on hand / on list / free-text skipped` so it's clear when nothing changed and why.
 - **Recipes**: searchable card grid of saved recipes; create / edit / delete with full ingredient + step editor; "Search online" panel hits TheMealDB and imports any result with one click; each recipe can push its ingredients to the grocery list (deduped against pantry inventory).
 - **Grocery**: quick-add row plus grouped checklist with Move-checked → Inventory and Clear-checked actions.
 - **Inventory**: pantry/fridge tracker grouped by category, with editable quantities and expiration dates.
-- **Meal plan**: 7-day Mon–Sun grid with breakfast/lunch/dinner/snack slots; each slot accepts a saved recipe or free text. "Add week to grocery" generates a shopping list from every planned recipe in the visible week.
 
-API base path: `/api/recipes/...` (CRUD for recipes, grocery, inventory, meal-plan + `/search-online` and `/import-online`). Storage is plain JSON files under `data/recipes/`.
+Menu storage shape: `meal_plan.json` = `{"weeks": {"YYYY-Www": {"breakfast": [...], "lunch": [...], "dinner": [...]}}, "version": 2}`. The store transparently migrates the legacy v1 `{"days": {...}}` shape on first load.
+
+API base path: `/api/recipes/...` (CRUD for recipes, grocery, inventory, weekly menu + `/search-online` and `/import-online`). Storage is plain JSON files under `data/recipes/`.
 
 ## Data Models
 

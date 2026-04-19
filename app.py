@@ -1076,15 +1076,18 @@ def api_fantasy_trade_refresh():
 
 @app.route("/recipes")
 def recipes_page():
+    week_key = recipes_store.current_week_key()
     return render_template(
         "recipes.html",
         recipes_bootstrap={
             "recipes": recipes_store.list_recipes(),
             "grocery": recipes_store.list_grocery(),
             "inventory": recipes_store.list_inventory(),
-            "meal_plan": recipes_store.get_meal_plan(),
+            "menu": recipes_store.get_week_menu(week_key),
             "categories": recipes_store.DEFAULT_CATEGORIES,
-            "meal_slots": recipes_store.MEAL_SLOTS,
+            "menu_slots": recipes_store.MENU_SLOTS,
+            "menu_targets": recipes_store.MENU_SLOT_TARGETS,
+            "current_week": week_key,
             "today": date.today().isoformat(),
         },
     )
@@ -1238,34 +1241,59 @@ def api_inventory_delete(item_id):
     return jsonify({"ok": ok})
 
 
-# Meal plan -------------------------------------------------------
+# Weekly menu -----------------------------------------------------
 
-@app.route("/api/recipes/meal-plan")
-def api_meal_plan_get():
-    return jsonify(recipes_store.get_meal_plan())
+@app.route("/api/recipes/menu")
+def api_menu_get():
+    week_key = request.args.get("week", "")
+    return jsonify({"ok": True, "menu": recipes_store.get_week_menu(week_key)})
 
 
-@app.route("/api/recipes/meal-plan/<day>/<slot>", methods=["POST"])
-def api_meal_plan_add(day, slot):
+@app.route("/api/recipes/menu/<slot>", methods=["POST"])
+def api_menu_add(slot):
     body = request.get_json(silent=True) or {}
-    entry = recipes_store.add_meal_plan_entry(day, slot, body)
+    week_key = body.get("week_key") or request.args.get("week", "")
+    entry = recipes_store.add_menu_entry(week_key, slot, body)
     if not entry:
-        return jsonify({"ok": False, "error": "Invalid day, slot, or empty entry."}), 400
-    return jsonify({"ok": True, "entry": entry, "plan": recipes_store.get_meal_plan()})
+        return jsonify({"ok": False, "error": "Invalid slot or empty entry."}), 400
+    return jsonify({
+        "ok": True,
+        "entry": entry,
+        "menu": recipes_store.get_week_menu(week_key),
+    })
 
 
-@app.route("/api/recipes/meal-plan/<day>/<slot>/<entry_id>", methods=["DELETE"])
-def api_meal_plan_remove(day, slot, entry_id):
-    ok = recipes_store.remove_meal_plan_entry(day, slot, entry_id)
-    return jsonify({"ok": ok, "plan": recipes_store.get_meal_plan()})
+@app.route("/api/recipes/menu/<slot>/<entry_id>", methods=["DELETE"])
+def api_menu_remove(slot, entry_id):
+    week_key = request.args.get("week", "")
+    ok = recipes_store.remove_menu_entry(week_key, slot, entry_id)
+    return jsonify({
+        "ok": ok,
+        "menu": recipes_store.get_week_menu(week_key),
+    })
 
 
-@app.route("/api/recipes/meal-plan/to-grocery", methods=["POST"])
-def api_meal_plan_to_grocery():
+@app.route("/api/recipes/menu/clear", methods=["POST"])
+def api_menu_clear():
     body = request.get_json(silent=True) or {}
-    day = body.get("day") if isinstance(body, dict) else None
-    res = recipes_store.add_meal_plan_to_grocery(day)
-    return jsonify({"ok": True, **res, "items": recipes_store.list_grocery()})
+    week_key = body.get("week_key") or request.args.get("week", "")
+    ok = recipes_store.clear_week_menu(week_key)
+    return jsonify({
+        "ok": ok,
+        "menu": recipes_store.get_week_menu(week_key),
+    })
+
+
+@app.route("/api/recipes/menu/to-grocery", methods=["POST"])
+def api_menu_to_grocery():
+    body = request.get_json(silent=True) or {}
+    week_key = body.get("week_key") or request.args.get("week", "")
+    res = recipes_store.add_menu_to_grocery(week_key)
+    return jsonify({
+        "ok": True,
+        **res,
+        "items": recipes_store.list_grocery(),
+    })
 
 
 # \u2500\u2500 PDF Export \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
