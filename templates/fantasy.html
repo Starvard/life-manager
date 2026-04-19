@@ -34,6 +34,14 @@
     </p>
 </div>
 
+<div class="card fantasy-plan-doc-card" x-show="plan.rebuild_plan_doc">
+    <div class="card-title">Plan to win (auto — refresh on each sync)</div>
+    <p class="fantasy-synced" x-show="plan.rebuild_plan_generated_at">
+        Generated <span x-text="fmtTime(plan.rebuild_plan_generated_at)"></span>
+    </p>
+    <pre class="fantasy-plan-doc" x-text="plan.rebuild_plan_doc"></pre>
+</div>
+
 <details class="fantasy-advanced">
     <summary>Advanced (account &amp; league)</summary>
     <div class="fantasy-advanced-body">

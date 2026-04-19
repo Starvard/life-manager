@@ -16,7 +16,9 @@
     "trade_targets": "",
     "rebuild_notes": "",
     "trade_ideas": [],
-    "rebuild_horizon_years": 3
+    "rebuild_horizon_years": 3,
+    "rebuild_plan_doc": "",
+    "rebuild_plan_generated_at": null
   },
   "rebuild_board": {
     "sync_token": "",

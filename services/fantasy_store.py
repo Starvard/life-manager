@@ -38,6 +38,8 @@ DEFAULT_STATE: dict = {
         "rebuild_notes": "",
         "trade_ideas": [],
         "rebuild_horizon_years": 3,
+        "rebuild_plan_doc": "",
+        "rebuild_plan_generated_at": None,
     },
     "rebuild_board": {
         "sync_token": "",
@@ -293,6 +295,12 @@ def apply_sync_snapshot(snapshot: dict):
     state["cached_snapshot"] = snapshot
     prev_board = state.get("rebuild_board")
     state["rebuild_board"] = _merge_rebuild_board_from_snapshot(snapshot, prev_board)
+    try:
+        from services.fantasy_rebuild_plan import generate_rebuild_plan
+
+        state = generate_rebuild_plan(state)
+    except Exception:
+        pass
     save_state(state)
 
 

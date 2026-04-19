@@ -1,0 +1,236 @@
+"""
+Auto-generate rebuild plan text and per-asset trade targets (FantasyCalc dynasty values).
+
+Runs after each Sleeper sync; overwrites desired_upgrade / plan_target on the rebuild board.
+"""
+
+from __future__ import annotations
+
+import re
+from datetime import datetime, timezone
+from services import fantasycalc_client
+
+
+def _horizon_note(years: int) -> str:
+    y = max(1, min(7, int(years or 3)))
+    return f"{y}-year window"
+
+
+def _pick_rows_for_season_round(rows: list[dict], season: str, rnd: int) -> list[dict]:
+    """FantasyCalc pick names like '2026 Pick 1.01'. Match season + first-round digit group."""
+    out = []
+    season = str(season)
+    for row in rows:
+        pl = row.get("player") or {}
+        if pl.get("position") != "PICK":
+            continue
+        name = (pl.get("name") or "").strip()
+        m = re.match(r"^(\d{4})\s+Pick\s+(\d+)\.(\d+)", name)
+        if not m:
+            continue
+        if m.group(1) != season:
+            continue
+        if int(m.group(2)) != rnd:
+            continue
+        out.append(row)
+    return out
+
+
+def _median_pick_value(rows: list[dict]) -> float | None:
+    vals = []
+    for row in rows:
+        try:
+            vals.append(float(row.get("value") or 0))
+        except (TypeError, ValueError):
+            pass
+    if not vals:
+        return None
+    vals.sort()
+    return vals[len(vals) // 2]
+
+
+def _find_player_upgrade(
+    my_id: str,
+    vmap: dict[str, dict],
+    horizon_years: int,
+) -> tuple[str, str]:
+    """
+    Returns (plan_target_name, one_line_rationale).
+    Prefers same position, younger, similar dynasty value band (rebuild: youth over raw value).
+    """
+    me = vmap.get(str(my_id))
+    if not me:
+        return ("(no value data — sync again)", "FantasyCalc has no value for this player yet.")
+
+    my_pos = (me.get("pos") or "").upper()
+    my_val = float(me.get("value") or 0)
+    my_age = me.get("age")
+    try:
+        my_age_f = float(my_age) if my_age is not None else None
+    except (TypeError, ValueError):
+        my_age_f = None
+
+    my_name = me.get("name") or str(my_id)
+    h = _horizon_note(horizon_years)
+
+    # Positions we try to match (superflex: QB counts)
+    pos_ok = {my_pos} if my_pos else set()
+    if my_pos in ("RB", "WR", "TE"):
+        pos_ok.add("FLEX")
+    if not pos_ok:
+        pos_ok = {"QB", "RB", "WR", "TE"}
+
+    candidates: list[tuple[float, float, str, str]] = []
+    for sid, info in vmap.items():
+        if sid == str(my_id):
+            continue
+        pos = (info.get("pos") or "").upper()
+        if pos not in pos_ok and my_pos and pos != my_pos:
+            continue
+        try:
+            val = float(info.get("value") or 0)
+        except (TypeError, ValueError):
+            continue
+        if val < 400:
+            continue
+        # Similar value band for 1:1 style targets
+        if my_val > 0 and not (0.72 <= val / my_val <= 1.35):
+            continue
+        age = info.get("age")
+        try:
+            age_f = float(age) if age is not None else None
+        except (TypeError, ValueError):
+            age_f = None
+        youth = 0.0
+        if my_age_f is not None and age_f is not None:
+            youth = my_age_f - age_f
+        elif age_f is not None:
+            youth = 28.0 - age_f
+        name = info.get("name") or sid
+        candidates.append((youth, val, sid, name))
+
+    if not candidates:
+        if my_val < 1200:
+            return (
+                "Add draft capital or package up",
+                f"{my_name} is lower tier — target a {h} upside piece by attaching picks or pairing with another asset.",
+            )
+        return (
+            "Consolidate or buy 2027/2028 capital",
+            f"Few 1:1 comps in band — pivot to acquiring extra 1sts/2nds or a younger profile in {h}.",
+        )
+
+    candidates.sort(key=lambda x: (-x[0], -x[1]))
+    _, _, _, target_name = candidates[0]
+    reason = (
+        f"Rebuild aim ({h}): similar dynasty value, prefer younger profile at {my_pos or 'same role'} "
+        f"when you negotiate — use FantasyCalc as a starting band, then adjust to your league."
+    )
+    return (target_name, reason)
+
+
+def _pick_plan_line(
+    season: str,
+    rnd: int,
+    median_val: float | None,
+    horizon_years: int,
+) -> tuple[str, str]:
+    h = _horizon_note(horizon_years)
+    tier = ""
+    if median_val is not None:
+        tier = f" Rough median dynasty value for this round slot in FantasyCalc: ~{median_val:.0f}."
+    target = f"{season} R{rnd} — deploy as trade capital"
+    rationale = (
+        f"{tier} In a {h} rebuild, prioritize moving this into proven youth or earlier 1sts "
+        f"(especially {int(season) + 1}/+2 picks) rather than holding to the draft unless you love the class."
+    )
+    return (target, rationale)
+
+
+def generate_rebuild_plan(state: dict) -> dict:
+    """
+    Mutate and return state with:
+    - plan.rebuild_plan_doc, plan.rebuild_plan_generated_at
+    - rebuild_board.assets[*].plan_target, plan_rationale, desired_upgrade (auto text)
+    """
+    snap = state.get("cached_snapshot")
+    if not isinstance(snap, dict):
+        return state
+
+    settings = state.get("settings") or {}
+    plan = state.setdefault("plan", {})
+    horizon = int(plan.get("rebuild_horizon_years") or 3)
+    horizon = max(1, min(7, horizon))
+
+    num_qbs = int(settings.get("valuation_num_qbs") or 2)
+    num_teams = int(settings.get("valuation_num_teams") or 12)
+    ppr = float(settings.get("valuation_ppr") or 1.0)
+
+    rows, warn = fantasycalc_client.fetch_dynasty_values(
+        num_qbs=num_qbs, num_teams=num_teams, ppr=ppr
+    )
+    if not rows:
+        plan["rebuild_plan_doc"] = (
+            "Could not load FantasyCalc values to generate targets. "
+            + (warn or "Check network and sync again.")
+        )
+        plan["rebuild_plan_generated_at"] = datetime.now(timezone.utc).isoformat()
+        return state
+
+    vmap = fantasycalc_client.values_by_sleeper_id(rows)
+    board = state.setdefault("rebuild_board", {})
+    assets = board.setdefault("assets", {})
+    order = board.get("order") or []
+
+    lines: list[str] = []
+    lines.append(f"DYNASTY REBUILD PLAN ({_horizon_note(horizon).upper()})")
+    lines.append("")
+    lines.append(
+        "Auto-generated from your Sleeper roster + FantasyCalc dynasty values. "
+        "Use as a living trade script; confirm with Dynasty Calc / league context."
+    )
+    if warn:
+        lines.append("")
+        lines.append(f"Note: {warn}")
+    lines.append("")
+
+    for aid in order:
+        ast = assets.get(aid)
+        if not isinstance(ast, dict):
+            continue
+        kind = ast.get("kind")
+        if kind == "player":
+            pid = str(ast.get("player_id") or "")
+            tgt, why = _find_player_upgrade(pid, vmap, horizon)
+            ast["plan_target"] = tgt
+            ast["plan_rationale"] = why
+            ast["desired_upgrade"] = f"Target: {tgt}. {why}"
+            group = ast.get("group") or ""
+            slot = ast.get("slot") or ""
+            label = f"{group}" + (f" ({slot})" if slot else "")
+            lines.append(f"{label.upper()}")
+            lines.append(f"  Player ID: {pid}")
+            lines.append(f"  Aim: {ast['desired_upgrade']}")
+            lines.append("")
+        elif kind == "pick":
+            pk = str(ast.get("pick_key") or "")
+            label = str(ast.get("label") or pk)
+            season = ""
+            rnd = 0
+            m = re.match(r"^(\d{4})-r(\d+)-", pk)
+            if m:
+                season, rnd = m.group(1), int(m.group(2))
+            prs = _pick_rows_for_season_round(rows, season, rnd) if season else []
+            med = _median_pick_value(prs) if prs else None
+            tgt, why = _pick_plan_line(season, rnd, med, horizon)
+            ast["plan_target"] = tgt
+            ast["plan_rationale"] = why
+            ast["desired_upgrade"] = f"{tgt}. {why}"
+            lines.append(f"DRAFT PICK: {label}")
+            lines.append(f"  Aim: {ast['desired_upgrade']}")
+            lines.append("")
+
+    doc = "\n".join(lines).strip()
+    plan["rebuild_plan_doc"] = doc
+    plan["rebuild_plan_generated_at"] = datetime.now(timezone.utc).isoformat()
+    return state
