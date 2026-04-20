@@ -48,6 +48,10 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
                     <span>Research</span>
                 </a>
+                <a href="{{ url_for('game_page') }}" data-nav-tab="game" class="{% if request.endpoint == 'game_page' %}active{% endif %}{% if 'game' in hidden_nav_tabs %} nav-link-hidden{% endif %}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1118 0c0 2.5-2 4.5-4.5 4.5H15a2 2 0 100 4h-3a9 9 0 01-9-8.5z"/><circle cx="8" cy="11" r="1.2" fill="currentColor"/><circle cx="12" cy="8" r="1.2" fill="currentColor"/><circle cx="16" cy="11" r="1.2" fill="currentColor"/></svg>
+                    <span>Cat Dash</span>
+                </a>
                 <a href="{{ url_for('routines_page') }}" data-nav-tab="edit" class="{% if request.endpoint == 'routines_page' %}active{% endif %}{% if 'edit' in hidden_nav_tabs %} nav-link-hidden{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                     <span>Edit</span>
@@ -92,6 +96,10 @@
             <a href="{{ url_for('research_page') }}" data-nav-tab="research" class="{% if request.endpoint in ('research_page', 'research_am_facility_cost') %}active{% endif %}{% if 'research' in hidden_nav_tabs %} nav-link-hidden{% endif %}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>
                 Research
+            </a>
+            <a href="{{ url_for('game_page') }}" data-nav-tab="game" class="{% if request.endpoint == 'game_page' %}active{% endif %}{% if 'game' in hidden_nav_tabs %} nav-link-hidden{% endif %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1118 0c0 2.5-2 4.5-4.5 4.5H15a2 2 0 100 4h-3a9 9 0 01-9-8.5z"/><circle cx="8" cy="11" r="1.2" fill="currentColor"/><circle cx="12" cy="8" r="1.2" fill="currentColor"/><circle cx="16" cy="11" r="1.2" fill="currentColor"/></svg>
+                Cat Dash
             </a>
             <a href="{{ url_for('routines_page') }}" data-nav-tab="edit" class="{% if request.endpoint == 'routines_page' %}active{% endif %}{% if 'edit' in hidden_nav_tabs %} nav-link-hidden{% endif %}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>

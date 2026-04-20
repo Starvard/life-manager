@@ -19,6 +19,7 @@ NAV_TAB_KEYS: tuple[str, ...] = (
     "fantasy",
     "recipes",
     "research",
+    "game",
     "edit",
 )
 
@@ -30,6 +31,7 @@ NAV_TAB_LABELS: dict[str, str] = {
     "fantasy": "Fantasy",
     "recipes": "Recipes",
     "research": "Research",
+    "game": "Pup Patrol Cat Dash",
     "edit": "Edit (routines)",
 }
 
