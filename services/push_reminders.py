@@ -290,17 +290,18 @@ def run_reminder_scan() -> None:
     for item in nags:
         tag = item["tag"]
         list_key = item["list_key"]
-        if list_key != "tasks":
-            nt = None
-        else:
+        if list_key == "tasks":
             nt = nt_map.get((item["area_key"], item["task_name"]))
-
-        if nt:
+            if not nt:
+                # Blank Notify = opted out. Matches the UI promise on /routines.
+                continue
             if not _notify_time_reached(nt):
                 continue
             if daily_scheduled.get(tag) == today_iso:
                 continue
         else:
+            # Per-week ad-hoc rows have no per-task notify time; fall back to
+            # the cooldown nag loop so they still surface today.
             prev = last_sent.get(tag)
             if prev is not None and (now - prev) < cool:
                 continue
@@ -322,7 +323,7 @@ def run_reminder_scan() -> None:
             if send_push_to_subscription(sub, payload):
                 any_ok = True
         if any_ok:
-            if nt:
+            if list_key == "tasks":
                 daily_scheduled[tag] = today_iso
             else:
                 last_sent[tag] = now

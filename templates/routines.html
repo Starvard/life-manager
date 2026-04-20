@@ -5,12 +5,12 @@
 <div class="page-header">
     <h1>Routine Configuration</h1>
     <p class="subtitle">Frequency = times per week (7 = daily, 14 = 2x/day, 0.25 = monthly). Weight (try 1–5) scales how much each task affects your dashboard score for completed scheduled dots. Check weekdays to pin a task (e.g. trash every Tuesday).</p>
-    <p class="subtitle routines-push-behavior">Push: only when <strong>today</strong> has a <strong>scheduled dot</strong> for that task that is still empty—not for missed dots on earlier weekdays by themselves. Clear the Notify field on a task to turn off its timed reminder.</p>
+    <p class="subtitle routines-push-behavior">Push: only when <strong>today</strong> has a <strong>scheduled dot</strong> for that task that is still empty—not for missed dots on earlier weekdays by themselves. Notify is <strong>blank by default</strong>; set a time on any task to opt that task in.</p>
 </div>
 
 <div class="card routines-push-card">
     <div class="card-title">Push notifications</div>
-    <p class="routines-push-hint">Sends one test to every device that tapped Enable reminders. <strong>Notify</strong> defaults to <strong>{{ default_notify_time }}</strong> (set <code>LM_DEFAULT_NOTIFY_TIME</code> to change). Times use <strong>this computer&rsquo;s clock</strong>. Clear a task&rsquo;s time to disable its reminder.</p>
+    <p class="routines-push-hint">Sends one test to every device that tapped Enable reminders. <strong>Notify</strong> defaults to <strong>blank (no reminder)</strong>; set a time per task to enable reminders for it. Times use <strong>this computer&rsquo;s clock</strong>.</p>
     <button type="button" class="btn btn-primary" id="routines-test-push">Send test notification</button>
     <span class="routines-test-push-status" id="routines-test-push-status" aria-live="polite"></span>
 </div>
@@ -67,10 +67,8 @@
                 <input type="number" name="task_weight_{{ area_key }}_{{ loop.index0 }}"
                        value="{{ task.weight if task.weight is defined else '' }}" step="0.5" min="0.5" max="10" placeholder="1" title="Weight for scoring">
                 <input type="time" name="task_notify_time_{{ area_key }}_{{ loop.index0 }}"
-                       {% if 'notify_time' not in task %}value="{{ default_notify_time }}"
-                       {% elif task.notify_time %}value="{{ task.notify_time }}"
-                       {% else %}value=""
-                       {% endif %} title="Remind after this time when today has a scheduled dot (PC clock). Clear to disable.">
+                       value="{{ task.notify_time if task.notify_time else '' }}"
+                       title="Remind after this time when today has a scheduled dot (PC clock). Leave blank to disable.">
                 <div class="task-days-picker">
                     {% set od = task.get('on_days', []) %}
                     {% for label in ['Mo','Tu','We','Th','Fr','Sa','Su'] %}
@@ -90,7 +88,7 @@
                 <input type="number" name="new_task_freq_{{ area_key }}" step="0.25" min="0" placeholder="freq/wk">
                 <input type="number" name="new_task_fpy_{{ area_key }}" step="1" min="0" placeholder="freq/yr">
                 <input type="number" name="new_task_weight_{{ area_key }}" step="0.5" min="0.5" max="10" placeholder="1" title="Weight">
-                <input type="time" name="new_task_notify_time_{{ area_key }}" value="{{ default_notify_time }}" title="Default notify time; clear to disable for this row">
+                <input type="time" name="new_task_notify_time_{{ area_key }}" value="" title="Optional: time to notify when this task has a scheduled dot today. Leave blank to disable.">
                 <div class="task-days-picker">
                     {% for label in ['Mo','Tu','We','Th','Fr','Sa','Su'] %}
                     <label class="day-chip"><input type="checkbox" name="new_task_on_days_{{ area_key }}" value="{{ loop.index0 }}"><span>{{ label }}</span></label>

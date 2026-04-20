@@ -9,7 +9,15 @@ PHOTOS_DIR = os.path.join(DATA_DIR, "photos")
 CARDS_DIR = os.path.join(DATA_DIR, "cards")
 ROUTINE_CARDS_DIR = os.path.join(DATA_DIR, "routine-cards")
 BABY_CARDS_DIR = os.path.join(DATA_DIR, "baby-cards")
-ROUTINES_FILE = os.path.join(BASE_DIR, "routines.yaml")
+ROUTINES_BUNDLED_FILE = os.path.join(BASE_DIR, "routines.yaml")
+# In production, LM_DATA_DIR points at the persistent Fly volume — the image
+# filesystem is rebuilt on every machine restart, so any UI edits to a file
+# under BASE_DIR would silently disappear. Keep the user-edited copy on the
+# volume; the bundled file in the repo only acts as a first-boot seed.
+if DATA_DIR == os.path.join(BASE_DIR, "data"):
+    ROUTINES_FILE = ROUTINES_BUNDLED_FILE
+else:
+    ROUTINES_FILE = os.path.join(DATA_DIR, "routines.yaml")
 BABY_CONFIG_FILE = os.path.join(BASE_DIR, "baby_config.yaml")
 HISTORY_FILE = os.path.join(DATA_DIR, "history.json")
 SCORE_BESTS_FILE = os.path.join(DATA_DIR, "score_bests.json")
@@ -45,6 +53,5 @@ WEEK_START_DAY = 0
 
 DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-# Prefill for per-task push time on Edit (HH:MM, 24h). Override with LM_DEFAULT_NOTIFY_TIME.
-_default_nt = os.environ.get("LM_DEFAULT_NOTIFY_TIME", "09:00").strip()
-DEFAULT_NOTIFY_TIME = _default_nt if _default_nt else "09:00"
+# Per-task push reminders default to blank (opt-in). Set a Notify time on a
+# task in the /routines edit page to start receiving reminders for it.

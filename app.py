@@ -124,7 +124,6 @@ def inject_network_url():
     return {
         "network_base_url": _network_base_url_for_phone(),
         "browser_on_loopback_host": loopback,
-        "default_notify_time": config.DEFAULT_NOTIFY_TIME,
     }
 
 
