@@ -15,6 +15,23 @@
     <span class="routines-test-push-status" id="routines-test-push-status" aria-live="polite"></span>
 </div>
 
+<div class="card nav-tabs-pref-card" id="nav-tabs-visibility">
+    <div class="card-title">Navigation tabs</div>
+    <p class="subtitle nav-tabs-pref-intro">Hide app sections you don&rsquo;t need from the sidebar (desktop) and the bottom bar (phone). At least one tab always stays visible. Preferences are saved on this server (<code>data/ui_nav.json</code>).</p>
+    <div class="nav-tabs-pref-grid">
+        {% for t in nav_tabs_catalog %}
+        <label class="nav-tab-pref-label">
+            <input type="checkbox" name="nav_hide_{{ t.key }}" value="1"{% if t.key in hidden_nav_tabs %} checked{% endif %}>
+            <span>Hide {{ t.label }}</span>
+        </label>
+        {% endfor %}
+    </div>
+    <div class="nav-tabs-pref-actions">
+        <button type="button" class="btn btn-primary btn-sm" id="nav-tabs-save-btn">Save tab visibility</button>
+        <span class="nav-tabs-save-status" id="nav-tabs-save-status" aria-live="polite"></span>
+    </div>
+</div>
+
 <form method="POST" action="{{ url_for('save_routines_form') }}">
     {% for area_key, area in areas.items() %}
     <div class="area-section" id="area-{{ area_key }}">
@@ -105,6 +122,34 @@
 </form>
 
 <script>
+const NAV_TAB_KEYS = {{ nav_tabs_catalog | map(attribute="key") | list | tojson }};
+
+document.getElementById("nav-tabs-save-btn")?.addEventListener("click", async () => {
+    const st = document.getElementById("nav-tabs-save-status");
+    const hidden = [];
+    for (const k of NAV_TAB_KEYS) {
+        const cb = document.querySelector('input[name="nav_hide_' + k + '"]');
+        if (cb && cb.checked) hidden.push(k);
+    }
+    if (st) st.textContent = "Saving…";
+    try {
+        const res = await fetch("/api/ui/nav-tabs", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ hidden }),
+        });
+        const data = await res.json();
+        if (data.ok) {
+            if (st) st.textContent = "Saved — reloading…";
+            location.reload();
+        } else {
+            if (st) st.textContent = data.error || "Could not save.";
+        }
+    } catch (e) {
+        if (st) st.textContent = "Network error.";
+    }
+});
+
 async function reorderArea(key, dir) {
     const res = await fetch("/api/routines/reorder", {
         method: "PATCH",

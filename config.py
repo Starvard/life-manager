@@ -16,6 +16,7 @@ SCORE_BESTS_FILE = os.path.join(DATA_DIR, "score_bests.json")
 PUSH_SUBSCRIPTIONS_FILE = os.path.join(DATA_DIR, "push_subscriptions.json")
 VAPID_KEYS_FILE = os.path.join(DATA_DIR, "vapid_keys.json")
 PUSH_REMINDER_STATE_FILE = os.path.join(DATA_DIR, "push_reminder_state.json")
+NAV_PREFS_FILE = os.path.join(DATA_DIR, "ui_nav.json")
 
 BUDGET_DIR = os.path.join(BASE_DIR, "budget")
 BUDGET_DATA_DIR = os.path.join(DATA_DIR, "budget")
