@@ -20,7 +20,7 @@
             <div class="overlay-card">
                 <h2>Pup Patrol Cat Dash</h2>
                 <p>Tap, drag, or use the arrow keys to move the kitten left and right.<br>
-                Catch the colorful Paw Patrol pups (+points) and dodge the falling junk!</p>
+                Grab the colorful Paw Patrol pup badges (+points) and dodge the falling junk!</p>
                 <label class="name-label">Your name
                     <input type="text" id="playerName" maxlength="16" placeholder="Player">
                 </label>
@@ -355,13 +355,22 @@
     }
 
     // Cute kitten sprite (player). cx,cy = center, s = scale factor (size).
-    function drawKitten(cx, cy, s, dir) {
-        // body
+    function drawKitten(cx, cy, s, dir, hurtT, invuln) {
+        // Blink during i-frames (skip every other ~80ms slice).
+        if (invuln > 0 && Math.floor(performance.now() / 80) % 2 === 0) return;
+
         ctx.save();
         ctx.translate(cx, cy);
         // bobbing rotation
         const bob = Math.sin(performance.now() / 120) * 0.05;
         ctx.rotate(bob);
+
+        // hurt flash tint
+        const hurt = hurtT > 0;
+        if (hurt) {
+            ctx.shadowColor = '#ff3050';
+            ctx.shadowBlur = 24;
+        }
 
         // shadow
         ctx.fillStyle = 'rgba(0,0,0,0.25)';
@@ -370,17 +379,17 @@
         ctx.fill();
 
         // body
-        ctx.fillStyle = '#f5d49b';
+        ctx.fillStyle = hurt ? '#ff8a8a' : '#f5d49b';
         roundRect(-s * 0.7, -s * 0.15, s * 1.4, s * 1.05, s * 0.4);
         ctx.fill();
 
         // belly
-        ctx.fillStyle = '#fff3d6';
+        ctx.fillStyle = hurt ? '#ffd0d0' : '#fff3d6';
         roundRect(-s * 0.45, s * 0.15, s * 0.9, s * 0.7, s * 0.35);
         ctx.fill();
 
         // tail
-        ctx.strokeStyle = '#f5d49b';
+        ctx.strokeStyle = hurt ? '#ff8a8a' : '#f5d49b';
         ctx.lineWidth = s * 0.25;
         ctx.lineCap = 'round';
         ctx.beginPath();
@@ -391,7 +400,7 @@
         ctx.stroke();
 
         // head
-        ctx.fillStyle = '#f5d49b';
+        ctx.fillStyle = hurt ? '#ff8a8a' : '#f5d49b';
         ctx.beginPath();
         ctx.arc(0, -s * 0.55, s * 0.65, 0, Math.PI * 2);
         ctx.fill();
@@ -617,7 +626,7 @@
         speed: 170,
         objects: [], // {kind:'pup'|'obs', x,y, vx,vy, r, theme}
         sparkles: [],
-        player: { x: W / 2, y: H - 110, w: 90, h: 95, dir: 1, target: W / 2 }
+        player: { x: W / 2, y: H - 110, w: 90, h: 95, dir: 1, target: W / 2, hurtT: 0, invuln: 0 }
     };
 
     function resetGame() {
@@ -634,15 +643,27 @@
         game.sparkles = [];
         game.player.x = W / 2;
         game.player.target = W / 2;
+        game.player.hurtT = 0;
+        game.player.invuln = 0;
         updateHud();
     }
 
     function spawnObject() {
-        // 60% chance pup, 40% obstacle. As score climbs, slightly more obstacles.
         const obstacleChance = Math.min(0.6, 0.4 + game.elapsed / 200);
         const isObstacle = Math.random() < obstacleChance;
-        const r = 28 + Math.random() * 10;
-        const x = r + Math.random() * (W - 2 * r);
+        const r = isObstacle ? 28 + Math.random() * 10 : 26;
+        // Try to pick an x that doesn't overlap any nearby just-spawned object,
+        // so falling items don't pile up in the same column.
+        let x = r + Math.random() * (W - 2 * r);
+        for (let attempt = 0; attempt < 8; attempt++) {
+            let collide = false;
+            for (const o of game.objects) {
+                if (o.y > 90) continue;
+                if (Math.abs(o.x - x) < (o.r + r) * 1.15) { collide = true; break; }
+            }
+            if (!collide) break;
+            x = r + Math.random() * (W - 2 * r);
+        }
         const speed = game.speed * (0.85 + Math.random() * 0.35);
         if (isObstacle) {
             game.objects.push({
@@ -658,7 +679,7 @@
                 kind: 'pup',
                 x, y: -r,
                 vy: speed * 0.95,
-                r: 26,
+                r,
                 theme: Math.floor(Math.random() * PUP_THEMES.length),
             });
         }
@@ -798,6 +819,10 @@
             o.y += o.vy * dt;
         }
 
+        // Tick down hurt feedback / invincibility frames
+        if (game.player.hurtT > 0) game.player.hurtT = Math.max(0, game.player.hurtT - dt);
+        if (game.player.invuln > 0) game.player.invuln = Math.max(0, game.player.invuln - dt);
+
         // Collisions (circle vs player rect)
         const px = game.player.x, py = game.player.y;
         const pw = game.player.w * 0.7, ph = game.player.h * 0.7;
@@ -807,13 +832,17 @@
             const closestY = clamp(o.y, py - ph / 2, py + ph / 2);
             const ddx = o.x - closestX, ddy = o.y - closestY;
             if (ddx * ddx + ddy * ddy < o.r * o.r * 0.85) {
-                o.dead = true;
                 if (o.kind === 'pup') {
+                    o.dead = true;
                     game.score += 10;
                     sfx('pickup');
                     spawnSparkles(o.x, o.y, PUP_THEMES[o.theme].body);
                 } else {
+                    if (game.player.invuln > 0) continue; // ignore during i-frames
+                    o.dead = true;
                     game.lives -= 1;
+                    game.player.hurtT = 0.45;
+                    game.player.invuln = 1.1;
                     sfx('hit');
                     spawnSparkles(o.x, o.y, '#ff5577');
                     spawnSparkles(px, py, '#ffd76b');
@@ -902,7 +931,7 @@
         }
 
         // Player kitten
-        drawKitten(game.player.x, game.player.y, 46, game.player.dir);
+        drawKitten(game.player.x, game.player.y, 46, game.player.dir, game.player.hurtT, game.player.invuln);
 
         // Sparkles
         for (const s of game.sparkles) {
