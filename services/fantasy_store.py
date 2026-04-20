@@ -168,7 +168,13 @@ def update_plan(updates: dict) -> dict:
 
 
 def _merge_rebuild_board_from_snapshot(snapshot: dict, prev: dict | None) -> dict:
-    """One row per starter, bench, IR, taxi player and per owned draft pick."""
+    """One row per starter, bench, IR, taxi player and per owned draft pick.
+
+    Ordering: draft picks first (rookie draft focus), then starters, bench, IR, taxi.
+    User-edited desired_upgrade text is preserved across syncs; stored auto fields
+    (plan_target, plan_rationale, _auto_desired_upgrade) are passed through so the
+    auto planner can detect "user has edited — leave it alone."
+    """
     lg = snapshot.get("league") or {}
     league_id = str(lg.get("league_id", ""))
     season = str(lg.get("season", ""))
@@ -185,6 +191,33 @@ def _merge_rebuild_board_from_snapshot(snapshot: dict, prev: dict | None) -> dic
         o = prev_assets.get(key)
         return o if isinstance(o, dict) else {}
 
+    def _base(key: str, extra: dict) -> dict:
+        o = _old(key)
+        row = {
+            "desired_upgrade": str(o.get("desired_upgrade", "")),
+            "plan_target": str(o.get("plan_target", "")),
+            "plan_rationale": str(o.get("plan_rationale", "")),
+            "_auto_desired_upgrade": str(o.get("_auto_desired_upgrade", "")),
+        }
+        row.update(extra)
+        return row
+
+    for pick in snapshot.get("draft_picks") or []:
+        pk = pick.get("pick_key")
+        if not pk:
+            continue
+        key = f"k-{pk}"
+        order.append(key)
+        assets[key] = _base(key, {
+            "kind": "pick",
+            "pick_key": str(pk),
+            "group": "Draft picks",
+            "label": str(pick.get("label") or pk),
+            "season": str(pick.get("season") or ""),
+            "round": int(pick.get("round") or 0),
+            "original_team_label": pick.get("original_team_label"),
+        })
+
     for row in snapshot.get("starters") or []:
         if row.get("empty"):
             continue
@@ -194,14 +227,12 @@ def _merge_rebuild_board_from_snapshot(snapshot: dict, prev: dict | None) -> dic
             continue
         key = f"p-{pid}"
         order.append(key)
-        o = _old(key)
-        assets[key] = {
+        assets[key] = _base(key, {
             "kind": "player",
             "player_id": str(pid),
             "group": "Starters",
             "slot": row.get("slot") or "",
-            "desired_upgrade": str(o.get("desired_upgrade", "")),
-        }
+        })
 
     for pl in snapshot.get("bench") or []:
         pid = pl.get("id")
@@ -209,14 +240,12 @@ def _merge_rebuild_board_from_snapshot(snapshot: dict, prev: dict | None) -> dic
             continue
         key = f"p-{pid}"
         order.append(key)
-        o = _old(key)
-        assets[key] = {
+        assets[key] = _base(key, {
             "kind": "player",
             "player_id": str(pid),
             "group": "Bench",
             "slot": "",
-            "desired_upgrade": str(o.get("desired_upgrade", "")),
-        }
+        })
 
     for label, field in (("IR / Reserve", "reserve"), ("Taxi", "taxi")):
         for pl in snapshot.get(field) or []:
@@ -225,29 +254,12 @@ def _merge_rebuild_board_from_snapshot(snapshot: dict, prev: dict | None) -> dic
                 continue
             key = f"p-{pid}"
             order.append(key)
-            o = _old(key)
-            assets[key] = {
+            assets[key] = _base(key, {
                 "kind": "player",
                 "player_id": str(pid),
                 "group": label,
                 "slot": "",
-                "desired_upgrade": str(o.get("desired_upgrade", "")),
-            }
-
-    for pick in snapshot.get("draft_picks") or []:
-        pk = pick.get("pick_key")
-        if not pk:
-            continue
-        key = f"k-{pk}"
-        order.append(key)
-        o = _old(key)
-        assets[key] = {
-            "kind": "pick",
-            "pick_key": str(pk),
-            "group": "Draft picks",
-            "label": str(pick.get("label") or pk),
-            "desired_upgrade": str(o.get("desired_upgrade", "")),
-        }
+            })
 
     return {"sync_token": token, "order": order, "assets": assets}
 

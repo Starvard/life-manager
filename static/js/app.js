@@ -1156,6 +1156,70 @@ document.addEventListener("alpine:init", () => {
             return bits.join(" · ");
         },
 
+        groupedAssets() {
+            const order = (this.rebuildBoard && this.rebuildBoard.order) || [];
+            const assets = (this.rebuildBoard && this.rebuildBoard.assets) || {};
+            const seen = new Map();
+            for (const aid of order) {
+                const a = assets[aid];
+                if (!a) continue;
+                const key = a.group || "Other";
+                if (!seen.has(key)) seen.set(key, []);
+                seen.get(key).push(aid);
+            }
+            return Array.from(seen.entries()).map(([title, ids]) => ({ title, ids }));
+        },
+
+        hasPicks() {
+            const assets = (this.rebuildBoard && this.rebuildBoard.assets) || {};
+            for (const k in assets) {
+                if (assets[k] && assets[k].kind === "pick") return true;
+            }
+            return false;
+        },
+
+        currentLabel(aid) {
+            const a = this.rebuildBoard.assets[aid];
+            if (!a) return "";
+            if (a.kind === "pick") return a.label || aid;
+            const pl = this._findPlayer(a.player_id);
+            return pl ? pl.name : "Player " + a.player_id;
+        },
+
+        currentMeta(aid) {
+            const a = this.rebuildBoard.assets[aid];
+            if (!a) return "";
+            if (a.kind === "pick") {
+                const bits = [];
+                if (a.season) bits.push(a.season);
+                if (a.round) bits.push("R" + a.round);
+                if (a.original_team_label) bits.push("from " + a.original_team_label);
+                return bits.join(" · ");
+            }
+            const pl = this._findPlayer(a.player_id);
+            const bits = [];
+            if (pl && pl.pos) bits.push(pl.pos);
+            if (pl && pl.team) bits.push(pl.team);
+            if (a.slot) bits.push(a.slot);
+            return bits.join(" · ");
+        },
+
+        canResetAuto(aid) {
+            const a = this.rebuildBoard.assets[aid];
+            if (!a) return false;
+            const desired = (a.desired_upgrade || "").trim();
+            const auto = (a._auto_desired_upgrade || "").trim();
+            if (!auto) return false;
+            return desired !== auto;
+        },
+
+        async resetToAuto(aid) {
+            const a = this.rebuildBoard.assets[aid];
+            if (!a) return;
+            const auto = a._auto_desired_upgrade || "";
+            await this.patchRebuildUpgrade(aid, auto);
+        },
+
         _findPlayer(pid) {
             if (!this.snapshot || !pid) return null;
             const id = String(pid);

@@ -165,15 +165,49 @@ def _pick_plan_line(
     rnd: int,
     median_val: float | None,
     horizon_years: int,
+    current_season: int,
 ) -> tuple[str, str]:
+    """
+    Return (plan_target, rationale) for a draft pick. Gives clearer keep-vs-trade
+    advice for the upcoming rookie draft (especially early 1sts).
+    """
     h = _horizon_note(horizon_years)
+    try:
+        season_i = int(season)
+    except (TypeError, ValueError):
+        season_i = 0
+    is_upcoming = season_i == current_season
+
+    if is_upcoming and rnd == 1:
+        tier = (
+            f" Median dynasty value for a round-1 pick this year is ~{median_val:.0f} in FantasyCalc."
+            if median_val is not None else ""
+        )
+        target = f"Decide NOW: hit on rookie vs. trade pre-draft"
+        rationale = (
+            "Rookie draft is imminent. Two paths — pick one this week:"
+            "\n  • KEEP: spend the pick on a top-of-class WR/RB or QB (your 1.01/1.02 slot supports this)."
+            "\n  • TRADE PRE-DRAFT: convert the pick into an established young cornerstone (WR1/RB1/QB1) "
+            "or bundle with another asset to consolidate up."
+            f"{tier} Shop the league now while pick value peaks."
+        )
+        return (target, rationale)
+
+    if is_upcoming and rnd == 2:
+        target = f"{season} R2 — rookie flier or trade filler"
+        rationale = (
+            "Late-1/early-2 rookie tier is noisy. Either use it on a developmental WR/RB you like, "
+            "or attach to a 1st to jump tiers in the upcoming draft / pre-draft trade."
+        )
+        return (target, rationale)
+
     tier = ""
     if median_val is not None:
         tier = f" Rough median dynasty value for this round slot in FantasyCalc: ~{median_val:.0f}."
     target = f"{season} R{rnd} — deploy as trade capital"
     rationale = (
         f"{tier} In a {h} rebuild, prioritize moving this into proven youth or earlier 1sts "
-        f"(especially {int(season) + 1}/+2 picks) rather than holding to the draft unless you love the class."
+        f"(especially {season_i + 1 if season_i else '+1'}/+2 picks) rather than holding to the draft unless you love the class."
     )
     return (target, rationale)
 
@@ -225,6 +259,22 @@ def generate_rebuild_plan(state: dict) -> dict:
         lines.append(f"Note: {warn}")
     lines.append("")
 
+    try:
+        current_season = int(settings.get("season") or datetime.now(timezone.utc).year)
+    except (TypeError, ValueError):
+        current_season = datetime.now(timezone.utc).year
+
+    def _apply_auto(ast: dict, target: str, rationale: str, auto_text: str):
+        """Write auto plan fields, preserving any user-edited desired_upgrade."""
+        ast["plan_target"] = target
+        ast["plan_rationale"] = rationale
+        prev_auto = str(ast.get("_auto_desired_upgrade") or "")
+        prev_desired = str(ast.get("desired_upgrade") or "")
+        user_edited = prev_desired and prev_desired != prev_auto
+        if not user_edited:
+            ast["desired_upgrade"] = auto_text
+        ast["_auto_desired_upgrade"] = auto_text
+
     for aid in order:
         ast = assets.get(aid)
         if not isinstance(ast, dict):
@@ -233,15 +283,14 @@ def generate_rebuild_plan(state: dict) -> dict:
         if kind == "player":
             pid = str(ast.get("player_id") or "")
             tgt, why = _find_player_upgrade(pid, vmap, horizon)
-            ast["plan_target"] = tgt
-            ast["plan_rationale"] = why
-            ast["desired_upgrade"] = f"Target: {tgt}. {why}"
+            auto_text = f"Target: {tgt}. {why}"
+            _apply_auto(ast, tgt, why, auto_text)
             group = ast.get("group") or ""
             slot = ast.get("slot") or ""
             label = f"{group}" + (f" ({slot})" if slot else "")
             lines.append(f"{label.upper()}")
             lines.append(f"  Player ID: {pid}")
-            lines.append(f"  Aim: {ast['desired_upgrade']}")
+            lines.append(f"  Aim: {auto_text}")
             lines.append("")
         elif kind == "pick":
             pk = str(ast.get("pick_key") or "")
@@ -253,12 +302,11 @@ def generate_rebuild_plan(state: dict) -> dict:
                 season, rnd = m.group(1), int(m.group(2))
             prs = _pick_rows_for_season_round(rows, season, rnd) if season else []
             med = _median_pick_value(prs) if prs else None
-            tgt, why = _pick_plan_line(season, rnd, med, horizon)
-            ast["plan_target"] = tgt
-            ast["plan_rationale"] = why
-            ast["desired_upgrade"] = f"{tgt}. {why}"
+            tgt, why = _pick_plan_line(season, rnd, med, horizon, current_season)
+            auto_text = f"{tgt}. {why}"
+            _apply_auto(ast, tgt, why, auto_text)
             lines.append(f"DRAFT PICK: {label}")
-            lines.append(f"  Aim: {ast['desired_upgrade']}")
+            lines.append(f"  Aim: {auto_text}")
             lines.append("")
 
     doc = "\n".join(lines).strip()
