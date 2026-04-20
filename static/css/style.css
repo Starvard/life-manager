@@ -82,6 +82,8 @@ body {
 
 .sidebar nav { display: flex; flex-direction: column; gap: 2px; padding: 0 0.5rem; }
 
+a.nav-link-hidden { display: none !important; }
+
 .sidebar nav a {
     display: flex;
     align-items: center;
@@ -428,6 +430,14 @@ select { color-scheme: dark; }
 .routines-push-behavior { margin-top: 0.35rem; font-size: 0.88rem; color: var(--text-muted); line-height: 1.45; }
 .routines-push-card { margin-bottom: 1rem; }
 .routines-push-hint { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.65rem; line-height: 1.45; }
+
+.nav-tabs-pref-card { margin-bottom: 1rem; }
+.nav-tabs-pref-intro { margin-bottom: 0.75rem; }
+.nav-tabs-pref-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.45rem 1rem; margin-bottom: 0.75rem; }
+.nav-tab-pref-label { display: flex; align-items: center; gap: 0.45rem; font-size: 0.88rem; color: var(--text); cursor: pointer; }
+.nav-tab-pref-label input { width: 1rem; height: 1rem; accent-color: var(--accent); }
+.nav-tabs-pref-actions { display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap; }
+.nav-tabs-save-status { font-size: 0.82rem; color: var(--text-muted); }
 .routines-test-push-status { display: inline-block; margin-left: 0.65rem; font-size: 0.85rem; color: var(--text-muted); }
 
 /* ── Fantasy (Sleeper) ─────────────────────────────────────────── */

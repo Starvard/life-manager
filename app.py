@@ -70,6 +70,7 @@ from services.fantasy_store import (
 from services.fantasy_sleeper import sync_team as fantasy_sync_team
 from services.fantasy_trade_jobs import refresh_trade_suggestions as fantasy_refresh_trades
 from services import recipes_store, recipes_search
+from services import ui_prefs
 
 # Seed persistent volume on first cloud deploy
 from seed_data import seed as _seed_data
@@ -154,6 +155,18 @@ def routine_nav_defaults():
     return {
         "routine_default_week": _default_week_key(),
         "routine_today_iso": date.today().isoformat(),
+    }
+
+
+@app.context_processor
+def inject_nav_visibility():
+    hidden = ui_prefs.get_hidden_nav_tabs()
+    return {
+        "hidden_nav_tabs": hidden,
+        "nav_tabs_catalog": [
+            {"key": k, "label": ui_prefs.NAV_TAB_LABELS[k]}
+            for k in ui_prefs.NAV_TAB_KEYS
+        ],
     }
 
 
@@ -400,6 +413,33 @@ def api_reorder_area():
     data["area_order"] = order
     save_routines(data)
     return jsonify({"ok": True, "order": order})
+
+
+@app.route("/api/ui/nav-tabs", methods=["GET"])
+def api_get_nav_tabs():
+    hidden = ui_prefs.get_hidden_nav_tabs()
+    return jsonify(
+        {
+            "ok": True,
+            "hidden": hidden,
+            "tabs": [
+                {"key": k, "label": ui_prefs.NAV_TAB_LABELS[k]}
+                for k in ui_prefs.NAV_TAB_KEYS
+            ],
+        }
+    )
+
+
+@app.route("/api/ui/nav-tabs", methods=["PUT"])
+def api_put_nav_tabs():
+    body = request.get_json(force=True) or {}
+    raw = body.get("hidden")
+    if raw is None:
+        return jsonify({"ok": False, "error": "missing hidden"}), 400
+    if not isinstance(raw, list):
+        return jsonify({"ok": False, "error": "hidden must be a list"}), 400
+    hidden = ui_prefs.set_hidden_nav_tabs(raw)
+    return jsonify({"ok": True, "hidden": hidden})
 
 
 # \u2500\u2500 API: Routine Cards \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
