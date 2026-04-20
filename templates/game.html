@@ -1,0 +1,952 @@
+{% extends "base.html" %}
+{% block title %}Pup Patrol Cat Dash{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Pup Patrol Cat Dash</h1>
+    <p class="subtitle">Help the kitten dodge falling stuff and collect Paw Patrol pups for points. Play against everyone for the high score!</p>
+</div>
+
+<div class="game-wrap" id="gameWrap">
+    <div class="game-stage">
+        <div class="game-hud">
+            <div class="hud-pill" id="hudScore">Score <b>0</b></div>
+            <div class="hud-pill" id="hudLives">Lives <b>♥♥♥</b></div>
+            <div class="hud-pill" id="hudBest">Best <b>0</b></div>
+        </div>
+        <canvas id="game" width="480" height="720"></canvas>
+
+        <div class="game-overlay" id="overlayStart">
+            <div class="overlay-card">
+                <h2>Pup Patrol Cat Dash</h2>
+                <p>Tap, drag, or use the arrow keys to move the kitten left and right.<br>
+                Catch the colorful Paw Patrol pups (+points) and dodge the falling junk!</p>
+                <label class="name-label">Your name
+                    <input type="text" id="playerName" maxlength="16" placeholder="Player">
+                </label>
+                <label class="check-label">
+                    <input type="checkbox" id="musicOn" checked>
+                    <span>Play music</span>
+                </label>
+                <button class="btn btn-primary btn-big" id="btnStart">▶ Start</button>
+            </div>
+        </div>
+
+        <div class="game-overlay hidden" id="overlayEnd">
+            <div class="overlay-card">
+                <h2 id="endTitle">Game Over!</h2>
+                <p id="endScore">You scored 0 points.</p>
+                <p id="endRank" class="rank-line"></p>
+                <button class="btn btn-primary btn-big" id="btnPlayAgain">▶ Play Again</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="game-side">
+        <div class="card leaderboard-card">
+            <div class="card-title">Leaderboard — Top 10</div>
+            <ol class="leaderboard-list" id="leaderboard">
+                {% for s in top_scores %}
+                <li><span class="lb-name">{{ s.name }}</span><span class="lb-score">{{ s.score }}</span></li>
+                {% endfor %}
+                {% if not top_scores %}
+                <li class="lb-empty">No scores yet — be the first!</li>
+                {% endif %}
+            </ol>
+        </div>
+        <div class="card game-controls">
+            <div class="card-title">Controls</div>
+            <ul class="ctrl-list">
+                <li><b>Touch:</b> drag the kitten or tap left/right</li>
+                <li><b>Keyboard:</b> ← → arrows or A / D</li>
+                <li><b>Pause:</b> P or tap the score bar</li>
+            </ul>
+            <button class="btn btn-secondary btn-sm" id="btnMute">🔊 Music: On</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.game-wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 1.25rem;
+    align-items: start;
+}
+@media (max-width: 900px) {
+    .game-wrap { grid-template-columns: 1fr; }
+}
+
+.game-stage {
+    position: relative;
+    background: linear-gradient(180deg, #0b1530 0%, #1d2a55 60%, #f7c873 100%);
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-lg);
+    aspect-ratio: 2 / 3;
+    max-width: 480px;
+    margin: 0 auto;
+    width: 100%;
+    touch-action: none;
+}
+#game { width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: crisp-edges; }
+
+.game-hud {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    display: flex; justify-content: space-between; gap: 0.4rem;
+    padding: 0.55rem 0.7rem;
+    z-index: 4;
+    pointer-events: auto;
+    cursor: pointer;
+    background: linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 100%);
+}
+.hud-pill {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #fff;
+    background: rgba(0,0,0,0.35);
+    padding: 0.32rem 0.6rem;
+    border-radius: 999px;
+    letter-spacing: 0.02em;
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,0.15);
+}
+.hud-pill b { color: #ffd76b; margin-left: 0.25rem; }
+
+.game-overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(8,10,28,0.82);
+    backdrop-filter: blur(6px);
+    z-index: 5;
+    padding: 1rem;
+}
+.game-overlay.hidden { display: none; }
+.overlay-card {
+    background: var(--surface);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    padding: 1.5rem 1.4rem;
+    max-width: 360px;
+    text-align: center;
+    box-shadow: var(--shadow-lg);
+    color: var(--text);
+}
+.overlay-card h2 {
+    font-size: 1.5rem;
+    background: linear-gradient(135deg, #ffd76b 0%, #ff7b54 50%, #63b3ff 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 0.6rem;
+}
+.overlay-card p { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.45; }
+.overlay-card .name-label { display: block; text-align: left; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+.overlay-card .name-label input {
+    margin-top: 0.3rem; width: 100%; padding: 0.55rem 0.7rem;
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    background: var(--bg); color: var(--text); font-size: 0.95rem;
+}
+.overlay-card .check-label { display: flex; align-items: center; gap: 0.5rem; justify-content: center; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; cursor: pointer; }
+.overlay-card .check-label input { width: 18px; height: 18px; accent-color: var(--accent); }
+.btn-big { padding: 0.85rem 1.6rem; font-size: 1rem; width: 100%; justify-content: center; }
+.rank-line { color: #ffd76b; font-weight: 700; }
+
+.leaderboard-card .card-title { margin-bottom: 0.85rem; }
+.leaderboard-list { list-style: none; padding: 0; counter-reset: lb; }
+.leaderboard-list li {
+    counter-increment: lb;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.45rem 0.2rem 0.45rem 1.85rem;
+    border-bottom: 1px solid var(--border-light);
+    position: relative;
+    font-size: 0.85rem;
+}
+.leaderboard-list li:last-child { border-bottom: none; }
+.leaderboard-list li::before {
+    content: counter(lb);
+    position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+    width: 1.5rem; text-align: center;
+    font-weight: 800; color: var(--text-muted); font-size: 0.78rem;
+}
+.leaderboard-list li:nth-child(1)::before { color: #ffd76b; }
+.leaderboard-list li:nth-child(2)::before { color: #d6d8e0; }
+.leaderboard-list li:nth-child(3)::before { color: #cf8b54; }
+.lb-name { font-weight: 600; color: var(--text); }
+.lb-score { font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.lb-empty { padding-left: 0 !important; color: var(--text-muted); }
+.lb-empty::before { content: ""; }
+
+.ctrl-list { list-style: none; padding: 0; margin: 0 0 0.75rem; font-size: 0.8rem; color: var(--text-muted); }
+.ctrl-list li { padding: 0.25rem 0; }
+.ctrl-list b { color: var(--text); margin-right: 0.25rem; }
+.game-controls .btn { width: 100%; justify-content: center; }
+</style>
+
+<script>
+(function() {
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+
+    const hudScore = document.getElementById('hudScore').querySelector('b');
+    const hudLives = document.getElementById('hudLives').querySelector('b');
+    const hudBest = document.getElementById('hudBest').querySelector('b');
+    const overlayStart = document.getElementById('overlayStart');
+    const overlayEnd = document.getElementById('overlayEnd');
+    const endTitle = document.getElementById('endTitle');
+    const endScore = document.getElementById('endScore');
+    const endRank = document.getElementById('endRank');
+    const btnStart = document.getElementById('btnStart');
+    const btnPlayAgain = document.getElementById('btnPlayAgain');
+    const btnMute = document.getElementById('btnMute');
+    const playerNameInput = document.getElementById('playerName');
+    const musicOnInput = document.getElementById('musicOn');
+    const lbList = document.getElementById('leaderboard');
+    const hudBar = document.querySelector('.game-hud');
+
+    try {
+        const saved = localStorage.getItem('pupCatDash.name');
+        if (saved) playerNameInput.value = saved;
+        const bestLocal = parseInt(localStorage.getItem('pupCatDash.best') || '0', 10);
+        if (!isNaN(bestLocal)) hudBest.textContent = bestLocal;
+    } catch (e) {}
+
+    // ── Audio: original Paw-Patrol-style upbeat march, generated via Web Audio API
+    let audioCtx = null;
+    let musicMaster = null;
+    let musicEnabled = true;
+    let musicLoopId = null;
+    let musicStep = 0;
+    let musicNextTime = 0;
+
+    function ensureAudio() {
+        if (audioCtx) return audioCtx;
+        try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            musicMaster = audioCtx.createGain();
+            musicMaster.gain.value = 0.18;
+            musicMaster.connect(audioCtx.destination);
+        } catch (e) { audioCtx = null; }
+        return audioCtx;
+    }
+
+    // Original heroic-puppy-adventure jingle in C major, 120 BPM. Two bars repeated with variation.
+    // Note values are MIDI numbers; 0 = rest.
+    const SONG = [
+        // Bar 1 — heroic call: G G G C E | D C
+        [67,67,67,72,76,76,76,72, 74,74,72,72, 67,67,69,71],
+        // Bar 2 — answer: A G F E | F G A C5
+        [69,71,72,74,76,74,72,71, 72,74,76,77, 79,77,76,74],
+        // Bar 3 — march: C E G C5 | B G E C
+        [72,76,79,84,83,79,76,72, 74,77,81,84, 83,79,76,72],
+        // Bar 4 — resolve: G E C high G | C major chord arpeggio
+        [67,76,72,79,76,72,67,72, 64,67,72,76, 79,76,72,67],
+    ];
+    const BASS = [
+        [48,0,48,0, 55,0,55,0, 53,0,53,0, 50,0,50,0],
+        [53,0,53,0, 50,0,50,0, 48,0,48,0, 55,0,55,0],
+        [48,0,48,0, 52,0,52,0, 55,0,55,0, 60,0,55,0],
+        [55,0,55,0, 53,0,53,0, 52,0,52,0, 48,0,48,0],
+    ];
+    const STEP_DURATION = 0.16; // ~150 BPM in 16th notes feel — bouncy
+    const SONG_FLAT = SONG.flat();
+    const BASS_FLAT = BASS.flat();
+    const SONG_LEN = SONG_FLAT.length;
+
+    function midiToFreq(n) { return 440 * Math.pow(2, (n - 69) / 12); }
+
+    function blip(midi, time, duration, type, gain) {
+        if (!midi) return;
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.value = midiToFreq(midi);
+        g.gain.value = 0;
+        g.gain.setValueAtTime(0, time);
+        g.gain.linearRampToValueAtTime(gain, time + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+        osc.connect(g); g.connect(musicMaster);
+        osc.start(time);
+        osc.stop(time + duration + 0.05);
+    }
+
+    function scheduleMusic() {
+        if (!audioCtx || !musicEnabled) return;
+        const lookahead = 0.25;
+        while (musicNextTime < audioCtx.currentTime + lookahead) {
+            const idx = musicStep % SONG_LEN;
+            const lead = SONG_FLAT[idx];
+            const bass = BASS_FLAT[idx];
+            blip(lead, musicNextTime, STEP_DURATION * 0.85, 'square', 0.16);
+            blip(bass, musicNextTime, STEP_DURATION * 0.95, 'triangle', 0.22);
+            // Snare-ish click on every beat 2 and 4
+            if (musicStep % 4 === 2) {
+                const noise = audioCtx.createBufferSource();
+                const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.06, audioCtx.sampleRate);
+                const d = buf.getChannelData(0);
+                for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+                noise.buffer = buf;
+                const ng = audioCtx.createGain();
+                ng.gain.value = 0.08;
+                noise.connect(ng); ng.connect(musicMaster);
+                noise.start(musicNextTime);
+            }
+            musicNextTime += STEP_DURATION;
+            musicStep++;
+        }
+    }
+
+    function startMusic() {
+        if (!ensureAudio()) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        if (!musicEnabled) return;
+        musicStep = 0;
+        musicNextTime = audioCtx.currentTime + 0.05;
+        if (musicLoopId) clearInterval(musicLoopId);
+        musicLoopId = setInterval(scheduleMusic, 80);
+    }
+    function stopMusic() {
+        if (musicLoopId) { clearInterval(musicLoopId); musicLoopId = null; }
+        if (musicMaster) {
+            try {
+                musicMaster.gain.cancelScheduledValues(audioCtx.currentTime);
+                musicMaster.gain.setValueAtTime(musicMaster.gain.value, audioCtx.currentTime);
+                musicMaster.gain.linearRampToValueAtTime(0.0001, audioCtx.currentTime + 0.2);
+                setTimeout(() => { if (musicMaster) musicMaster.gain.value = 0.18; }, 250);
+            } catch (e) {}
+        }
+    }
+    function sfx(type) {
+        if (!ensureAudio() || !musicEnabled) return;
+        const t = audioCtx.currentTime;
+        if (type === 'pickup') {
+            blip(76, t, 0.08, 'square', 0.25);
+            blip(83, t + 0.06, 0.1, 'square', 0.22);
+            blip(88, t + 0.12, 0.14, 'square', 0.2);
+        } else if (type === 'hit') {
+            blip(45, t, 0.18, 'sawtooth', 0.3);
+            blip(40, t + 0.05, 0.22, 'sawtooth', 0.25);
+        } else if (type === 'gameover') {
+            blip(72, t, 0.18, 'square', 0.22);
+            blip(67, t + 0.18, 0.18, 'square', 0.22);
+            blip(64, t + 0.36, 0.18, 'square', 0.22);
+            blip(60, t + 0.54, 0.4, 'square', 0.22);
+        }
+    }
+
+    btnMute.addEventListener('click', () => {
+        musicEnabled = !musicEnabled;
+        btnMute.textContent = musicEnabled ? '🔊 Music: On' : '🔇 Music: Off';
+        if (!musicEnabled) stopMusic();
+        else if (game.running) startMusic();
+    });
+
+    // ── Drawing helpers
+    function roundRect(x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+    }
+
+    // Cute kitten sprite (player). cx,cy = center, s = scale factor (size).
+    function drawKitten(cx, cy, s, dir) {
+        // body
+        ctx.save();
+        ctx.translate(cx, cy);
+        // bobbing rotation
+        const bob = Math.sin(performance.now() / 120) * 0.05;
+        ctx.rotate(bob);
+
+        // shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.beginPath();
+        ctx.ellipse(0, s * 0.95, s * 0.85, s * 0.18, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // body
+        ctx.fillStyle = '#f5d49b';
+        roundRect(-s * 0.7, -s * 0.15, s * 1.4, s * 1.05, s * 0.4);
+        ctx.fill();
+
+        // belly
+        ctx.fillStyle = '#fff3d6';
+        roundRect(-s * 0.45, s * 0.15, s * 0.9, s * 0.7, s * 0.35);
+        ctx.fill();
+
+        // tail
+        ctx.strokeStyle = '#f5d49b';
+        ctx.lineWidth = s * 0.25;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        const tailX = dir < 0 ? s * 0.7 : -s * 0.7;
+        const tailDir = dir < 0 ? 1 : -1;
+        ctx.moveTo(tailX, s * 0.45);
+        ctx.quadraticCurveTo(tailX + tailDir * s * 0.5, s * 0.0, tailX + tailDir * s * 0.7, -s * 0.3);
+        ctx.stroke();
+
+        // head
+        ctx.fillStyle = '#f5d49b';
+        ctx.beginPath();
+        ctx.arc(0, -s * 0.55, s * 0.65, 0, Math.PI * 2);
+        ctx.fill();
+
+        // ears
+        ctx.beginPath();
+        ctx.moveTo(-s * 0.55, -s * 0.95);
+        ctx.lineTo(-s * 0.25, -s * 1.25);
+        ctx.lineTo(-s * 0.15, -s * 0.85);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(s * 0.55, -s * 0.95);
+        ctx.lineTo(s * 0.25, -s * 1.25);
+        ctx.lineTo(s * 0.15, -s * 0.85);
+        ctx.closePath();
+        ctx.fill();
+
+        // inner ears
+        ctx.fillStyle = '#ffb3c1';
+        ctx.beginPath();
+        ctx.moveTo(-s * 0.45, -s * 0.95);
+        ctx.lineTo(-s * 0.27, -s * 1.13);
+        ctx.lineTo(-s * 0.22, -s * 0.92);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(s * 0.45, -s * 0.95);
+        ctx.lineTo(s * 0.27, -s * 1.13);
+        ctx.lineTo(s * 0.22, -s * 0.92);
+        ctx.closePath();
+        ctx.fill();
+
+        // eyes
+        ctx.fillStyle = '#1b1b2a';
+        const eyeY = -s * 0.55;
+        const eyeOff = s * 0.22 * (1 + dir * 0.0);
+        ctx.beginPath();
+        ctx.arc(-eyeOff, eyeY, s * 0.09, 0, Math.PI * 2);
+        ctx.arc(eyeOff, eyeY, s * 0.09, 0, Math.PI * 2);
+        ctx.fill();
+
+        // eye sparkle
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(-eyeOff + s * 0.03, eyeY - s * 0.03, s * 0.025, 0, Math.PI * 2);
+        ctx.arc(eyeOff + s * 0.03, eyeY - s * 0.03, s * 0.025, 0, Math.PI * 2);
+        ctx.fill();
+
+        // nose
+        ctx.fillStyle = '#ff7aa2';
+        ctx.beginPath();
+        ctx.moveTo(0, -s * 0.4);
+        ctx.lineTo(-s * 0.07, -s * 0.32);
+        ctx.lineTo(s * 0.07, -s * 0.32);
+        ctx.closePath();
+        ctx.fill();
+
+        // mouth
+        ctx.strokeStyle = '#1b1b2a';
+        ctx.lineWidth = s * 0.04;
+        ctx.beginPath();
+        ctx.moveTo(0, -s * 0.3);
+        ctx.lineTo(0, -s * 0.22);
+        ctx.moveTo(0, -s * 0.22);
+        ctx.quadraticCurveTo(-s * 0.07, -s * 0.15, -s * 0.12, -s * 0.2);
+        ctx.moveTo(0, -s * 0.22);
+        ctx.quadraticCurveTo(s * 0.07, -s * 0.15, s * 0.12, -s * 0.2);
+        ctx.stroke();
+
+        // whiskers
+        ctx.beginPath();
+        ctx.moveTo(-s * 0.18, -s * 0.32); ctx.lineTo(-s * 0.5, -s * 0.34);
+        ctx.moveTo(-s * 0.18, -s * 0.28); ctx.lineTo(-s * 0.5, -s * 0.24);
+        ctx.moveTo(s * 0.18, -s * 0.32); ctx.lineTo(s * 0.5, -s * 0.34);
+        ctx.moveTo(s * 0.18, -s * 0.28); ctx.lineTo(s * 0.5, -s * 0.24);
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
+    // Pup (collectible) — colored "rescue pup" badge with a paw-print emblem.
+    // type chooses color theme.
+    const PUP_THEMES = [
+        { name: 'Chase',    body: '#3b82f6', accent: '#fbbf24' }, // blue + gold
+        { name: 'Marshall', body: '#ef4444', accent: '#fff' },   // red + white
+        { name: 'Skye',     body: '#ec4899', accent: '#fff5fb' }, // pink
+        { name: 'Rubble',   body: '#f59e0b', accent: '#7c4a03' }, // yellow
+        { name: 'Rocky',    body: '#22c55e', accent: '#0c2615' }, // green
+        { name: 'Zuma',     body: '#fb923c', accent: '#3b1500' }, // orange
+        { name: 'Everest',  body: '#a78bfa', accent: '#1e0d4a' }, // purple
+    ];
+
+    function drawPup(cx, cy, s, themeIdx, t) {
+        const th = PUP_THEMES[themeIdx % PUP_THEMES.length];
+        ctx.save();
+        ctx.translate(cx, cy);
+        const wob = Math.sin(t / 200 + themeIdx) * 0.15;
+        ctx.rotate(wob);
+
+        // shield/badge
+        ctx.fillStyle = th.body;
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = s * 0.12;
+        ctx.beginPath();
+        ctx.moveTo(0, -s);
+        ctx.bezierCurveTo(s, -s, s, s * 0.4, 0, s);
+        ctx.bezierCurveTo(-s, s * 0.4, -s, -s, 0, -s);
+        ctx.fill();
+        ctx.stroke();
+
+        // paw print emblem
+        ctx.fillStyle = th.accent;
+        // pad
+        ctx.beginPath();
+        ctx.ellipse(0, s * 0.12, s * 0.32, s * 0.28, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // toes
+        const toes = [[-0.34, -0.25], [-0.12, -0.42], [0.12, -0.42], [0.34, -0.25]];
+        for (const [tx, ty] of toes) {
+            ctx.beginPath();
+            ctx.ellipse(tx * s, ty * s, s * 0.12, s * 0.16, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // sparkle
+        ctx.fillStyle = '#fffbe6';
+        ctx.beginPath();
+        ctx.arc(s * 0.45, -s * 0.55, s * 0.08, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+    }
+
+    // Obstacle — "junk" (trash can / boot / tire). Use simple shapes.
+    function drawObstacle(cx, cy, s, kind, t) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        const r = Math.sin(t / 150 + kind) * 0.25;
+        ctx.rotate(r);
+        if (kind === 0) {
+            // trash can lid + body
+            ctx.fillStyle = '#5e6479';
+            roundRect(-s * 0.7, -s * 0.6, s * 1.4, s * 1.2, s * 0.15);
+            ctx.fill();
+            ctx.fillStyle = '#3b3f50';
+            roundRect(-s * 0.85, -s * 0.78, s * 1.7, s * 0.22, s * 0.08);
+            ctx.fill();
+            ctx.strokeStyle = '#2a2d3b';
+            ctx.lineWidth = s * 0.06;
+            ctx.beginPath();
+            ctx.moveTo(-s * 0.4, -s * 0.4); ctx.lineTo(-s * 0.4, s * 0.5);
+            ctx.moveTo(0, -s * 0.4); ctx.lineTo(0, s * 0.5);
+            ctx.moveTo(s * 0.4, -s * 0.4); ctx.lineTo(s * 0.4, s * 0.5);
+            ctx.stroke();
+        } else if (kind === 1) {
+            // tire
+            ctx.fillStyle = '#222';
+            ctx.beginPath(); ctx.arc(0, 0, s * 0.85, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#888';
+            ctx.beginPath(); ctx.arc(0, 0, s * 0.4, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#444';
+            ctx.beginPath(); ctx.arc(0, 0, s * 0.18, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = s * 0.1;
+            for (let i = 0; i < 8; i++) {
+                ctx.save();
+                ctx.rotate(i * Math.PI / 4);
+                ctx.beginPath();
+                ctx.moveTo(s * 0.5, 0); ctx.lineTo(s * 0.78, 0);
+                ctx.stroke();
+                ctx.restore();
+            }
+        } else {
+            // boot
+            ctx.fillStyle = '#7b3f1d';
+            roundRect(-s * 0.55, -s * 0.7, s * 0.7, s * 1.3, s * 0.12);
+            ctx.fill();
+            roundRect(-s * 0.55, s * 0.35, s * 1.3, s * 0.35, s * 0.12);
+            ctx.fill();
+            ctx.fillStyle = '#3a1d0e';
+            roundRect(-s * 0.6, s * 0.6, s * 1.4, s * 0.18, s * 0.08);
+            ctx.fill();
+            // laces
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = s * 0.05;
+            for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                ctx.moveTo(-s * 0.5, -s * 0.4 + i * s * 0.3);
+                ctx.lineTo(s * 0.1, -s * 0.4 + i * s * 0.3);
+                ctx.stroke();
+            }
+        }
+        ctx.restore();
+    }
+
+    // Background scrolling clouds
+    const clouds = [];
+    for (let i = 0; i < 6; i++) {
+        clouds.push({ x: Math.random() * W, y: Math.random() * H * 0.6, s: 30 + Math.random() * 50, sp: 0.2 + Math.random() * 0.5 });
+    }
+    function drawCloud(c) {
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.s * 0.6, 0, Math.PI * 2);
+        ctx.arc(c.x + c.s * 0.5, c.y + c.s * 0.1, c.s * 0.5, 0, Math.PI * 2);
+        ctx.arc(c.x - c.s * 0.5, c.y + c.s * 0.15, c.s * 0.45, 0, Math.PI * 2);
+        ctx.arc(c.x + c.s * 0.2, c.y - c.s * 0.25, c.s * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // ── Game state
+    const game = {
+        running: false,
+        paused: false,
+        over: false,
+        score: 0,
+        lives: 3,
+        elapsed: 0,
+        spawnTimer: 0,
+        spawnInterval: 0.85,
+        baseSpeed: 170, // px/sec — medium
+        speed: 170,
+        objects: [], // {kind:'pup'|'obs', x,y, vx,vy, r, theme}
+        sparkles: [],
+        player: { x: W / 2, y: H - 110, w: 90, h: 95, dir: 1, target: W / 2 }
+    };
+
+    function resetGame() {
+        game.running = true;
+        game.paused = false;
+        game.over = false;
+        game.score = 0;
+        game.lives = 3;
+        game.elapsed = 0;
+        game.spawnTimer = 0;
+        game.spawnInterval = 0.85;
+        game.speed = game.baseSpeed;
+        game.objects = [];
+        game.sparkles = [];
+        game.player.x = W / 2;
+        game.player.target = W / 2;
+        updateHud();
+    }
+
+    function spawnObject() {
+        // 60% chance pup, 40% obstacle. As score climbs, slightly more obstacles.
+        const obstacleChance = Math.min(0.6, 0.4 + game.elapsed / 200);
+        const isObstacle = Math.random() < obstacleChance;
+        const r = 28 + Math.random() * 10;
+        const x = r + Math.random() * (W - 2 * r);
+        const speed = game.speed * (0.85 + Math.random() * 0.35);
+        if (isObstacle) {
+            game.objects.push({
+                kind: 'obs',
+                x, y: -r,
+                vy: speed,
+                r,
+                rot: Math.random() * Math.PI,
+                obType: Math.floor(Math.random() * 3),
+            });
+        } else {
+            game.objects.push({
+                kind: 'pup',
+                x, y: -r,
+                vy: speed * 0.95,
+                r: 26,
+                theme: Math.floor(Math.random() * PUP_THEMES.length),
+            });
+        }
+    }
+
+    function updateHud() {
+        hudScore.textContent = game.score;
+        hudLives.textContent = '♥'.repeat(Math.max(0, game.lives)) || '–';
+    }
+
+    function endGame() {
+        game.running = false;
+        game.over = true;
+        sfx('gameover');
+        stopMusic();
+
+        try {
+            const prevBest = parseInt(localStorage.getItem('pupCatDash.best') || '0', 10);
+            if (game.score > prevBest) {
+                localStorage.setItem('pupCatDash.best', String(game.score));
+                hudBest.textContent = game.score;
+            }
+        } catch (e) {}
+
+        endTitle.textContent = game.score >= 100 ? '🏆 Pawsome Job!' : 'Game Over!';
+        endScore.textContent = `You scored ${game.score} point${game.score === 1 ? '' : 's'}.`;
+        endRank.textContent = '';
+        overlayEnd.classList.remove('hidden');
+
+        // Submit score
+        const name = (playerNameInput.value || 'Player').trim().slice(0, 16) || 'Player';
+        try { localStorage.setItem('pupCatDash.name', name); } catch (e) {}
+        if (game.score > 0) {
+            fetch('/api/game/scores', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, score: game.score }),
+            }).then(r => r.json()).then(data => {
+                if (data && data.ok) {
+                    if (typeof data.rank === 'number' && data.rank <= 10) {
+                        endRank.textContent = `🎉 New top score! Rank #${data.rank}.`;
+                    }
+                    renderLeaderboard(data.top);
+                }
+            }).catch(() => {});
+        }
+    }
+
+    function renderLeaderboard(top) {
+        if (!top || !top.length) {
+            lbList.innerHTML = '<li class="lb-empty">No scores yet — be the first!</li>';
+            return;
+        }
+        lbList.innerHTML = top.map(s =>
+            `<li><span class="lb-name">${escapeHtml(s.name)}</span><span class="lb-score">${s.score}</span></li>`
+        ).join('');
+    }
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // ── Input
+    const keys = { left: false, right: false };
+    document.addEventListener('keydown', e => {
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = true;
+        else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = true;
+        else if (e.key === 'p' || e.key === 'P') { if (game.running) togglePause(); }
+        else return;
+        e.preventDefault();
+    });
+    document.addEventListener('keyup', e => {
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keys.left = false;
+        else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keys.right = false;
+    });
+
+    function getCanvasX(clientX) {
+        const rect = canvas.getBoundingClientRect();
+        const sx = canvas.width / rect.width;
+        return (clientX - rect.left) * sx;
+    }
+
+    let dragging = false;
+    canvas.addEventListener('pointerdown', e => {
+        if (!game.running || game.paused) return;
+        dragging = true;
+        game.player.target = clamp(getCanvasX(e.clientX), game.player.w / 2, W - game.player.w / 2);
+    });
+    canvas.addEventListener('pointermove', e => {
+        if (!dragging) return;
+        game.player.target = clamp(getCanvasX(e.clientX), game.player.w / 2, W - game.player.w / 2);
+    });
+    window.addEventListener('pointerup', () => { dragging = false; });
+
+    hudBar.addEventListener('click', () => { if (game.running) togglePause(); });
+
+    function togglePause() {
+        game.paused = !game.paused;
+        if (game.paused) stopMusic();
+        else startMusic();
+    }
+
+    function clamp(v, mn, mx) { return Math.max(mn, Math.min(mx, v)); }
+
+    // ── Game loop
+    let lastT = 0;
+    function loop(t) {
+        const dt = Math.min(0.05, (t - lastT) / 1000 || 0);
+        lastT = t;
+        if (game.running && !game.paused) update(dt);
+        render(t);
+        requestAnimationFrame(loop);
+    }
+
+    function update(dt) {
+        game.elapsed += dt;
+        // Difficulty ramp
+        game.speed = game.baseSpeed + Math.min(160, game.elapsed * 4);
+        game.spawnInterval = Math.max(0.32, 0.85 - game.elapsed * 0.012);
+
+        // Player movement
+        const accel = 1500;
+        if (keys.left) game.player.target = Math.max(game.player.w / 2, game.player.target - 600 * dt);
+        if (keys.right) game.player.target = Math.min(W - game.player.w / 2, game.player.target + 600 * dt);
+        const dx = game.player.target - game.player.x;
+        game.player.x += dx * Math.min(1, dt * 14);
+        game.player.dir = Math.abs(dx) < 1 ? game.player.dir : (dx < 0 ? -1 : 1);
+
+        // Spawn
+        game.spawnTimer += dt;
+        while (game.spawnTimer >= game.spawnInterval) {
+            game.spawnTimer -= game.spawnInterval;
+            spawnObject();
+        }
+
+        // Move objects
+        for (const o of game.objects) {
+            o.y += o.vy * dt;
+        }
+
+        // Collisions (circle vs player rect)
+        const px = game.player.x, py = game.player.y;
+        const pw = game.player.w * 0.7, ph = game.player.h * 0.7;
+        for (const o of game.objects) {
+            if (o.dead) continue;
+            const closestX = clamp(o.x, px - pw / 2, px + pw / 2);
+            const closestY = clamp(o.y, py - ph / 2, py + ph / 2);
+            const ddx = o.x - closestX, ddy = o.y - closestY;
+            if (ddx * ddx + ddy * ddy < o.r * o.r * 0.85) {
+                o.dead = true;
+                if (o.kind === 'pup') {
+                    game.score += 10;
+                    sfx('pickup');
+                    spawnSparkles(o.x, o.y, PUP_THEMES[o.theme].body);
+                } else {
+                    game.lives -= 1;
+                    sfx('hit');
+                    spawnSparkles(o.x, o.y, '#ff5577');
+                    spawnSparkles(px, py, '#ffd76b');
+                    if (game.lives <= 0) {
+                        updateHud();
+                        endGame();
+                        return;
+                    }
+                }
+                updateHud();
+            }
+        }
+
+        // Cleanup
+        game.objects = game.objects.filter(o => !o.dead && o.y - o.r < H + 50);
+
+        // Time-based score (encourage staying alive)
+        game.score += Math.floor(dt * 6);
+        if (game.score !== Number(hudScore.textContent)) updateHud();
+
+        // Sparkles
+        for (const s of game.sparkles) {
+            s.x += s.vx * dt;
+            s.y += s.vy * dt;
+            s.vy += 600 * dt;
+            s.life -= dt;
+        }
+        game.sparkles = game.sparkles.filter(s => s.life > 0);
+
+        // Clouds
+        for (const c of clouds) {
+            c.x -= c.sp;
+            if (c.x + c.s < 0) { c.x = W + c.s; c.y = Math.random() * H * 0.6; }
+        }
+    }
+
+    function spawnSparkles(x, y, color) {
+        for (let i = 0; i < 12; i++) {
+            const a = Math.random() * Math.PI * 2;
+            const sp = 80 + Math.random() * 220;
+            game.sparkles.push({
+                x, y,
+                vx: Math.cos(a) * sp,
+                vy: Math.sin(a) * sp - 80,
+                life: 0.5 + Math.random() * 0.4,
+                color,
+            });
+        }
+    }
+
+    function render(t) {
+        // Sky gradient already on canvas backdrop CSS — but draw it on canvas too for crispness
+        const grad = ctx.createLinearGradient(0, 0, 0, H);
+        grad.addColorStop(0, '#0b1530');
+        grad.addColorStop(0.65, '#1d2a55');
+        grad.addColorStop(1, '#f7c873');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+
+        // Stars
+        ctx.fillStyle = 'rgba(255,255,255,0.65)';
+        for (let i = 0; i < 30; i++) {
+            const sx = (i * 53 + (t * 0.005)) % W;
+            const sy = (i * 31) % (H * 0.55);
+            const tw = (Math.sin(t / 400 + i) + 1) * 0.5;
+            ctx.globalAlpha = 0.3 + tw * 0.5;
+            ctx.fillRect(sx, sy, 2, 2);
+        }
+        ctx.globalAlpha = 1;
+
+        // Clouds
+        for (const c of clouds) drawCloud(c);
+
+        // Ground / road
+        ctx.fillStyle = '#553a17';
+        ctx.fillRect(0, H - 40, W, 40);
+        ctx.fillStyle = '#4a3214';
+        for (let i = 0; i < W; i += 18) {
+            ctx.fillRect(i, H - 40, 9, 4);
+        }
+
+        // Falling objects
+        for (const o of game.objects) {
+            if (o.kind === 'pup') drawPup(o.x, o.y, o.r, o.theme, t);
+            else drawObstacle(o.x, o.y, o.r, o.obType, t);
+        }
+
+        // Player kitten
+        drawKitten(game.player.x, game.player.y, 46, game.player.dir);
+
+        // Sparkles
+        for (const s of game.sparkles) {
+            ctx.globalAlpha = Math.max(0, s.life);
+            ctx.fillStyle = s.color;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+
+        if (game.paused && game.running) {
+            ctx.fillStyle = 'rgba(0,0,0,0.55)';
+            ctx.fillRect(0, 0, W, H);
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 48px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Paused', W / 2, H / 2);
+            ctx.font = '20px Inter, sans-serif';
+            ctx.fillText('Tap the score bar or press P', W / 2, H / 2 + 40);
+        }
+    }
+
+    // Initial idle render
+    render(0);
+    requestAnimationFrame(loop);
+
+    // ── Start / restart wiring
+    btnStart.addEventListener('click', () => {
+        musicEnabled = musicOnInput.checked;
+        btnMute.textContent = musicEnabled ? '🔊 Music: On' : '🔇 Music: Off';
+        try { localStorage.setItem('pupCatDash.name', (playerNameInput.value || '').trim()); } catch (e) {}
+        overlayStart.classList.add('hidden');
+        overlayEnd.classList.add('hidden');
+        ensureAudio();
+        if (musicEnabled) startMusic();
+        resetGame();
+    });
+
+    btnPlayAgain.addEventListener('click', () => {
+        overlayEnd.classList.add('hidden');
+        if (musicEnabled) startMusic();
+        resetGame();
+    });
+})();
+</script>
+{% endblock %}

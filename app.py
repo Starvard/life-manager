@@ -72,6 +72,7 @@ from services.fantasy_sleeper import sync_team as fantasy_sync_team
 from services.fantasy_trade_jobs import refresh_trade_suggestions as fantasy_refresh_trades
 from services import recipes_store, recipes_search
 from services import ui_prefs
+from services import game_store
 
 # Seed persistent volume on first cloud deploy
 from seed_data import seed as _seed_data
@@ -1034,6 +1035,32 @@ def research_page():
 @app.route("/research/am-facility-cost")
 def research_am_facility_cost():
     return render_template("research/am_facility_cost.html")
+
+
+# ── Pup Patrol Cat Dash (kid-friendly arcade) ─────────────────
+
+@app.route("/game")
+def game_page():
+    return render_template(
+        "game.html",
+        top_scores=game_store.list_top_scores(limit=10),
+    )
+
+
+@app.route("/api/game/scores", methods=["GET"])
+def api_game_scores_get():
+    return jsonify({"top": game_store.list_top_scores(limit=10)})
+
+
+@app.route("/api/game/scores", methods=["POST"])
+def api_game_scores_post():
+    body = request.get_json(silent=True) or {}
+    name = body.get("name", "")
+    score = body.get("score", 0)
+    result = game_store.add_score(name, score)
+    if not result.get("ok"):
+        return jsonify(result), 400
+    return jsonify(result)
 
 
 # \u2500\u2500 Fantasy (Sleeper) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
