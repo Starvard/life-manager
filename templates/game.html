@@ -841,8 +841,8 @@
                     if (game.player.invuln > 0) continue; // ignore during i-frames
                     o.dead = true;
                     game.lives -= 1;
-                    game.player.hurtT = 0.45;
-                    game.player.invuln = 1.1;
+                    game.player.hurtT = 0.7;
+                    game.player.invuln = 1.4;
                     sfx('hit');
                     spawnSparkles(o.x, o.y, '#ff5577');
                     spawnSparkles(px, py, '#ffd76b');
@@ -932,6 +932,16 @@
 
         // Player kitten
         drawKitten(game.player.x, game.player.y, 46, game.player.dir, game.player.hurtT, game.player.invuln);
+
+        // Screen-edge red vignette flash on hit
+        if (game.player.hurtT > 0) {
+            const a = Math.min(1, game.player.hurtT / 0.7);
+            const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.15, W / 2, H / 2, Math.max(W, H) * 0.7);
+            vg.addColorStop(0, 'rgba(255,40,60,0)');
+            vg.addColorStop(1, `rgba(255,40,60,${0.55 * a})`);
+            ctx.fillStyle = vg;
+            ctx.fillRect(0, 0, W, H);
+        }
 
         // Sparkles
         for (const s of game.sparkles) {
