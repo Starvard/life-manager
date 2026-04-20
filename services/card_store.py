@@ -35,6 +35,7 @@ _last_completed_cache: dict[str, tuple[float | None, dict]] = {}
 
 
 import config
+from services.local_time import local_today
 from services.routine_manager import load_routines
 from services.week_planner import (
     plan_week,
@@ -165,6 +166,72 @@ def _task_has_fixed_weekdays(area_key: str, task_name: str) -> bool:
     return False
 
 
+def _reconcile_sub_weekly_tasks_with_last_completion(
+    card: dict, week_key: str
+) -> bool:
+    """For freq < 1 tasks, re-evaluate whether this week is still "due".
+
+    Pre-generated weeks can hold a dot that was scheduled before the user
+    completed the task in an earlier week. Example: Knife Sharpening
+    (``freq_per_year: 4`` ≈ every 13 weeks) got dotted this week when it was
+    last done a year ago, but the user just sharpened 2 weeks ago — the dot
+    should disappear. Conversely, a previously not-due week should light up
+    if the task's gap has elapsed. No fills are ever discarded: if the row
+    has any ``True`` the current schedule is left alone.
+    """
+    area_key = card.get("area_key")
+    if not area_key:
+        return False
+    parts = week_key.split("-W")
+    if len(parts) != 2:
+        return False
+    y, wn = int(parts[0]), int(parts[1])
+    target = date.fromisocalendar(y, wn, 1)
+
+    last_map = dict(_collect_last_completed_before_week(week_key))
+    _merge_last_completed_from_this_card(card, week_key, last_map, local_today())
+    routines = load_routines()
+    plans = plan_week(
+        routines.get("areas", {}),
+        target,
+        last_completed=last_map or None,
+        as_of_date=local_today(),
+    )
+    plan = next((p for p in plans if p["key"] == area_key), None)
+    if not plan:
+        return False
+    canon = {t["name"]: t["dots"] for t in plan["tasks"]}
+
+    changed = False
+    for task in card.get("tasks", []):
+        name = task.get("name")
+        if name is None or name not in canon:
+            continue
+        f = float(task.get("freq") or 0)
+        if f >= 1:
+            continue
+        existing_days = task.get("days") or []
+        has_any_fill = any(
+            any(bool(v) for v in (row or [])) for row in existing_days
+        )
+        if has_any_fill:
+            continue
+        target_sched = _sched_seven(canon[name])
+        old_sched = _sched_seven(task.get("scheduled"))
+        grid_ok = _days_grid_matches_sched(task, target_sched)
+        if old_sched == target_sched and grid_ok:
+            continue
+        new_days = []
+        for d in range(7):
+            ns = target_sched[d]
+            nlen = max(ns, 1)
+            new_days.append([False] * nlen)
+        task["scheduled"] = target_sched
+        task["days"] = new_days
+        changed = True
+    return changed
+
+
 def _reconcile_mid_frequency_tasks_with_last_completion(
     card: dict, week_key: str
 ) -> bool:
@@ -182,13 +249,13 @@ def _reconcile_mid_frequency_tasks_with_last_completion(
         return False
 
     last_map = dict(_collect_last_completed_before_week(week_key))
-    _merge_last_completed_from_this_card(card, week_key, last_map, date.today())
+    _merge_last_completed_from_this_card(card, week_key, last_map, local_today())
     routines = load_routines()
     plans = plan_week(
         routines.get("areas", {}),
         target,
         last_completed=last_map or None,
-        as_of_date=date.today(),
+        as_of_date=local_today(),
     )
     plan = next((p for p in plans if p["key"] == area_key), None)
     if not plan:
@@ -211,22 +278,10 @@ def _reconcile_mid_frequency_tasks_with_last_completion(
         grid_ok = _days_grid_matches_sched(task, target_sched)
         if old_sched == target_sched and grid_ok:
             continue
-        old_days = task.get("days") or [[False] for _ in range(7)]
-        new_days = []
-        for d in range(7):
-            ns = target_sched[d]
-            nlen = max(ns, 1)
-            row = [False] * nlen
-            old_row = old_days[d] if d < len(old_days) else []
-            os_ = old_sched[d]
-            for doi in range(min(ns, os_, len(old_row))):
-                row[doi] = bool(old_row[doi])
-            for doi in range(ns, nlen):
-                if doi < len(old_row):
-                    row[doi] = bool(old_row[doi])
-            new_days.append(row)
         task["scheduled"] = target_sched
-        task["days"] = new_days
+        task["days"] = _rebuild_days_preserving_fills(
+            task.get("days") or [], target_sched
+        )
         changed = True
     return changed
 
@@ -247,72 +302,141 @@ def _load_card_file(week_key: str, area_key: str) -> dict | None:
     return _load_json(path)
 
 
-def _should_roll_carryover(task: dict, prev_card: dict, task_name: str) -> bool:
-    """
-    Roll unfinished work into Monday only when it helps without piling on.
-
-    Rules:
-    - Previous week must have had at least one scheduled dot still unchecked.
-    - This week's plan must NOT already schedule Monday (no duplicate nag).
-    - Target frequency at most ~2x/week (and not daily): weekly, bi-weekly, monthly,
-      etc. Skip 3+ times/week (e.g. shower x4) — those rhythms already give many
-      chances; overdue coloring on each scheduled dot handles misses.
-    """
-    if not _prev_week_has_unfilled_scheduled(prev_card, task_name):
-        return False
-    f = float(task.get("freq") or 0)
-    if f >= 7:
-        return False
-    if f > 2:
-        return False
-    sched = list(task.get("scheduled") or [0] * 7)
-    while len(sched) < 7:
-        sched.append(0)
-    if sched[0] >= 1:
-        return False
-    return True
-
-
-def _prev_week_has_unfilled_scheduled(prev_card: dict, task_name: str) -> bool:
-    """True if that task had at least one scheduled dot left unfilled last week."""
+def _prev_week_unmet_scheduled_count(prev_card: dict, task_name: str) -> int:
+    """How many scheduled dots from last week were left unchecked for this task."""
     for t in prev_card.get("tasks", []):
         if t.get("name") != task_name:
             continue
         sched = t.get("scheduled") or [0] * 7
         days = t.get("days") or []
+        unmet = 0
+        n_sched = 0
+        n_fill = 0
+        for di in range(min(7, len(sched))):
+            try:
+                n_sched += max(0, int(sched[di]))
+            except (TypeError, ValueError):
+                pass
         for di in range(min(7, len(days))):
-            sc = sched[di] if di < len(sched) else 0
-            row = days[di]
-            for doi in range(min(sc, len(row))):
-                if not row[doi]:
-                    return True
-        return False
-    return False
+            row = days[di] or []
+            for cell in row:
+                if cell:
+                    n_fill += 1
+        pool = min(n_sched, n_fill)
+        if pool >= n_sched:
+            return 0
+        return n_sched - pool
+    return 0
 
 
-def _apply_carryover_to_task(task: dict) -> None:
-    """Add one scheduled Monday dot for this task (caller sets carryover_week_key)."""
-    sched = list(task.get("scheduled") or [0] * 7)
-    while len(sched) < 7:
-        sched.append(0)
-    if sched[0] == 0:
-        sched[0] = 1
-    else:
-        sched[0] = sched[0] + 1
-        task["days"][0].append(False)
-    task["scheduled"] = sched
-    task["carryover"] = True
+def _prev_week_last_unmet_day_streak(prev_card: dict, task_name: str) -> int:
+    """How many trailing days of last week ended with an unmet scheduled dot.
+
+    Walks Sunday → back through Monday counting consecutive days that had at
+    least one unmet scheduled slot; used to seed the overdue streak into the
+    new week so Monday inherits the color instead of resetting to plain.
+    """
+    for t in prev_card.get("tasks", []):
+        if t.get("name") != task_name:
+            continue
+        sched = list(t.get("scheduled") or [0] * 7)
+        days = t.get("days") or []
+        n_sched = 0
+        n_fill = 0
+        for di in range(min(7, len(sched))):
+            try:
+                n_sched += max(0, int(sched[di]))
+            except (TypeError, ValueError):
+                pass
+        for di in range(min(7, len(days))):
+            row = days[di] or []
+            for cell in row:
+                if cell:
+                    n_fill += 1
+        pool = min(n_sched, n_fill)
+        k = 0
+        streak = 0
+        fills_left = pool
+        unmet_from_end: list[bool] = []
+        for di in range(min(7, len(sched))):
+            try:
+                sc = max(0, int(sched[di]))
+            except (TypeError, ValueError):
+                sc = 0
+            row = days[di] if di < len(days) else []
+            for doi in range(sc):
+                slot_k = k
+                k += 1
+                if slot_k < pool:
+                    unmet_from_end.append(False)
+                else:
+                    unmet_from_end.append(not (doi < len(row) and row[doi]))
+        if not unmet_from_end:
+            return 0
+        day_sched_counts: list[int] = []
+        for di in range(min(7, len(sched))):
+            try:
+                day_sched_counts.append(max(0, int(sched[di])))
+            except (TypeError, ValueError):
+                day_sched_counts.append(0)
+        while len(day_sched_counts) < 7:
+            day_sched_counts.append(0)
+        per_day_unmet: list[bool] = [False] * 7
+        idx = 0
+        for di in range(7):
+            sc = day_sched_counts[di]
+            any_unmet = False
+            for _ in range(sc):
+                if idx < len(unmet_from_end) and unmet_from_end[idx]:
+                    any_unmet = True
+                idx += 1
+            per_day_unmet[di] = any_unmet
+        streak = 0
+        for di in range(6, -1, -1):
+            if day_sched_counts[di] == 0:
+                continue
+            if per_day_unmet[di]:
+                streak += 1
+                continue
+            break
+        return streak
+    return 0
 
 
-def _apply_week_carryover(card: dict, prev_card: dict | None, prev_wk: str) -> None:
-    """Add one scheduled Monday dot where _should_roll_carryover allows."""
-    if not prev_card or not prev_wk:
+def _attach_prev_week_carry_state(card: dict, prev_card: dict | None) -> None:
+    """Annotate tasks with how much overdue streak they inherit from last week.
+
+    The UI (``dotClass``) uses this to keep the Sunday-was-orange color
+    visible on Monday's first scheduled dot instead of treating the new week
+    like a fresh start. No extra scheduled Monday dot is added.
+    """
+    if not prev_card:
         return
     for task in card.get("tasks", []):
-        if not _should_roll_carryover(task, prev_card, task["name"]):
-            continue
-        _apply_carryover_to_task(task)
-        task["carryover_week_key"] = prev_wk
+        name = task.get("name")
+        streak = _prev_week_last_unmet_day_streak(prev_card, name)
+        unmet = _prev_week_unmet_scheduled_count(prev_card, name)
+        task["prev_week_overdue_streak"] = streak
+        task["prev_week_unmet_scheduled"] = unmet
+
+
+def _strip_legacy_carryover(card: dict) -> bool:
+    """Remove the old ad-hoc Monday carryover dot + metadata.
+
+    We no longer add an extra Monday scheduled slot when last week had
+    unfinished work; the overdue-streak carryover handles cohesion visually.
+    Existing cards that still carry ``carryover`` / ``carryover_week_key``
+    get cleaned up on load.
+    """
+    changed = False
+    for task in card.get("tasks", []):
+        if task.get("carryover"):
+            task.pop("carryover", None)
+            changed = True
+        if task.get("carryover_week_key"):
+            task.pop("carryover_week_key", None)
+            changed = True
+    return changed
 
 
 def _task_is_high_frequency(freq: float) -> bool:
@@ -336,6 +460,90 @@ def _days_grid_matches_sched(task: dict, target_sched: list[int]) -> bool:
         if row is None or len(row) != nlen:
             return False
     return True
+
+
+def _rebuild_days_preserving_fills(
+    old_days: list,
+    target_sched: list[int],
+) -> list:
+    """Rebuild the ``days`` grid around ``target_sched`` without losing fills.
+
+    The previous rebuild code dropped ``True`` cells that used to sit in the
+    bonus tail (``days[d]`` longer than ``scheduled[d]``). That cost users
+    real completions whenever the planner shifted a task to a different day.
+    This helper keeps every ``True`` cell: scheduled-slot fills are aligned
+    Mon→Sun, then any remaining fills are appended as bonus slots per day.
+    """
+    old_days = old_days or []
+    filled_per_day: list[int] = []
+    for d in range(7):
+        row = old_days[d] if d < len(old_days) else []
+        filled_per_day.append(sum(1 for v in (row or []) if v))
+
+    new_days: list[list[bool]] = []
+    for d in range(7):
+        ns = target_sched[d] if d < len(target_sched) else 0
+        base = max(ns, 1)
+        f = filled_per_day[d]
+        total = max(base, f)
+        row = [False] * total
+        for i in range(min(ns, f)):
+            row[i] = True
+        for i in range(max(0, f - ns)):
+            row[ns + i] = True
+        new_days.append(row)
+    return new_days
+
+
+def _reconcile_pinned_day_tasks_with_routines(card: dict, week_key: str) -> bool:
+    """Sync pinned-day tasks (routines.yaml ``on_days``) to the canonical pattern.
+
+    When the user edits ``on_days`` on a task (e.g. "trash only on Tuesdays")
+    we need any previously-saved week cards to update to the new pinning; the
+    high- and mid-frequency reconcilers both skip ``on_days`` tasks by design,
+    which is why "Take out Trash" could keep a stale Mon+Fri pattern forever.
+
+    Also handles the inverse — a task that used to have ``on_days`` but no
+    longer does. That case falls through to the normal mid-frequency pass.
+    """
+    area_key = card.get("area_key")
+    if not area_key:
+        return False
+    routines = load_routines()
+    area = routines.get("areas", {}).get(area_key) or {}
+    by_name: dict[str, dict] = {}
+    for raw in area.get("tasks", []) or []:
+        n = raw.get("name")
+        if n:
+            by_name[n] = raw
+
+    changed = False
+    for task in card.get("tasks", []):
+        name = task.get("name")
+        raw = by_name.get(name)
+        if raw is None:
+            continue
+        from services.week_planner import (
+            _normalize_on_days,
+            _dots_from_fixed_days,
+            effective_weekly_freq,
+        )
+        on_days = _normalize_on_days(raw.get("on_days"))
+        if not on_days:
+            continue
+        freq = effective_weekly_freq(raw)
+        n_dots = max(1, round(freq)) if freq >= 1 else 1
+        target_sched = _sched_seven(_dots_from_fixed_days(n_dots, on_days))
+        old_sched = _sched_seven(task.get("scheduled"))
+        grid_ok = _days_grid_matches_sched(task, target_sched)
+        if old_sched == target_sched and grid_ok:
+            continue
+        task["scheduled"] = target_sched
+        task["days"] = _rebuild_days_preserving_fills(
+            task.get("days") or [], target_sched
+        )
+        changed = True
+    return changed
 
 
 def _reconcile_high_frequency_tasks_with_planner(card: dict, week_key: str) -> bool:
@@ -372,52 +580,42 @@ def _reconcile_high_frequency_tasks_with_planner(card: dict, week_key: str) -> b
         grid_ok = _days_grid_matches_sched(task, target_sched)
         if old_sched == target_sched and not has_carry_meta and grid_ok:
             continue
-        old_days = task.get("days") or [[False] for _ in range(7)]
-        new_days = []
-        for d in range(7):
-            ns = target_sched[d]
-            nlen = max(ns, 1)
-            row = [False] * nlen
-            old_row = old_days[d] if d < len(old_days) else []
-            os_ = old_sched[d]
-            for doi in range(min(ns, os_, len(old_row))):
-                row[doi] = bool(old_row[doi])
-            for doi in range(ns, nlen):
-                if doi < len(old_row):
-                    row[doi] = bool(old_row[doi])
-            new_days.append(row)
         task["scheduled"] = target_sched
-        task["days"] = new_days
+        task["days"] = _rebuild_days_preserving_fills(
+            task.get("days") or [], target_sched
+        )
         task.pop("carryover", None)
         task.pop("carryover_week_key", None)
         changed = True
     return changed
 
 
-def _ensure_carryover_on_load(card: dict, week_key: str, area_key: str) -> bool:
-    """
-    If this week's JSON was created before carryover ran, apply it when the prior
-    week's card exists and had unfilled scheduled work. Idempotent via carryover_week_key.
+def _ensure_prev_week_overdue_streak(card: dict, week_key: str, area_key: str) -> bool:
+    """Cache how many trailing days of last week ended unmet, per task.
+
+    Also strips any legacy ``carryover`` / ``carryover_week_key`` fields and
+    trims the old Monday bump out of ``scheduled`` so new-week JSON is clean.
     """
     prev_wk = _prev_week_key(week_key)
-    if not prev_wk:
-        return False
-    prev_card = _load_card_file(prev_wk, area_key)
-    if not prev_card:
-        return False
-    changed = False
-    for task in card.get("tasks", []):
-        if task.get("carryover_week_key") == prev_wk:
-            continue
-        if task.get("carryover") and task.get("carryover_week_key") is None:
-            task["carryover_week_key"] = prev_wk
-            changed = True
-            continue
-        if not _should_roll_carryover(task, prev_card, task["name"]):
-            continue
-        _apply_carryover_to_task(task)
-        task["carryover_week_key"] = prev_wk
-        changed = True
+    prev_card = _load_card_file(prev_wk, area_key) if prev_wk else None
+    changed = _strip_legacy_carryover(card)
+    if prev_card:
+        for task in card.get("tasks", []):
+            name = task.get("name")
+            new_streak = _prev_week_last_unmet_day_streak(prev_card, name)
+            new_unmet = _prev_week_unmet_scheduled_count(prev_card, name)
+            if task.get("prev_week_overdue_streak") != new_streak:
+                task["prev_week_overdue_streak"] = new_streak
+                changed = True
+            if task.get("prev_week_unmet_scheduled") != new_unmet:
+                task["prev_week_unmet_scheduled"] = new_unmet
+                changed = True
+    else:
+        for task in card.get("tasks", []):
+            if task.pop("prev_week_overdue_streak", None) is not None:
+                changed = True
+            if task.pop("prev_week_unmet_scheduled", None) is not None:
+                changed = True
     return changed
 
 
@@ -453,7 +651,7 @@ def _generate_routine_cards(week_key: str, target_date: date) -> dict[str, dict]
         routines.get("areas", {}),
         target_date,
         last_completed=last_map or None,
-        as_of_date=date.today(),
+        as_of_date=local_today(),
     )
 
     week_dir = _routine_dir(week_key)
@@ -493,8 +691,8 @@ def _generate_routine_cards(week_key: str, target_date: date) -> dict[str, dict]
                 "scheduled": scheduled,
             })
         prev_wk = _prev_week_key(week_key)
-        prev = _load_card_file(prev_wk, plan["key"])
-        _apply_week_carryover(card, prev, prev_wk)
+        prev = _load_card_file(prev_wk, plan["key"]) if prev_wk else None
+        _attach_prev_week_carry_state(card, prev)
         cards[plan["key"]] = card
         _save_json(_routine_path(week_key, plan["key"]), card)
 
@@ -511,7 +709,7 @@ def get_routine_cards(week_key: str) -> dict[str, dict]:
             week_num = int(parts[1])
             target = date.fromisocalendar(year, week_num, 1)
         else:
-            target = date.today()
+            target = local_today()
         return _generate_routine_cards(week_key, target)
 
     cards = {}
@@ -522,11 +720,17 @@ def get_routine_cards(week_key: str) -> dict[str, dict]:
             data = _load_json(path)
             if data is not None:
                 changed = _migrate_card(data)
+                # Strip legacy carryover metadata before reconcilers so the
+                # mid/sub-weekly passes no longer treat these rows as pinned.
+                if _ensure_prev_week_overdue_streak(data, week_key, area_key):
+                    changed = True
+                if _reconcile_pinned_day_tasks_with_routines(data, week_key):
+                    changed = True
                 if _reconcile_high_frequency_tasks_with_planner(data, week_key):
                     changed = True
                 if _reconcile_mid_frequency_tasks_with_last_completion(data, week_key):
                     changed = True
-                if _ensure_carryover_on_load(data, week_key, area_key):
+                if _reconcile_sub_weekly_tasks_with_last_completion(data, week_key):
                     changed = True
                 if changed:
                     _save_json(path, data)
