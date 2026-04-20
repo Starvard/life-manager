@@ -9,11 +9,12 @@ based on file mtime.
 
 import copy
 import os
+import shutil
 import threading
 
 import yaml
 
-from config import ROUTINES_FILE
+from config import ROUTINES_BUNDLED_FILE, ROUTINES_FILE
 
 
 _cache_lock = threading.Lock()
@@ -21,7 +22,24 @@ _cached_mtime: float | None = None
 _cached_data: dict | None = None
 
 
+def _ensure_routines_file() -> None:
+    """Seed the persistent routines.yaml from the bundled image copy on first run.
+
+    On Fly.io the user-editable file lives on the persistent volume
+    (``LM_DATA_DIR``) so edits survive machine restarts. The bundled file in
+    the repo image is only used as a first-boot template.
+    """
+    if os.path.exists(ROUTINES_FILE):
+        return
+    if ROUTINES_FILE == ROUTINES_BUNDLED_FILE:
+        return
+    if os.path.exists(ROUTINES_BUNDLED_FILE):
+        os.makedirs(os.path.dirname(ROUTINES_FILE), exist_ok=True)
+        shutil.copy2(ROUTINES_BUNDLED_FILE, ROUTINES_FILE)
+
+
 def _load_from_disk() -> dict:
+    _ensure_routines_file()
     if not os.path.exists(ROUTINES_FILE):
         return {"areas": {}}
     with open(ROUTINES_FILE, "r") as f:
@@ -53,6 +71,7 @@ def load_routines():
 
 def save_routines(data):
     global _cached_mtime, _cached_data
+    os.makedirs(os.path.dirname(ROUTINES_FILE) or ".", exist_ok=True)
     with open(ROUTINES_FILE, "w") as f:
         yaml.dump(data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
     with _cache_lock:
