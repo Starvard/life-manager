@@ -56,7 +56,8 @@ def _find_player_upgrade(
 ) -> tuple[str, str]:
     """
     Returns (plan_target_name, one_line_rationale).
-    Prefers same position, younger, similar dynasty value band (rebuild: youth over raw value).
+    Avoids "swap young for slightly younger" noise: young QBs/skill often default to KEEP unless
+    a clear tier-up (higher value) or materially younger elite appears.
     """
     me = vmap.get(str(my_id))
     if not me:
@@ -73,12 +74,35 @@ def _find_player_upgrade(
     my_name = me.get("name") or str(my_id)
     h = _horizon_note(horizon_years)
 
+    def _young_cornerstone() -> bool:
+        """Sophomore / young QB or very young skill — default hold, not lateral swap."""
+        if my_pos == "QB" and my_age_f is not None and my_age_f <= 26.0:
+            return True
+        if my_pos in ("RB", "WR", "TE") and my_age_f is not None and my_age_f <= 23.5:
+            return True
+        return False
+
     # Positions we try to match (superflex: QB counts)
     pos_ok = {my_pos} if my_pos else set()
     if my_pos in ("RB", "WR", "TE"):
         pos_ok.add("FLEX")
     if not pos_ok:
         pos_ok = {"QB", "RB", "WR", "TE"}
+
+    def _candidate_allowed(info: dict, val: float, age_f: float | None) -> bool:
+        """Stricter when we're already holding youth — need real upgrade, not Cam-for-Cam."""
+        if not _young_cornerstone():
+            return my_val <= 0 or (0.72 <= val / my_val <= 1.35)
+        # Young cornerstone: only suggest if clearly better tier OR much younger + not downgraded
+        if my_val <= 0:
+            return False
+        ratio = val / my_val
+        if ratio >= 1.18:
+            return True
+        if age_f is not None and my_age_f is not None:
+            if (my_age_f - age_f) >= 2.5 and ratio >= 0.92:
+                return True
+        return False
 
     candidates: list[tuple[float, float, str, str]] = []
     for sid, info in vmap.items():
@@ -93,14 +117,13 @@ def _find_player_upgrade(
             continue
         if val < 400:
             continue
-        # Similar value band for 1:1 style targets
-        if my_val > 0 and not (0.72 <= val / my_val <= 1.35):
-            continue
         age = info.get("age")
         try:
             age_f = float(age) if age is not None else None
         except (TypeError, ValueError):
             age_f = None
+        if not _candidate_allowed(info, val, age_f):
+            continue
         youth = 0.0
         if my_age_f is not None and age_f is not None:
             youth = my_age_f - age_f
@@ -108,6 +131,13 @@ def _find_player_upgrade(
             youth = 28.0 - age_f
         name = info.get("name") or sid
         candidates.append((youth, val, sid, name))
+
+    if _young_cornerstone() and not candidates:
+        return (
+            "KEEP — young build-around piece",
+            f"{my_name} is young enough to anchor a {h} window; do not lateral for a similar-age profile. "
+            "Only move for a clear tier-up or a package that improves the rest of the roster.",
+        )
 
     if not candidates:
         if my_val < 1200:
@@ -120,11 +150,12 @@ def _find_player_upgrade(
             f"Few 1:1 comps in band — pivot to acquiring extra 1sts/2nds or a younger profile in {h}.",
         )
 
-    candidates.sort(key=lambda x: (-x[0], -x[1]))
+    # Prefer higher tier (value), then youth
+    candidates.sort(key=lambda x: (-x[1], -x[0]))
     _, _, _, target_name = candidates[0]
     reason = (
-        f"Rebuild aim ({h}): similar dynasty value, prefer younger profile at {my_pos or 'same role'} "
-        f"when you negotiate — use FantasyCalc as a starting band, then adjust to your league."
+        f"Rebuild ({h}): only showing swaps that look like a real upgrade on paper at {my_pos or 'this spot'} "
+        f"(not a same-tier age shuffle). Confirm in your league before offering."
     )
     return (target_name, reason)
 
