@@ -139,36 +139,27 @@
 
     <div class="card fantasy-rebuild-board-card">
         <div class="card-title">Rebuild board — desired upgrade per asset</div>
-        <p class="fantasy-hint">One row per player and each draft pick you own. Edits save automatically. Aim 2–3 years out: youth, capital, or consolidate to studs.</p>
-        <div class="fantasy-rebuild-table-wrap">
-            <table class="fantasy-rebuild-table">
-                <thead>
-                    <tr>
-                        <th>Group</th>
-                        <th>Asset</th>
-                        <th>Desired upgrade / plan</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template x-for="aid in (rebuildBoard.order || [])" :key="aid">
-                        <tr>
-                            <td class="fantasy-rb-group" x-text="rebuildBoard.assets[aid] && rebuildBoard.assets[aid].group"></td>
-                            <td class="fantasy-rb-name" x-text="playerLabelForAsset(aid)"></td>
-                            <td>
-                                <input
-                                    type="text"
-                                    class="fantasy-input fantasy-rebuild-input"
-                                    placeholder="e.g. younger RB, 2027 1st, package for QB1"
-                                    :value="rebuildBoard.assets[aid] && rebuildBoard.assets[aid].desired_upgrade"
-                                    @input.debounce.500ms="patchRebuildUpgrade(aid, $event.target.value)"
-                                >
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
+        <p class="fantasy-hint">One card per player and each draft pick you own. Edits save automatically. Aim 2–3 years out: youth, capital, or consolidate to studs.</p>
+        <div class="fantasy-rebuild-stack" role="list">
+            <template x-for="aid in (rebuildBoard.order || [])" :key="aid">
+                <article class="fantasy-rebuild-card" role="listitem">
+                    <div class="fantasy-rebuild-card-head">
+                        <span class="fantasy-rb-group" x-text="rebuildBoard.assets[aid] && rebuildBoard.assets[aid].group"></span>
+                        <span class="fantasy-rb-name" x-text="playerLabelForAsset(aid)"></span>
+                    </div>
+                    <label class="fantasy-rebuild-label" :for="'rb-plan-' + aid">Desired upgrade / plan</label>
+                    <textarea
+                        :id="'rb-plan-' + aid"
+                        class="fantasy-input fantasy-rebuild-textarea"
+                        rows="3"
+                        placeholder="e.g. younger RB, 2027 1st, package for QB1"
+                        :value="rebuildBoard.assets[aid] && rebuildBoard.assets[aid].desired_upgrade"
+                        @input.debounce.500ms="patchRebuildUpgrade(aid, $event.target.value)"
+                    ></textarea>
+                </article>
+            </template>
         </div>
-        <p class="fantasy-empty-note" x-show="!rebuildBoard.order || rebuildBoard.order.length === 0">Sync from Sleeper to populate this table.</p>
+        <p class="fantasy-empty-note" x-show="!rebuildBoard.order || rebuildBoard.order.length === 0">Sync from Sleeper to populate this list.</p>
     </div>
 
     <div class="card" x-show="snapshot.draft_picks && snapshot.draft_picks.length">
