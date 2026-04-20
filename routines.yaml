@@ -13,183 +13,142 @@ areas:
     - name: Floss
       weight: 2.0
       freq: 14.0
-      notify_time: 09:00
     - name: Brush
       weight: 2.0
       freq: 14.0
-      notify_time: 09:00
     - name: Shower
       weight: 2.0
       freq: 4.0
-      notify_time: 09:00
     - name: Moisturize
       weight: 1.5
       freq: 7.0
-      notify_time: 09:00
     - name: Trim Nails
       weight: 1.0
       freq: 1.0
-      notify_time: 09:00
     - name: Shave
       weight: 1.0
       freq: 2.0
-      notify_time: 09:00
   self_care:
     name: Self-Care
     tasks:
     - name: Play Basketball
       weight: 2.5
       freq: 2.0
-      notify_time: 09:00
     - name: Run 5k
       weight: 2.5
       freq: 2.0
-      notify_time: 09:00
     - name: Meditate
       weight: 2.0
       freq: 2.0
-      notify_time: 09:00
     - name: Drink Water
       weight: 1.0
       freq: 35.0
-      notify_time: 09:00
     - name: Physical Therapy
       weight: 2.5
       freq: 3.0
-      notify_time: 09:00
     - name: Strength Train
       weight: 2.5
       freq: 3.0
-      notify_time: 09:00
     - name: Take Vitamins
       weight: 1.5
       freq: 14.0
-      notify_time: 09:00
     - name: Vitamin D Rowan
       freq: 7.0
-      notify_time: 09:00
   family:
     name: Family
     tasks:
     - name: Jenna Night Routine
       weight: 4.0
       freq: 7.0
-      notify_time: 09:00
     - name: Rosemary Night Routine
       weight: 4.0
       freq: 7.0
-      notify_time: 09:00
     - name: Rowan Night Routine
       weight: 4.0
       freq: 7.0
-      notify_time: 09:00
     - name: Jenna 1:1 Date
       weight: 3.5
       freq: 0.25
-      notify_time: 09:00
     - name: Rosemary 1:1 Date
       weight: 3.5
       freq: 0.25
-      notify_time: 09:00
     - name: Rowan 1:1 Date
       weight: 3.5
       freq: 0.25
-      notify_time: 09:00
     - name: Flowers for Jenna
       weight: 2.0
       freq: 0.25
-      notify_time: 09:00
     - name: Romance
       weight: 3.0
       freq: 0.5
-      notify_time: 09:00
     - name: Family Activity
       weight: 3.0
       freq: 1.0
-      notify_time: 09:00
   home:
     name: Home
     tasks:
     - name: Plant Care
       weight: 1.5
       freq: 3.0
-      notify_time: 09:00
     - name: Budget
       weight: 2.5
       freq: 4.0
-      notify_time: 09:00
     - name: Walk Jasper
       weight: 2.5
       freq: 3.0
-      notify_time: 09:00
     - name: Dishes
       weight: 2.0
       freq: 14.0
-      notify_time: 09:00
     - name: Tidy Up
       weight: 2.0
       freq: 7.0
-      notify_time: 09:00
     - name: Deep Clean Upstairs
       weight: 2.0
       freq: 0.5
-      notify_time: 09:00
     - name: Deep Clean Downstairs
       weight: 2.0
       freq: 0.5
-      notify_time: 09:00
     - name: HVAC Maintenance
       weight: 1.5
       freq_per_year: 2.0
-      notify_time: 09:00
     - name: Knife Sharpening
       weight: 1.0
       freq_per_year: 4.0
-      notify_time: 09:00
     - name: Meal Plan
       weight: 2.0
       freq: 1.0
-      notify_time: 09:00
     - name: Laundry
       weight: 2.0
       freq: 2.0
-      notify_time: 09:00
     - name: Mow Lawn
       weight: 1.5
       freq: 1.0
-      notify_time: 09:00
     - name: Take out Trash
       weight: 2.0
       freq: 1.0
       on_days:
       - 1
-      notify_time: 09:00
   homeschool:
     name: Homeschool
     tasks:
     - name: Lesson Plan
       weight: 2.0
       freq: 1.0
-      notify_time: 09:00
     - name: Teach
       weight: 3.5
       freq: 4.0
-      notify_time: 09:00
   work:
     name: Work
     tasks:
     - name: Emails
       weight: 2.0
       freq: 5.0
-      notify_time: 09:00
     - name: Plan
       weight: 2.5
       freq: 5.0
-      notify_time: 09:00
     - name: Focus Work
       weight: 3.0
       freq: 5.0
-      notify_time: 09:00
   car_maintenance:
     name: Car Maintenance
     tasks: []
