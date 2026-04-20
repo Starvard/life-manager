@@ -16,6 +16,7 @@ from datetime import date, datetime, time as time_cls
 
 import config
 from services.card_store import get_routine_card, get_routine_cards
+from services.local_time import local_now, local_today
 from services.routine_manager import load_routines
 from services.score_helpers import today_weekday_index
 from services.week_planner import iso_week_key, week_start_date
@@ -30,7 +31,7 @@ except ImportError:
 
 
 def _week_key_containing_today(today: date | None = None) -> str:
-    d = today or date.today()
+    d = today or local_today()
     monday = week_start_date(d)
     return iso_week_key(monday)
 
@@ -184,7 +185,7 @@ def _notify_time_reached(hhmm: str) -> bool:
         target = time_cls(int(h), int(m))
     except (ValueError, TypeError):
         return False
-    return datetime.now().time() >= target
+    return local_now().time() >= target
 
 
 def send_test_push_to_all() -> tuple[int, int]:
@@ -284,7 +285,7 @@ def run_reminder_scan() -> None:
     daily_scheduled = state.setdefault("daily_scheduled", {})
     now = time.time()
     cool = _cooldown_seconds()
-    today_iso = date.today().isoformat()
+    today_iso = local_today().isoformat()
     nt_map = notify_time_lookup()
 
     for item in nags:
