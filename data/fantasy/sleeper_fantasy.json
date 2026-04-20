@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "settings": {
     "sleeper_username": "starvard",
     "sport": "nfl",
@@ -15,7 +15,15 @@
     "draft_notes": "",
     "trade_targets": "",
     "rebuild_notes": "",
-    "trade_ideas": []
+    "trade_ideas": [],
+    "rebuild_horizon_years": 3,
+    "rebuild_plan_doc": "",
+    "rebuild_plan_generated_at": null
+  },
+  "rebuild_board": {
+    "sync_token": "",
+    "order": [],
+    "assets": {}
   },
   "last_sync": null,
   "cached_snapshot": null,

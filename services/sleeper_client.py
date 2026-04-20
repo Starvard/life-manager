@@ -87,6 +87,18 @@ def _slim_players_map(raw: dict) -> dict:
     return out
 
 
+def fetch_league_traded_picks(league_id: str) -> list[dict]:
+    """Current traded-pick ownership per league (dynasty)."""
+    lid = (league_id or "").strip()
+    if not lid:
+        return []
+    try:
+        data = _get_json(f"{SLEEPER_BASE}/league/{lid}/traded_picks")
+    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError, OSError):
+        return []
+    return data if isinstance(data, list) else []
+
+
 def load_players_nfl_cached(cache_path: str, max_age_seconds: int = 86400) -> dict | None:
     """
     Sleeper's full NFL players map is multi-megabyte JSON. We cache a *slimmed*

@@ -51,6 +51,61 @@ def _player_label(players_map: dict | None, pid: str) -> dict:
     }
 
 
+def _team_name_for_roster(rosters: list[dict], users: list[dict], roster_id: int | None) -> str:
+    if roster_id is None:
+        return ""
+    oid = None
+    for r in rosters:
+        if r.get("roster_id") == roster_id:
+            oid = str(r.get("owner_id", ""))
+            break
+    if not oid:
+        return f"Roster {roster_id}"
+    for u in users:
+        if str(u.get("user_id", "")) == oid:
+            meta = u.get("metadata") or {}
+            if isinstance(meta, dict) and meta.get("team_name"):
+                return str(meta["team_name"])
+            return str(u.get("display_name") or f"Roster {roster_id}")
+    return f"Roster {roster_id}"
+
+
+def _my_draft_picks(
+    traded_picks: list[dict],
+    my_roster_id: int | None,
+    rosters: list[dict],
+    users: list[dict],
+) -> list[dict]:
+    """Picks currently owned by my roster (Sleeper traded_picks API)."""
+    if my_roster_id is None:
+        return []
+    out: list[dict] = []
+    for row in traded_picks:
+        if row.get("owner_id") != my_roster_id:
+            continue
+        rid = row.get("roster_id")
+        season = str(row.get("season", ""))
+        rnd = row.get("round")
+        try:
+            rnum = int(rnd) if rnd is not None else 0
+        except (TypeError, ValueError):
+            rnum = 0
+        orig_team = _team_name_for_roster(rosters, users, rid)
+        label = f"{season} · Round {rnum}"
+        if rid != my_roster_id:
+            label += f" (from {orig_team})"
+        out.append({
+            "season": season,
+            "round": rnum,
+            "original_roster_id": rid,
+            "original_team_label": orig_team if rid != my_roster_id else None,
+            "label": label,
+            "pick_key": f"{season}-r{rnum}-slot{rid}",
+        })
+    out.sort(key=lambda x: (x["season"], x["round"], x.get("original_roster_id") or 0))
+    return out
+
+
 def _slot_rows(
     roster_positions: list[str],
     starters: list[str] | None,
@@ -113,6 +168,7 @@ def sync_team(settings: dict) -> dict:
     league_id = str(league.get("league_id", ""))
     rosters = sleeper_client.fetch_league_rosters(league_id)
     users = sleeper_client.fetch_league_users(league_id)
+    traded_picks = sleeper_client.fetch_league_traded_picks(league_id)
 
     my_roster = None
     for r in rosters:
@@ -147,6 +203,8 @@ def sync_team(settings: dict) -> dict:
     taxi_list = [_player_label(players_map, str(pid)) for pid in taxi]
 
     rs = my_roster.get("settings") or {}
+    my_rid = my_roster.get("roster_id")
+    my_picks = _my_draft_picks(traded_picks, my_rid, rosters, users)
     synced_at = datetime.now(timezone.utc).isoformat()
 
     # Release the big players_map ref before constructing the snapshot so
@@ -189,6 +247,7 @@ def sync_team(settings: dict) -> dict:
         "bench": bench,
         "reserve": res_list,
         "taxi": taxi_list,
+        "draft_picks": my_picks,
         "players_resolved": bool(players_map),
     }
     players_map = None  # noqa: F841 (drop local ref to help GC)
