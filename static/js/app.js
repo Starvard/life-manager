@@ -491,7 +491,16 @@ document.addEventListener("alpine:init", () => {
 
     Alpine.data("budgetPage", (initialTxns, initialReport, initialPlan, initialCategories, currentMonth, months, initialOverview, initialBudgets, budgetCategoryList, initialPlaidItems, plaidConfigured, initialPlaidStatus) => ({
         transactions: initialTxns || [],
-        report: initialReport || { total_income: 0, total_expenses: 0, net: 0, transaction_count: 0, categories: [], category_status: [], overall_status: {} },
+        report: initialReport || {
+            total_income: 0,
+            total_expenses: 0,
+            net: 0,
+            transaction_count: 0,
+            categories: [],
+            income_breakdown: [],
+            category_status: [],
+            overall_status: {},
+        },
         plan: initialPlan || { month: currentMonth, sections: {}, notes: "" },
         allCategories: initialCategories || [],
         overview: initialOverview || {},
@@ -534,8 +543,15 @@ document.addEventListener("alpine:init", () => {
         catFilter: "",
         /** @type {Record<string, boolean>} */
         selectedTxnIds: {},
+        incomeModalOpen: false,
+        replaceFrom: "",
+        replaceTo: "",
+        replacingCat: false,
 
         init() {
+            if (!Array.isArray(this.report.income_breakdown)) {
+                this.report.income_breakdown = [];
+            }
             if (!this.report.snapshot) {
                 this.report.snapshot = {
                     planned_income: 0,
@@ -928,7 +944,54 @@ document.addEventListener("alpine:init", () => {
 
         async refreshReport() {
             const res = await fetch(`/api/budget/report?month=${this.currentMonth}`);
-            if (res.ok) this.report = await res.json();
+            if (res.ok) {
+                const data = await res.json();
+                if (!Array.isArray(data.income_breakdown)) data.income_breakdown = [];
+                this.report = data;
+            }
+        },
+
+        openIncomeBreakdown() {
+            this.incomeModalOpen = true;
+        },
+
+        closeIncomeModal() {
+            this.incomeModalOpen = false;
+        },
+
+        goToIncomeCategory(row) {
+            if (!row || !row.category) return;
+            this.filterCategory = row.category;
+            this.searchQuery = "";
+            this.filterTxns();
+            this.view = "transactions";
+            this.incomeModalOpen = false;
+        },
+
+        async applyReplaceCategory() {
+            const from = (this.replaceFrom || "").trim();
+            const to = (this.replaceTo || "").trim();
+            if (!from || !to) {
+                this.errorMsg = "Enter both the old category name and the new one.";
+                setTimeout(() => { this.errorMsg = ""; }, 5000);
+                return;
+            }
+            this.replacingCat = true;
+            const res = await api("POST", "/api/budget/categories/replace", { from, to });
+            this.replacingCat = false;
+            if (res && res.ok) {
+                const parts = [`${res.transactions_updated} transaction(s)`];
+                if (res.rules_updated) parts.push(`${res.rules_updated} keyword rule(s)`);
+                if (res.budget_moved) parts.push("budget limit merged");
+                this.importMsg = "Updated: " + parts.join(", ") + ".";
+                setTimeout(() => { this.importMsg = ""; }, 6000);
+                this.replaceFrom = "";
+                this.replaceTo = "";
+                window.location.reload();
+            } else {
+                this.errorMsg = (res && res.error) || "Could not replace category.";
+                setTimeout(() => { this.errorMsg = ""; }, 6000);
+            }
         },
 
         /* Plaid credentials */

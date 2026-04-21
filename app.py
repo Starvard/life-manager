@@ -56,6 +56,7 @@ from services.budget_categorizer import (
     list_keyword_rules, upsert_keyword_rule, delete_keyword_rule,
     learn_rule_from_override,
     bulk_set_category,
+    replace_budget_category_globally,
 )
 from services.budget_csv_import import parse_csv_text
 from services import plaid_client, plaid_credentials
@@ -619,9 +620,14 @@ def budget_page():
     txns = get_transactions_by_month(current_month)
     report = compute_monthly_report(current_month)
     plan = load_plan(current_month)
-    categories = get_all_categories(load_transactions())
-    overview = load_overview(current_month) or {}
     budgets = load_budgets().get("limits") or {}
+    categories = get_all_categories(load_transactions())
+    _seen = set(categories)
+    for _k in sorted(budgets.keys()):
+        if _k and _k not in _seen:
+            categories.append(_k)
+            _seen.add(_k)
+    overview = load_overview(current_month) or {}
     plaid_items = plaid_client.list_items_public()
     _creds = plaid_credentials.get_credentials()
     plaid_status = {
@@ -795,10 +801,29 @@ def api_budget_months():
 @app.route("/api/budget/categories")
 def api_budget_categories():
     txns = load_transactions()
+    lims = load_budgets().get("limits") or {}
+    cats = get_all_categories(txns)
+    _seen = set(cats)
+    for _k in sorted(lims.keys()):
+        if _k and _k not in _seen:
+            cats.append(_k)
+            _seen.add(_k)
     return jsonify({
-        "categories": get_all_categories(txns),
+        "categories": cats,
         "defaults": BUDGET_CATEGORIES,
     })
+
+
+@app.route("/api/budget/categories/replace", methods=["POST"])
+def api_budget_replace_category():
+    """Rename or merge a category across transactions, rules, and budget limits."""
+    body = request.get_json(force=True) or {}
+    old_cat = (body.get("from") or body.get("old") or "").strip()
+    new_cat = (body.get("to") or body.get("new") or "").strip()
+    result = replace_budget_category_globally(old_cat, new_cat)
+    if not result.get("ok"):
+        return jsonify(result), 400
+    return jsonify(result)
 
 
 # ── CSV upload (bank-agnostic fallback) ─────────────────────────

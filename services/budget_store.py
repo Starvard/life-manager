@@ -347,6 +347,13 @@ def compute_monthly_report(month: str) -> dict:
 
     net = total_income + total_expenses
 
+    income_breakdown: list[dict] = []
+    for cat, raw in by_category.items():
+        if raw <= 0:
+            continue
+        income_breakdown.append({"category": cat, "total": round(raw, 2)})
+    income_breakdown.sort(key=lambda r: (-r["total"], r["category"]))
+
     cat_breakdown = []
     for cat, total in sorted(by_category.items(), key=lambda x: x[1]):
         cat_breakdown.append({"category": cat, "total": round(total, 2)})
@@ -451,6 +458,7 @@ def compute_monthly_report(month: str) -> dict:
         "total_expenses": round(total_expenses, 2),
         "net": round(net, 2),
         "transaction_count": len([t for t in txns if not t.get("is_duplicate")]),
+        "income_breakdown": income_breakdown,
         "categories": cat_breakdown,
         "has_plan": bool(plan.get("sections", {}).get("income", {}).get("items")),
         "snapshot": snapshot,
