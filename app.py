@@ -55,6 +55,7 @@ from services.budget_categorizer import (
     BUDGET_CATEGORIES, infer_category, recategorize_all,
     list_keyword_rules, upsert_keyword_rule, delete_keyword_rule,
     learn_rule_from_override,
+    bulk_set_category,
 )
 from services.budget_csv_import import parse_csv_text
 from services import plaid_client, plaid_credentials
@@ -725,6 +726,24 @@ def api_budget_update_category(tx_id):
             save_transactions(txns)
             return jsonify({"ok": True, "transaction": tx})
     return jsonify({"ok": False, "error": "Transaction not found"}), 404
+
+
+@app.route("/api/budget/transactions/bulk-category", methods=["POST"])
+def api_budget_bulk_category():
+    """Set the same category on many transactions (e.g. after multi-select)."""
+    body = request.get_json(force=True) or {}
+    new_cat = (body.get("category") or "").strip()
+    learn = bool(body.get("learn", True))
+    ids = body.get("ids")
+    if not new_cat:
+        return jsonify({"ok": False, "error": "Missing category"}), 400
+    if not isinstance(ids, list) or not ids:
+        return jsonify({"ok": False, "error": "Missing or empty ids"}), 400
+    txns = load_transactions()
+    n = bulk_set_category(txns, ids, new_cat, learn=learn)
+    if n:
+        save_transactions(txns)
+    return jsonify({"ok": True, "updated": n})
 
 
 @app.route("/api/budget/transactions/<tx_id>/duplicate", methods=["PATCH"])

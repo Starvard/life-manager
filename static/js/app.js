@@ -502,8 +502,6 @@ document.addEventListener("alpine:init", () => {
         filterCategory: "",
         filteredTxns: [],
         duplicates: [],
-        editingCatId: null,
-        editCatValue: "",
         importing: false,
         importMsg: "",
         errorMsg: "",
@@ -532,6 +530,10 @@ document.addEventListener("alpine:init", () => {
         rules: [],
         newRuleKeyword: "",
         newRuleCategory: "",
+        catPickerForId: null,
+        catFilter: "",
+        /** @type {Record<string, boolean>} */
+        selectedTxnIds: {},
 
         init() {
             if (!this.report.snapshot) {
@@ -712,30 +714,113 @@ document.addEventListener("alpine:init", () => {
             }
             list.sort((a, b) => b.date.localeCompare(a.date));
             this.filteredTxns = list;
+            // Drop selection for rows no longer visible
+            const visible = new Set(list.map((t) => t.id).filter(Boolean));
+            const next = {};
+            for (const id of Object.keys(this.selectedTxnIds)) {
+                if (visible.has(id)) next[id] = true;
+            }
+            this.selectedTxnIds = next;
         },
 
         displayCat(tx) {
-            return tx.category_override || tx.category_display || tx.category || "Other";
+            return tx.category_override || tx.category_display || tx.category || "🏬 Shopping";
         },
 
-        startEditCategory(tx) {
-            this.editingCatId = tx.id;
-            this.editCatValue = this.displayCat(tx);
+        categoriesForPicker() {
+            const q = (this.catFilter || "").trim().toLowerCase();
+            const list = this.allCategories || [];
+            if (!q) return list;
+            return list.filter((c) => (c || "").toLowerCase().includes(q));
+        },
+
+        openCatPicker(tx) {
+            if (this.catPickerForId === tx.id) {
+                this.catPickerForId = null;
+                this.catFilter = "";
+                return;
+            }
+            this.catPickerForId = tx.id;
+            this.catFilter = "";
             this.$nextTick(() => {
-                const sel = this.$refs.catSelect;
-                if (sel) sel.focus();
+                const inp = this.$refs.catFilterInput;
+                if (inp) inp.focus();
             });
         },
 
-        async saveCategory(tx) {
-            const cat = this.editCatValue;
-            this.editingCatId = null;
-            if (!cat || cat === this.displayCat(tx)) return;
+        closeCatPicker() {
+            this.catPickerForId = null;
+            this.catFilter = "";
+        },
+
+        async pickCategory(tx, cat) {
+            if (!cat || cat === this.displayCat(tx)) {
+                this.closeCatPicker();
+                return;
+            }
             tx.category_override = cat;
             await api("PATCH", `/api/budget/transactions/${tx.id}/category`, { category: cat });
-            // Pick up the newly learned keyword rule and refresh the per-category status.
             await this.loadRules();
             await this.refreshReport();
+            this.closeCatPicker();
+        },
+
+        toggleTxnSelect(tx) {
+            const id = tx.id;
+            if (!id) return;
+            if (this.selectedTxnIds[id]) {
+                const next = { ...this.selectedTxnIds };
+                delete next[id];
+                this.selectedTxnIds = next;
+            } else {
+                this.selectedTxnIds = { ...this.selectedTxnIds, [id]: true };
+            }
+        },
+
+        isTxnSelected(tx) {
+            return !!(tx.id && this.selectedTxnIds[tx.id]);
+        },
+
+        selectAllFiltered() {
+            const next = { ...this.selectedTxnIds };
+            for (const t of this.filteredTxns) {
+                if (t.id) next[t.id] = true;
+            }
+            this.selectedTxnIds = next;
+        },
+
+        clearTxnSelection() {
+            this.selectedTxnIds = {};
+        },
+
+        get selectedTxnCount() {
+            return Object.keys(this.selectedTxnIds).length;
+        },
+
+        async applyBulkCategory(cat) {
+            if (!cat || this.selectedTxnCount === 0) return;
+            const ids = Object.keys(this.selectedTxnIds);
+            const res = await api("POST", "/api/budget/transactions/bulk-category", {
+                category: cat,
+                ids,
+            });
+            if (res && res.ok) {
+                for (const id of ids) {
+                    const tx = this.transactions.find((t) => t.id === id);
+                    if (tx) tx.category_override = cat;
+                }
+                this.clearTxnSelection();
+                await this.loadRules();
+                await this.refreshReport();
+                this.filterTxns();
+                this.importMsg = res.updated
+                    ? `Updated ${res.updated} transaction(s).`
+                    : "No changes.";
+                setTimeout(() => { this.importMsg = ""; }, 4000);
+            } else {
+                this.errorMsg = (res && res.error) || "Bulk update failed.";
+                setTimeout(() => { this.errorMsg = ""; }, 5000);
+            }
         },
 
         async loadDuplicates() {
