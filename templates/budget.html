@@ -195,8 +195,12 @@
                 Secret
                 <input type="password" x-model="plaidForm.secret"
                        autocomplete="off" spellcheck="false"
-                       placeholder="Sandbox / Dev / Prod secret"
+                       :placeholder="plaidStatus.has_secret ? 'Saved — leave blank to keep' : 'Sandbox / Dev / Prod secret'"
                        class="budget-rule-input">
+                <span class="budget-plaid-form-hint" x-show="plaidStatus.has_secret">
+                    A secret is already saved (<span x-text="plaidStatus.sources.secret"></span>).
+                    Leave blank to keep it, type a new one to replace it.
+                </span>
             </label>
             <label>
                 Environment
@@ -215,14 +219,19 @@
             </label>
             <div class="budget-plaid-form-actions">
                 <button class="btn btn-primary" @click="savePlaidCredentials()"
-                        :disabled="savingCreds">
+                        :disabled="savingCreds || !canSaveCreds()">
                     <span x-show="!savingCreds">Save credentials</span>
                     <span x-show="savingCreds">Saving…</span>
+                </button>
+                <button class="btn btn-sm btn-outline" @click="forgetPlaidSecret()"
+                        x-show="plaidStatus.sources.secret === 'app'"
+                        title="Delete the saved secret only">
+                    Forget secret
                 </button>
                 <button class="btn btn-sm btn-outline" @click="clearPlaidCredentials()"
                         x-show="plaidStatus.sources.client_id === 'app' || plaidStatus.sources.secret === 'app'"
                         title="Remove values saved by this app (env / .env / dashboard secrets remain)">
-                    Clear saved values
+                    Clear all saved values
                 </button>
             </div>
             <div class="budget-csv-msg" x-show="plaidCredMsg" x-text="plaidCredMsg"></div>

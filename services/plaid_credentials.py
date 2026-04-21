@@ -147,29 +147,45 @@ def save_credentials(
     env: str | None = None,
     redirect_uri: str | None = None,
 ) -> dict[str, str]:
-    """Persist credentials to the app-managed JSON file. Empty strings clear a field."""
+    """Persist credentials to the app-managed JSON file.
+
+    Update semantics:
+        - ``None`` (key not provided)  → leave the existing value alone.
+        - non-empty string             → overwrite.
+        - empty string                 → leave the existing value alone too.
+
+    Empty strings used to mean "clear this field", which made it very easy
+    to wipe an already-saved secret by hitting Save again from a UI that
+    re-blanks the secret field after a successful save. To explicitly
+    clear values, call :func:`clear_credentials` (or the DELETE endpoint).
+    """
     with _lock:
         data = _load_creds_file()
-        if client_id is not None:
+        if client_id is not None and client_id.strip():
             data["PLAID_CLIENT_ID"] = client_id.strip()
-        if secret is not None:
+        if secret is not None and secret.strip():
             data["PLAID_SECRET"] = secret.strip()
-        if env is not None:
-            e = (env or "").strip().lower()
-            if e:
-                data["PLAID_ENV"] = e if e in ("sandbox", "development", "production") else "sandbox"
-            else:
-                data.pop("PLAID_ENV", None)
-        if redirect_uri is not None:
-            v = redirect_uri.strip()
-            if v:
-                data["PLAID_REDIRECT_URI"] = v
-            else:
-                data.pop("PLAID_REDIRECT_URI", None)
-        # Drop fully-blank keys to keep the file tidy
+        if env is not None and env.strip():
+            e = env.strip().lower()
+            data["PLAID_ENV"] = e if e in ("sandbox", "development", "production") else "sandbox"
+        if redirect_uri is not None and redirect_uri.strip():
+            data["PLAID_REDIRECT_URI"] = redirect_uri.strip()
+        # Drop fully-blank keys to keep the file tidy.
         for k in list(data.keys()):
             if not data[k]:
                 del data[k]
+        _save_creds_file(data)
+    return get_credentials()
+
+
+def clear_field(key: str) -> dict[str, str]:
+    """Explicitly remove a single field (e.g. PLAID_SECRET) from the saved file."""
+    valid = {"PLAID_CLIENT_ID", "PLAID_SECRET", "PLAID_ENV", "PLAID_REDIRECT_URI"}
+    if key not in valid:
+        return get_credentials()
+    with _lock:
+        data = _load_creds_file()
+        data.pop(key, None)
         _save_creds_file(data)
     return get_credentials()
 

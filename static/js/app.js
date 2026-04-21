@@ -829,16 +829,32 @@ document.addEventListener("alpine:init", () => {
 
         /* Plaid credentials */
 
+        canSaveCreds() {
+            const hasClient = (this.plaidForm.client_id || "").trim().length > 0
+                || this.plaidStatus.has_client_id;
+            const hasSecret = (this.plaidForm.secret || "").trim().length > 0
+                || this.plaidStatus.has_secret;
+            const typedSomething = (this.plaidForm.client_id || "").trim()
+                || (this.plaidForm.secret || "").trim()
+                || (this.plaidForm.redirect_uri || "").trim();
+            return !!(hasClient && hasSecret && typedSomething);
+        },
+
         async savePlaidCredentials() {
             this.savingCreds = true;
             this.plaidCredMsg = "";
             try {
-                const body = {
-                    client_id: (this.plaidForm.client_id || "").trim(),
-                    secret: (this.plaidForm.secret || "").trim(),
-                    env: (this.plaidForm.env || "sandbox").trim(),
-                    redirect_uri: (this.plaidForm.redirect_uri || "").trim(),
-                };
+                // Only send fields the user actually filled in, so empty form
+                // values can never wipe an already-saved secret on the server.
+                const body = {};
+                const ci = (this.plaidForm.client_id || "").trim();
+                const sk = (this.plaidForm.secret || "").trim();
+                const ru = (this.plaidForm.redirect_uri || "").trim();
+                const ev = (this.plaidForm.env || "").trim();
+                if (ci) body.client_id = ci;
+                if (sk) body.secret = sk;
+                if (ru) body.redirect_uri = ru;
+                if (ev) body.env = ev;
                 const res = await api("PUT", "/api/budget/plaid/credentials", body);
                 if (res && res.ok) {
                     this.plaidStatus = {
@@ -847,16 +863,16 @@ document.addEventListener("alpine:init", () => {
                         has_client_id: res.has_client_id,
                         has_secret: res.has_secret,
                         has_redirect_uri: res.has_redirect_uri,
-                        client_id_preview: body.client_id ? body.client_id.slice(0, 6) + "…" : this.plaidStatus.client_id_preview,
-                        redirect_uri: body.redirect_uri || this.plaidStatus.redirect_uri,
+                        client_id_preview: ci ? ci.slice(0, 6) + "…" : this.plaidStatus.client_id_preview,
+                        redirect_uri: ru || this.plaidStatus.redirect_uri,
                         sources: res.sources,
                     };
                     this.plaidConfigured = res.configured;
-                    // Never keep the secret in memory after save
-                    this.plaidForm.secret = "";
+                    // Wipe the secret from memory only if we actually sent one.
+                    if (sk) this.plaidForm.secret = "";
                     this.plaidCredMsg = res.configured
                         ? "Saved. Plaid is now ready."
-                        : "Saved, but Plaid still isn't fully configured — check Client ID and Secret.";
+                        : "Saved. Still missing fields — check the diagnostic strip above.";
                     setTimeout(() => { this.plaidCredMsg = ""; }, 6000);
                 } else {
                     this.plaidCredMsg = (res && res.error) || "Could not save credentials.";
@@ -865,6 +881,20 @@ document.addEventListener("alpine:init", () => {
                 this.plaidCredMsg = "Save error.";
             }
             this.savingCreds = false;
+        },
+
+        async forgetPlaidSecret() {
+            if (!confirm("Delete the saved Plaid secret? You'll need to paste it again to re-enable Plaid.")) return;
+            const res = await fetch(
+                "/api/budget/plaid/credentials?field=PLAID_SECRET",
+                { method: "DELETE" }
+            );
+            const data = await res.json();
+            if (data) {
+                await this.refreshPlaidStatus();
+                this.plaidCredMsg = "Saved secret removed.";
+                setTimeout(() => { this.plaidCredMsg = ""; }, 4000);
+            }
         },
 
         async clearPlaidCredentials() {
