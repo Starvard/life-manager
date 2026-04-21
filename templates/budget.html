@@ -302,32 +302,62 @@
         </select>
     </div>
 
+    <div class="budget-tx-bulk-bar" x-show="filteredTxns.length > 0">
+        <label class="budget-tx-bulk-check">
+            <input type="checkbox"
+                   :checked="selectedTxnCount > 0 && selectedTxnCount === filteredTxns.length"
+                   @change="selectedTxnCount === filteredTxns.length ? clearTxnSelection() : selectAllFiltered()">
+            <span x-text="selectedTxnCount ? selectedTxnCount + ' selected' : 'Select rows'"></span>
+        </label>
+        <template x-if="selectedTxnCount > 0">
+            <div class="budget-tx-bulk-actions">
+                <span class="text-muted" style="font-size:0.78rem;">Set category:</span>
+                <select class="budget-cat-select budget-tx-bulk-select"
+                        @change="applyBulkCategory($event.target.value); $event.target.value='';">
+                    <option value="">Choose…</option>
+                    <template x-for="c in allCategories" :key="'bulk-' + c">
+                        <option :value="c" x-text="c"></option>
+                    </template>
+                </select>
+                <button type="button" class="btn btn-sm btn-outline" @click="clearTxnSelection()">Clear</button>
+            </div>
+        </template>
+    </div>
+
     <div class="budget-tx-list" x-show="filteredTxns.length > 0">
         <template x-for="tx in filteredTxns" :key="tx.id">
-            <div class="budget-tx-row" :class="{ 'budget-tx-income': tx.amount > 0 }">
-                <div class="budget-tx-date" x-text="tx.date"></div>
-                <div class="budget-tx-desc">
-                    <span class="budget-tx-desc-text" x-text="tx.description"></span>
-                    <span class="budget-tx-account" x-text="tx.account"></span>
+            <div class="budget-tx-block" :class="{ 'budget-tx-income': tx.amount > 0, 'budget-tx-selected': isTxnSelected(tx) }">
+                <div class="budget-tx-row">
+                    <label class="budget-tx-check">
+                        <input type="checkbox" :checked="isTxnSelected(tx)" @change="toggleTxnSelect(tx)">
+                    </label>
+                    <div class="budget-tx-date" x-text="tx.date"></div>
+                    <div class="budget-tx-desc">
+                        <span class="budget-tx-desc-text" x-text="tx.description"></span>
+                        <span class="budget-tx-account" x-text="tx.account"></span>
+                    </div>
+                    <div class="budget-tx-cat-wrap">
+                        <button type="button" class="budget-cat-pill-btn" @click="openCatPicker(tx)"
+                                :class="{ 'active': catPickerForId === tx.id }">
+                            <span class="budget-cat-pill" x-text="displayCat(tx)"></span>
+                        </button>
+                    </div>
+                    <div class="budget-tx-amount" :class="tx.amount >= 0 ? 'positive' : 'negative'"
+                         x-text="formatMoney(tx.amount)"></div>
                 </div>
-                <div class="budget-tx-cat" @click="startEditCategory(tx)">
-                    <template x-if="editingCatId !== tx.id">
-                        <span class="budget-cat-pill" x-text="displayCat(tx)"></span>
-                    </template>
-                    <template x-if="editingCatId === tx.id">
-                        <select class="budget-cat-select"
-                                x-model="editCatValue"
-                                @change="saveCategory(tx)"
-                                @blur="editingCatId = null"
-                                x-ref="catSelect">
-                            <template x-for="c in allCategories" :key="c">
-                                <option :value="c" x-text="c" :selected="c === displayCat(tx)"></option>
-                            </template>
-                        </select>
-                    </template>
+                <div class="budget-cat-picker" x-show="catPickerForId === tx.id" x-cloak @click.outside="closeCatPicker()">
+                    <input type="search" class="budget-cat-filter" placeholder="Filter categories…"
+                           x-model="catFilter" x-ref="catFilterInput" @keyup.escape="closeCatPicker()">
+                    <p class="text-muted" style="font-size:0.75rem;margin:0;"
+                       x-show="categoriesForPicker().length === 0">No category matches that filter.</p>
+                    <div class="budget-cat-grid" x-show="categoriesForPicker().length > 0">
+                        <template x-for="c in categoriesForPicker()" :key="'pick-' + tx.id + '-' + c">
+                            <button type="button" class="budget-cat-chip"
+                                    :class="{ 'current': c === displayCat(tx) }"
+                                    @click="pickCategory(tx, c)" x-text="c"></button>
+                        </template>
+                    </div>
                 </div>
-                <div class="budget-tx-amount" :class="tx.amount >= 0 ? 'positive' : 'negative'"
-                     x-text="formatMoney(tx.amount)"></div>
             </div>
         </template>
     </div>

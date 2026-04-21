@@ -20,183 +20,160 @@ import re
 import threading
 
 import config
+from services.budget_category_list import BUDGET_CATEGORY_ORDER
 from services.budget_store import load_categories, save_categories
 
-# ── Built-in display categories for our simple budget ────────────
+# ── Built-in display categories (emoji + label), ordered for pickers ─
 
-BUDGET_CATEGORIES = [
-    "Income",
-    "Housing",
-    "Utilities",
-    "Groceries",
-    "Dining",
-    "Transportation",
-    "Gas",
-    "Shopping",
-    "Entertainment",
-    "Subscriptions",
-    "Personal Care",
-    "Medical",
-    "Travel",
-    "Education",
-    "Kids",
-    "Pets",
-    "Gifts & Donations",
-    "Fees & Interest",
-    "Taxes",
-    "Transfers",
-    "Savings",
-    "Investments",
-    "Loans",
-    "Other",
-]
+BUDGET_CATEGORIES = list(BUDGET_CATEGORY_ORDER)
 
 
 # Map Plaid personal_finance_category.primary values to our display categories
 _PLAID_PRIMARY_MAP = {
-    "INCOME": "Income",
-    "TRANSFER_IN": "Transfers",
-    "TRANSFER_OUT": "Transfers",
-    "LOAN_PAYMENTS": "Loans",
-    "BANK_FEES": "Fees & Interest",
-    "ENTERTAINMENT": "Entertainment",
-    "FOOD_AND_DRINK": "Dining",
-    "GENERAL_MERCHANDISE": "Shopping",
-    "HOME_IMPROVEMENT": "Housing",
-    "MEDICAL": "Medical",
-    "PERSONAL_CARE": "Personal Care",
-    "GENERAL_SERVICES": "Other",
-    "GOVERNMENT_AND_NON_PROFIT": "Gifts & Donations",
-    "TRANSPORTATION": "Transportation",
-    "TRAVEL": "Travel",
-    "RENT_AND_UTILITIES": "Utilities",
-    "GROCERIES": "Groceries",
-    "SUBSCRIPTION": "Subscriptions",
-    "OTHER": "Other",
+    "INCOME": "💰 Other Income",
+    "TRANSFER_IN": "📩 Internal Transfer",
+    "TRANSFER_OUT": "📩 Internal Transfer",
+    "LOAN_PAYMENTS": "💳 Credit Card Payments",
+    "BANK_FEES": "🏬 Shopping",
+    "ENTERTAINMENT": "🎉 Entertainment",
+    "FOOD_AND_DRINK": "🍴Restaurants",
+    "GENERAL_MERCHANDISE": "🏬 Shopping",
+    "HOME_IMPROVEMENT": "🛖 Home Improvement",
+    "MEDICAL": "🚑 Medical Fund",
+    "PERSONAL_CARE": "💆‍♀️ Massage",
+    "GENERAL_SERVICES": "🏬 Shopping",
+    "GOVERNMENT_AND_NON_PROFIT": "🏬 Shopping",
+    "TRANSPORTATION": "⛽ Gas",
+    "TRAVEL": "🎉 Entertainment",
+    "RENT_AND_UTILITIES": "⚡Electricity",
+    "GROCERIES": "🛒 Groceries",
+    "SUBSCRIPTION": "🎉 Entertainment",
+    "OTHER": "🏬 Shopping",
 }
 
 
 # Built-in keyword rules (matched as case-insensitive substrings on description)
 _DEFAULT_KEYWORD_RULES: list[tuple[str, str]] = [
     # Groceries / food
-    ("whole foods", "Groceries"),
-    ("trader joe", "Groceries"),
-    ("safeway", "Groceries"),
-    ("kroger", "Groceries"),
-    ("aldi", "Groceries"),
-    ("publix", "Groceries"),
-    ("wegmans", "Groceries"),
-    ("costco", "Groceries"),
-    ("walmart", "Groceries"),
-    ("target", "Shopping"),
-    ("cvs", "Personal Care"),
-    ("walgreens", "Personal Care"),
-    ("rite aid", "Personal Care"),
+    ("whole foods", "🛒 Groceries"),
+    ("trader joe", "🛒 Groceries"),
+    ("safeway", "🛒 Groceries"),
+    ("kroger", "🛒 Groceries"),
+    ("aldi", "🛒 Groceries"),
+    ("publix", "🛒 Groceries"),
+    ("wegmans", "🛒 Groceries"),
+    ("costco", "🛒 Groceries"),
+    ("walmart", "🛒 Groceries"),
+    ("target", "🏬 Shopping"),
+    ("cvs", "🩺 Reoccuring Med."),
+    ("walgreens", "🩺 Reoccuring Med."),
+    ("rite aid", "🩺 Reoccuring Med."),
     # Dining
-    ("doordash", "Dining"),
-    ("ubereats", "Dining"),
-    ("uber eats", "Dining"),
-    ("grubhub", "Dining"),
-    ("chipotle", "Dining"),
-    ("starbucks", "Dining"),
-    ("dunkin", "Dining"),
-    ("mcdonald", "Dining"),
-    ("panera", "Dining"),
-    ("domino", "Dining"),
-    ("pizza", "Dining"),
-    ("restaurant", "Dining"),
-    ("cafe", "Dining"),
-    # Transportation / gas
-    ("uber", "Transportation"),
-    ("lyft", "Transportation"),
-    ("shell", "Gas"),
-    ("chevron", "Gas"),
-    ("exxon", "Gas"),
-    ("bp ", "Gas"),
-    (" bp#", "Gas"),
-    ("mobil", "Gas"),
-    ("costco gas", "Gas"),
-    ("valero", "Gas"),
-    ("sunoco", "Gas"),
-    # Subscriptions
-    ("netflix", "Subscriptions"),
-    ("spotify", "Subscriptions"),
-    ("hulu", "Subscriptions"),
-    ("disney+", "Subscriptions"),
-    ("hbo", "Subscriptions"),
-    ("apple.com/bill", "Subscriptions"),
-    ("icloud", "Subscriptions"),
-    ("youtube", "Subscriptions"),
-    ("prime video", "Subscriptions"),
-    ("amazon prime", "Subscriptions"),
-    ("audible", "Subscriptions"),
-    ("dropbox", "Subscriptions"),
-    ("chatgpt", "Subscriptions"),
-    ("openai", "Subscriptions"),
+    ("doordash", "🍴Restaurants"),
+    ("ubereats", "🍴Restaurants"),
+    ("uber eats", "🍴Restaurants"),
+    ("grubhub", "🍴Restaurants"),
+    ("chipotle", "🍴Restaurants"),
+    ("starbucks", "🍴Restaurants"),
+    ("dunkin", "🍴Restaurants"),
+    ("mcdonald", "🍴Restaurants"),
+    ("panera", "🍴Restaurants"),
+    ("domino", "🍴Restaurants"),
+    ("pizza", "🍴Restaurants"),
+    ("restaurant", "🍴Restaurants"),
+    ("cafe", "🍴Restaurants"),
+    # Transportation / gas (ride-share → general transport spend)
+    ("uber", "⛽ Gas"),
+    ("lyft", "⛽ Gas"),
+    ("shell", "⛽ Gas"),
+    ("chevron", "⛽ Gas"),
+    ("exxon", "⛽ Gas"),
+    ("bp ", "⛽ Gas"),
+    (" bp#", "⛽ Gas"),
+    ("mobil", "⛽ Gas"),
+    ("costco gas", "⛽ Gas"),
+    ("valero", "⛽ Gas"),
+    ("sunoco", "⛽ Gas"),
+    # Subscriptions / digital
+    ("netflix", "📺 Netflix"),
+    ("spotify", "🎉 Entertainment"),
+    ("hulu", "🎉 Entertainment"),
+    ("disney+", "🎉 Entertainment"),
+    ("hbo", "🎉 Entertainment"),
+    ("apple.com/bill", "👜 Amazon Prime"),
+    ("icloud", "📸 Google One"),
+    ("youtube", "🎉 Entertainment"),
+    ("prime video", "👜 Amazon Prime"),
+    ("amazon prime", "👜 Amazon Prime"),
+    ("audible", "👜 Amazon Prime"),
+    ("dropbox", "📸 Google One"),
+    ("chatgpt", "🤖 Chat GPT"),
+    ("openai", "🤖 Chat GPT"),
+    ("google one", "📸 Google One"),
     # Shopping
-    ("amazon", "Shopping"),
-    ("amzn mktp", "Shopping"),
-    ("ebay", "Shopping"),
-    ("etsy", "Shopping"),
-    ("best buy", "Shopping"),
+    ("amazon", "🏬 Shopping"),
+    ("amzn mktp", "🏬 Shopping"),
+    ("ebay", "🏬 Shopping"),
+    ("etsy", "🏬 Shopping"),
+    ("best buy", "🏬 Shopping"),
     # Housing / utilities
-    ("rent", "Housing"),
-    ("mortgage", "Housing"),
-    ("hoa ", "Housing"),
-    ("comcast", "Utilities"),
-    ("xfinity", "Utilities"),
-    ("spectrum", "Utilities"),
-    ("verizon", "Utilities"),
-    ("at&t", "Utilities"),
-    ("t-mobile", "Utilities"),
-    ("tmobile", "Utilities"),
-    ("pge ", "Utilities"),
-    ("pg&e", "Utilities"),
-    ("con ed", "Utilities"),
-    ("coned", "Utilities"),
-    ("water", "Utilities"),
-    ("electric", "Utilities"),
+    ("rent", "🏡 Mortgage"),
+    ("mortgage", "🏡 Mortgage"),
+    ("hoa ", "🏡 Mortgage"),
+    ("comcast", "🖥️ Internet"),
+    ("xfinity", "🖥️ Internet"),
+    ("spectrum", "🖥️ Internet"),
+    ("verizon", "🖥️ Internet"),
+    ("at&t", "🖥️ Internet"),
+    ("t-mobile", "🖥️ Internet"),
+    ("tmobile", "🖥️ Internet"),
+    ("pge ", "⚡Electricity"),
+    ("pg&e", "⚡Electricity"),
+    ("con ed", "⚡Electricity"),
+    ("coned", "⚡Electricity"),
+    ("water", "💦 Water"),
+    ("electric", "⚡Electricity"),
     # Health
-    ("cvs pharmacy", "Medical"),
-    ("urgent care", "Medical"),
-    ("dental", "Medical"),
-    ("vision", "Medical"),
-    ("hospital", "Medical"),
-    # Travel
-    ("airbnb", "Travel"),
-    ("airlines", "Travel"),
-    ("delta air", "Travel"),
-    ("united air", "Travel"),
-    ("american air", "Travel"),
-    ("southwest air", "Travel"),
-    ("marriott", "Travel"),
-    ("hilton", "Travel"),
-    ("hyatt", "Travel"),
+    ("cvs pharmacy", "🚑 Medical Fund"),
+    ("urgent care", "🚑 Medical Fund"),
+    ("dental", "🚑 Medical Fund"),
+    ("vision", "🚑 Medical Fund"),
+    ("hospital", "🚑 Medical Fund"),
+    # Travel / hotels → entertainment bucket for simplicity
+    ("airbnb", "🎉 Entertainment"),
+    ("airlines", "🎉 Entertainment"),
+    ("delta air", "🎉 Entertainment"),
+    ("united air", "🎉 Entertainment"),
+    ("american air", "🎉 Entertainment"),
+    ("southwest air", "🎉 Entertainment"),
+    ("marriott", "🎉 Entertainment"),
+    ("hilton", "🎉 Entertainment"),
+    ("hyatt", "🎉 Entertainment"),
     # Transfers / income
-    ("payroll", "Income"),
-    ("direct dep", "Income"),
-    ("paycheck", "Income"),
-    ("venmo", "Transfers"),
-    ("zelle", "Transfers"),
-    ("cash app", "Transfers"),
-    ("cashapp", "Transfers"),
-    ("paypal", "Transfers"),
-    ("transfer to", "Transfers"),
-    ("transfer from", "Transfers"),
+    ("payroll", "💰 Other Income"),
+    ("direct dep", "💰 Other Income"),
+    ("paycheck", "💰 Other Income"),
+    ("venmo", "📩 Internal Transfer"),
+    ("zelle", "📩 Internal Transfer"),
+    ("cash app", "📩 Internal Transfer"),
+    ("cashapp", "📩 Internal Transfer"),
+    ("paypal", "📩 Internal Transfer"),
+    ("transfer to", "📩 Internal Transfer"),
+    ("transfer from", "📩 Internal Transfer"),
     # Fees
-    ("interest charge", "Fees & Interest"),
-    ("late fee", "Fees & Interest"),
-    ("overdraft", "Fees & Interest"),
-    ("atm fee", "Fees & Interest"),
+    ("interest charge", "💳 Credit Card Payments"),
+    ("late fee", "💳 Credit Card Payments"),
+    ("overdraft", "💳 Credit Card Payments"),
+    ("atm fee", "💳 Credit Card Payments"),
     # Pets
-    ("petco", "Pets"),
-    ("petsmart", "Pets"),
-    ("chewy", "Pets"),
+    ("petco", "🐩 Reoccuring Dog"),
+    ("petsmart", "🐩 Reoccuring Dog"),
+    ("chewy", "🐩 Reoccuring Dog"),
     # Kids
-    ("daycare", "Kids"),
-    ("preschool", "Kids"),
+    ("daycare", "🎉 Entertainment"),
+    ("preschool", "🎉 Entertainment"),
     # Donations
-    ("donat", "Gifts & Donations"),
+    ("donat", "🏬 Shopping"),
 ]
 
 
@@ -284,10 +261,10 @@ def infer_category(tx: dict) -> str:
     # 4. Amount-based fallback
     try:
         if float(tx.get("amount") or 0) > 0:
-            return "Income"
+            return "💰 Other Income"
     except (TypeError, ValueError):
         pass
-    return "Other"
+    return "🏬 Shopping"
 
 
 def get_display_category(tx: dict) -> str:
@@ -299,6 +276,15 @@ def get_display_category(tx: dict) -> str:
     if override:
         return str(override)
     return infer_category(tx)
+
+
+def category_sort_key(name: str) -> tuple[int, str]:
+    """Sort key: known order first, then alphabetically for extras."""
+    try:
+        idx = BUDGET_CATEGORIES.index(name)
+        return (0, f"{idx:04d}")
+    except ValueError:
+        return (1, (name or "").lower())
 
 
 def learn_rule_from_override(tx: dict, new_category: str) -> None:
@@ -342,12 +328,16 @@ def set_category_override(tx: dict, new_category: str) -> dict:
 
 
 def get_all_categories(transactions: list[dict]) -> list[str]:
-    """Return sorted list of all unique display categories."""
-    cats = set(BUDGET_CATEGORIES)
+    """Return display categories: canonical emoji list first, then any extras."""
+    canon = list(BUDGET_CATEGORIES)
+    canon_set = set(canon)
+    extra_set: set[str] = set()
     for tx in transactions or []:
-        cats.add(get_display_category(tx))
-    # Filter out empties/None
-    return sorted(c for c in cats if c)
+        c = get_display_category(tx)
+        if c and c not in canon_set:
+            extra_set.add(c)
+    extras = sorted(extra_set, key=category_sort_key)
+    return canon + extras
 
 
 def list_keyword_rules() -> list[dict]:
@@ -380,6 +370,34 @@ def delete_keyword_rule(keyword: str) -> bool:
         _invalidate_rules_cache()
         return True
     return False
+
+
+def bulk_set_category(
+    transactions: list[dict],
+    ids: list[str],
+    new_category: str,
+    *,
+    learn: bool = True,
+) -> int:
+    """Apply the same category override to many transactions by id. Returns count updated."""
+    clean = (new_category or "").strip()
+    if not clean:
+        return 0
+    id_set = {i for i in ids if i}
+    if not id_set:
+        return 0
+    n = 0
+    learned = False
+    for tx in transactions or []:
+        tid = tx.get("id")
+        if tid not in id_set:
+            continue
+        tx["category_override"] = clean
+        if learn and not learned:
+            learn_rule_from_override(tx, clean)
+            learned = True
+        n += 1
+    return n
 
 
 def recategorize_all(transactions: list[dict]) -> int:
