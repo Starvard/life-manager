@@ -16,6 +16,246 @@ def _horizon_note(years: int) -> str:
     return f"{y}-year window"
 
 
+# Slot → list of eligible FantasyCalc positions (in priority order). Anything not
+# in this map falls back to the slot name itself.
+_SLOT_ELIGIBLE: dict[str, tuple[str, ...]] = {
+    "QB": ("QB",),
+    "RB": ("RB",),
+    "WR": ("WR",),
+    "TE": ("TE",),
+    "FLEX": ("RB", "WR", "TE"),
+    "WRRB_FLEX": ("RB", "WR"),
+    "REC_FLEX": ("WR", "TE"),
+    "SUPER_FLEX": ("QB", "RB", "WR", "TE"),
+    "SUPERFLEX": ("QB", "RB", "WR", "TE"),
+    "SFLEX": ("QB", "RB", "WR", "TE"),
+    "K": ("K",),
+    "DEF": ("DEF",),
+    "DST": ("DEF",),
+    "IDP_FLEX": ("DL", "LB", "DB"),
+    "LB": ("LB",),
+    "DL": ("DL",),
+    "DB": ("DB",),
+}
+
+_STARTER_SLOTS = {
+    "QB", "RB", "WR", "TE", "FLEX", "WRRB_FLEX", "REC_FLEX",
+    "SUPER_FLEX", "SUPERFLEX", "SFLEX",
+}
+
+
+def _slot_display(slot: str) -> str:
+    """Turn raw Sleeper slot keys into human labels."""
+    s = (slot or "").upper()
+    return {
+        "SUPER_FLEX": "SFLEX",
+        "SUPERFLEX": "SFLEX",
+        "WRRB_FLEX": "W/R",
+        "REC_FLEX": "W/T",
+    }.get(s, s)
+
+
+def _positional_tiers(vmap: dict[str, dict]) -> dict[str, dict]:
+    """
+    Compute elite/solid/adequate thresholds per FantasyCalc position using the
+    current dataset. Returns {pos: {"elite": v, "solid": v, "adequate": v}}.
+    """
+    per_pos: dict[str, list[float]] = {}
+    for info in vmap.values():
+        pos = (info.get("pos") or "").upper()
+        if pos not in ("QB", "RB", "WR", "TE"):
+            continue
+        try:
+            val = float(info.get("value") or 0)
+        except (TypeError, ValueError):
+            continue
+        if val <= 0:
+            continue
+        per_pos.setdefault(pos, []).append(val)
+    out: dict[str, dict] = {}
+    for pos, vals in per_pos.items():
+        vals.sort(reverse=True)
+        # Rough league-wide starter demand in a 12-team superflex:
+        # QB ~24 starters (12 QB + 12 SFlex), RB/WR ~24-36, TE ~12.
+        n = len(vals)
+        def _at(i: int) -> float:
+            i = max(0, min(n - 1, i))
+            return vals[i]
+        if pos == "QB":
+            out[pos] = {
+                "elite": _at(5),       # top-6 QBs = elite
+                "solid": _at(15),      # ~QB16
+                "adequate": _at(27),   # last startable in superflex
+            }
+        elif pos == "RB":
+            out[pos] = {
+                "elite": _at(7),
+                "solid": _at(17),
+                "adequate": _at(29),
+            }
+        elif pos == "WR":
+            out[pos] = {
+                "elite": _at(11),
+                "solid": _at(23),
+                "adequate": _at(41),
+            }
+        elif pos == "TE":
+            out[pos] = {
+                "elite": _at(3),
+                "solid": _at(7),
+                "adequate": _at(13),
+            }
+    return out
+
+
+def _tier_for(value: float, pos: str, tiers: dict[str, dict]) -> str:
+    t = tiers.get((pos or "").upper())
+    if not t:
+        return "unknown"
+    if value >= t["elite"]:
+        return "elite"
+    if value >= t["solid"]:
+        return "solid"
+    if value >= t["adequate"]:
+        return "adequate"
+    return "weak"
+
+
+def _owned_player_ids(snapshot: dict) -> list[str]:
+    ids: list[str] = []
+    seen: set[str] = set()
+    for row in snapshot.get("starters") or []:
+        if row.get("empty"):
+            continue
+        pl = row.get("player") or {}
+        pid = pl.get("id")
+        if pid and str(pid) not in seen:
+            seen.add(str(pid))
+            ids.append(str(pid))
+    for field in ("bench", "reserve", "taxi"):
+        for pl in snapshot.get(field) or []:
+            pid = pl.get("id")
+            if pid and str(pid) not in seen:
+                seen.add(str(pid))
+                ids.append(str(pid))
+    return ids
+
+
+def _player_meta_from_snapshot(pid: str, snapshot: dict) -> dict | None:
+    sid = str(pid)
+    for row in snapshot.get("starters") or []:
+        pl = row.get("player") or {}
+        if pl and str(pl.get("id", "")) == sid:
+            return pl
+    for field in ("bench", "reserve", "taxi"):
+        for pl in snapshot.get(field) or []:
+            if pl and str(pl.get("id", "")) == sid:
+                return pl
+    return None
+
+
+def build_best_lineup(
+    snapshot: dict,
+    vmap: dict[str, dict],
+    tiers: dict[str, dict],
+) -> dict:
+    """
+    Greedy best-lineup builder: for each starting slot in league.roster_positions,
+    pick the highest-value eligible owned player not yet assigned.
+
+    Returns {"slots": [ {slot, label, player_id, name, pos, team, value, tier, is_weak, is_empty} ], ... }.
+    """
+    league = snapshot.get("league") or {}
+    roster_positions = league.get("roster_positions") or []
+
+    owned = _owned_player_ids(snapshot)
+    # Seed candidate pool with (pid, pos, value, name, team) rows.
+    pool: list[dict] = []
+    for pid in owned:
+        info = vmap.get(pid) or {}
+        pos = (info.get("pos") or "").upper()
+        try:
+            val = float(info.get("value") or 0)
+        except (TypeError, ValueError):
+            val = 0.0
+        meta = _player_meta_from_snapshot(pid, snapshot) or {}
+        name = info.get("name") or meta.get("name") or f"Player {pid}"
+        team = meta.get("team") or ""
+        if not pos:
+            pos = (meta.get("pos") or "").upper()
+        pool.append({
+            "id": pid, "pos": pos, "value": val, "name": name, "team": team,
+        })
+
+    used: set[str] = set()
+    slots_out: list[dict] = []
+
+    for slot_raw in roster_positions:
+        slot = (slot_raw or "").upper()
+        if slot in ("BN", "IR", "TAXI"):
+            continue
+        if slot not in _STARTER_SLOTS and slot not in _SLOT_ELIGIBLE:
+            # Non-offensive starter slots (K/DEF/IDP) — skip for weakness analysis
+            # but still show them so the top card feels complete.
+            if slot not in ("K", "DEF", "DST"):
+                continue
+        eligible = _SLOT_ELIGIBLE.get(slot, (slot,))
+        # Pick highest value eligible not yet used
+        best = None
+        for cand in pool:
+            if cand["id"] in used:
+                continue
+            if cand["pos"] not in eligible:
+                continue
+            if best is None or cand["value"] > best["value"]:
+                best = cand
+        if best is None:
+            slots_out.append({
+                "slot": slot_raw,
+                "label": _slot_display(slot),
+                "is_empty": True,
+                "is_weak": True,
+                "tier": "empty",
+                "player_id": None,
+                "name": "",
+                "pos": "",
+                "team": "",
+                "value": 0,
+            })
+            continue
+        used.add(best["id"])
+        tier = _tier_for(best["value"], best["pos"], tiers)
+        is_weak = tier in ("weak", "unknown", "empty")
+        slots_out.append({
+            "slot": slot_raw,
+            "label": _slot_display(slot),
+            "is_empty": False,
+            "is_weak": is_weak,
+            "tier": tier,
+            "player_id": best["id"],
+            "name": best["name"],
+            "pos": best["pos"],
+            "team": best["team"],
+            "value": best["value"],
+        })
+
+    # Also surface top unused bench asset (for trade or promote context)
+    bench_leftovers = [c for c in pool if c["id"] not in used]
+    bench_leftovers.sort(key=lambda c: -c["value"])
+
+    return {
+        "slots": slots_out,
+        "bench_top": [
+            {
+                "player_id": c["id"], "name": c["name"], "pos": c["pos"],
+                "team": c["team"], "value": c["value"],
+                "tier": _tier_for(c["value"], c["pos"], tiers),
+            }
+            for c in bench_leftovers[:5]
+        ],
+    }
+
+
 def _pick_rows_for_season_round(rows: list[dict], season: str, rnd: int) -> list[dict]:
     """FantasyCalc pick names like '2026 Pick 1.01'. Match season + first-round digit group."""
     out = []
@@ -243,6 +483,9 @@ def generate_rebuild_plan(state: dict) -> dict:
         return state
 
     vmap = fantasycalc_client.values_by_sleeper_id(rows)
+    tiers = _positional_tiers(vmap)
+    state["best_lineup"] = build_best_lineup(snap, vmap, tiers)
+    state["best_lineup_generated_at"] = datetime.now(timezone.utc).isoformat()
     board = state.setdefault("rebuild_board", {})
     assets = board.setdefault("assets", {})
     order = board.get("order") or []

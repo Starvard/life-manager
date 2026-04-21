@@ -51,6 +51,8 @@ DEFAULT_STATE: dict = {
     "trade_suggestions": None,
     "last_trade_refresh": None,
     "last_trade_error": None,
+    "best_lineup": None,
+    "best_lineup_generated_at": None,
 }
 
 
