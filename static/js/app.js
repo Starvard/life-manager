@@ -1050,6 +1050,7 @@ document.addEventListener("alpine:init", () => {
         settings: {},
         plan: { trade_ideas: [], rebuild_horizon_years: 3 },
         rebuildBoard: { order: [], assets: {} },
+        bestLineup: null,
         lastSync: null,
         snapshot: null,
         tradeSuggestions: null,
@@ -1103,6 +1104,7 @@ document.addEventListener("alpine:init", () => {
             this.tradeSuggestions = state.trade_suggestions || null;
             this.lastTradeRefresh = state.last_trade_refresh || null;
             this.lastTradeError = state.last_trade_error || null;
+            this.bestLineup = state.best_lineup || null;
         },
 
         async sync() {
@@ -1168,6 +1170,95 @@ document.addEventListener("alpine:init", () => {
                 seen.get(key).push(aid);
             }
             return Array.from(seen.entries()).map(([title, ids]) => ({ title, ids }));
+        },
+
+        bestMeta(s) {
+            if (!s || s.is_empty) return "";
+            const bits = [];
+            if (s.pos) bits.push(s.pos);
+            if (s.team) bits.push(s.team);
+            if (s.value) bits.push("≈" + Math.round(s.value));
+            return bits.join(" · ");
+        },
+
+        tierLabel(s) {
+            if (!s) return "";
+            if (s.is_empty) return "Empty";
+            const tier = s.tier || "unknown";
+            const map = {
+                elite: "Elite",
+                solid: "Solid",
+                adequate: "OK",
+                weak: "Weak",
+                unknown: "?",
+                empty: "Empty",
+            };
+            return map[tier] || tier;
+        },
+
+        upgradePlans() {
+            const assets = (this.rebuildBoard && this.rebuildBoard.assets) || {};
+            const order = (this.rebuildBoard && this.rebuildBoard.order) || [];
+            const bestSlots = (this.bestLineup && this.bestLineup.slots) || [];
+
+            const out = [];
+            const usedAids = new Set();
+
+            for (const s of bestSlots) {
+                if (!s.is_weak && !s.is_empty) continue;
+                let aid = null;
+                if (s.player_id) {
+                    const candidate = "p-" + s.player_id;
+                    if (assets[candidate]) aid = candidate;
+                }
+                if (!aid) {
+                    out.push({
+                        aid: "virtual-" + s.slot + "-" + (s.player_id || "empty"),
+                        slotLabel: (s.label || s.slot || "") + (s.is_empty ? " · open" : ""),
+                        name: s.is_empty ? "Empty slot" : (s.name || "Player"),
+                        tier: s.tier || "weak",
+                        tierLabel: this.tierLabel(s),
+                        desired: "",
+                        canReset: false,
+                        virtual: true,
+                    });
+                    continue;
+                }
+                usedAids.add(aid);
+                const a = assets[aid];
+                const desired = (a.desired_upgrade || "").trim();
+                const auto = (a._auto_desired_upgrade || "").trim();
+                out.push({
+                    aid,
+                    slotLabel: s.label || s.slot || "",
+                    name: s.name || this.currentLabel(aid),
+                    tier: s.tier || "weak",
+                    tierLabel: this.tierLabel(s),
+                    desired: a.desired_upgrade || "",
+                    canReset: !!auto && desired !== auto,
+                    virtual: false,
+                });
+            }
+
+            for (const aid of order) {
+                const a = assets[aid];
+                if (!a) continue;
+                if (a.kind !== "pick") continue;
+                const desired = (a.desired_upgrade || "").trim();
+                const auto = (a._auto_desired_upgrade || "").trim();
+                out.push({
+                    aid,
+                    slotLabel: "Pick",
+                    name: a.label || aid,
+                    tier: "pick",
+                    tierLabel: "Draft",
+                    desired: a.desired_upgrade || "",
+                    canReset: !!auto && desired !== auto,
+                    virtual: false,
+                });
+            }
+
+            return out;
         },
 
         hasPicks() {
