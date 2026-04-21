@@ -1,18 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Fantasy — roster &amp; targets{% endblock %}
+{% block title %}Fantasy — best roster &amp; upgrades{% endblock %}
 
 {% block content %}
 <script type="application/json" id="fantasy-bootstrap">{{ fantasy_bootstrap|tojson }}</script>
 <div x-data="fantasyPage()">
 
 <div class="page-header">
-    <h1>Roster &amp; targets</h1>
+    <h1>Best roster &amp; upgrades</h1>
     <p class="subtitle" x-show="snapshot">
         <span x-text="snapshot.team.name || 'Your team'"></span>
         <span x-show="snapshot.league &amp;&amp; snapshot.league.name"> · <span x-text="snapshot.league.name"></span></span>
         <span x-show="lastSync"> · synced <span x-text="fmtTime(lastSync)"></span></span>
     </p>
-    <p class="subtitle" x-show="!snapshot">Sync Sleeper to load your roster and draft picks.</p>
+    <p class="subtitle" x-show="!snapshot">Sync Sleeper to load your roster and targets.</p>
 </div>
 
 <div class="fantasy-toolbar-row">
@@ -23,15 +23,65 @@
     <span class="fantasy-msg" x-text="syncMsg" x-show="syncMsg"></span>
 </div>
 
-<template x-if="snapshot">
-<div class="fantasy-roster-wrap">
+<template x-if="bestLineup &amp;&amp; bestLineup.slots &amp;&amp; bestLineup.slots.length">
+<div class="card fantasy-best-card">
+    <div class="card-title">Best starting lineup</div>
+    <p class="fantasy-hint">Highest-value eligible player per slot (FantasyCalc dynasty). Weak spots are flagged — scroll down for how to fix them.</p>
+    <ul class="fantasy-best-list">
+        <template x-for="s in bestLineup.slots" :key="s.slot + '-' + (s.player_id || 'empty')">
+            <li class="fantasy-best-row" :class="'fantasy-tier-' + (s.tier || 'unknown') + (s.is_weak ? ' fantasy-best-weak' : '')">
+                <span class="fantasy-best-slot" x-text="s.label"></span>
+                <span class="fantasy-best-player">
+                    <span class="fantasy-best-name" x-text="s.is_empty ? 'Empty' : s.name"></span>
+                    <span class="fantasy-best-meta" x-text="bestMeta(s)"></span>
+                </span>
+                <span class="fantasy-best-tier" x-text="tierLabel(s)"></span>
+            </li>
+        </template>
+    </ul>
+</div>
+</template>
 
-    <div class="card fantasy-roster-card">
-        <div class="card-title">Current roster &amp; desired</div>
-        <p class="fantasy-hint" x-show="hasPicks()">
-            Draft picks first — rookie draft is up next. Edit any target cell to override the auto plan.
-        </p>
-        <div class="fantasy-roster-list">
+<template x-if="upgradePlans().length">
+<div class="card fantasy-upgrades-card">
+    <div class="card-title">Upgrade plans — weak spots &amp; picks</div>
+    <p class="fantasy-hint">One plan per slot that needs improvement, plus every draft pick you own. Edit any plan to override.</p>
+    <ul class="fantasy-upgrade-list">
+        <template x-for="u in upgradePlans()" :key="u.aid">
+            <li class="fantasy-upgrade-row">
+                <div class="fantasy-upgrade-head">
+                    <span class="fantasy-upgrade-slot" :class="'fantasy-tier-' + (u.tier || 'unknown')" x-text="u.slotLabel"></span>
+                    <span class="fantasy-upgrade-name" x-text="u.name"></span>
+                    <span class="fantasy-upgrade-tier" x-text="u.tierLabel"></span>
+                </div>
+                <textarea
+                    :id="'plan-' + u.aid"
+                    class="fantasy-input fantasy-upgrade-textarea"
+                    rows="2"
+                    placeholder="Plan to fix / target"
+                    :value="u.desired"
+                    @input.debounce.600ms="patchRebuildUpgrade(u.aid, $event.target.value)"
+                ></textarea>
+                <button
+                    type="button"
+                    class="fantasy-roster-reset"
+                    x-show="u.canReset"
+                    @click="resetToAuto(u.aid)"
+                    title="Reset to auto suggestion"
+                >Reset to auto</button>
+            </li>
+        </template>
+    </ul>
+    <p class="fantasy-empty-note" x-show="!upgradePlans().length">No weak spots — every starting slot is solid. Keep an eye on picks.</p>
+</div>
+</template>
+
+<details class="fantasy-advanced">
+    <summary>More (full roster, trade ideas, notes, settings)</summary>
+    <div class="fantasy-advanced-body">
+
+        <div class="fantasy-full-roster" x-show="rebuildBoard.order &amp;&amp; rebuildBoard.order.length">
+            <div class="fantasy-label">Full roster &amp; plans</div>
             <template x-for="group in groupedAssets()" :key="group.title">
                 <section class="fantasy-roster-group">
                     <h3 class="fantasy-roster-group-title" x-text="group.title"></h3>
@@ -43,7 +93,6 @@
                                     <div class="fantasy-roster-meta" x-text="currentMeta(aid)"></div>
                                 </div>
                                 <div class="fantasy-roster-target">
-                                    <label class="sr-only" :for="'rb-plan-' + aid">Desired / target</label>
                                     <textarea
                                         :id="'rb-plan-' + aid"
                                         class="fantasy-input fantasy-roster-textarea"
@@ -57,7 +106,6 @@
                                         class="fantasy-roster-reset"
                                         x-show="canResetAuto(aid)"
                                         @click="resetToAuto(aid)"
-                                        title="Reset to auto suggestion"
                                     >Reset to auto</button>
                                 </div>
                             </li>
@@ -66,15 +114,7 @@
                 </section>
             </template>
         </div>
-        <p class="fantasy-empty-note" x-show="!rebuildBoard.order || rebuildBoard.order.length === 0">Sync from Sleeper to populate this list.</p>
-    </div>
 
-</div>
-</template>
-
-<details class="fantasy-advanced">
-    <summary>More (trade ideas, notes, advanced)</summary>
-    <div class="fantasy-advanced-body">
         <div class="fantasy-trade-ideas">
             <label class="fantasy-label">Quick ideas</label>
             <div class="fantasy-add-row">
@@ -183,11 +223,6 @@
                 Values via <a href="https://fantasycalc.com" target="_blank" rel="noopener">FantasyCalc</a>.
                 Cross-check on <a href="https://dynastycalc.com" target="_blank" rel="noopener">Dynasty Calc</a>.
             </p>
-        </div>
-
-        <div class="fantasy-plan-doc-inline" x-show="plan.rebuild_plan_doc">
-            <div class="fantasy-label">Auto plan (text)</div>
-            <pre class="fantasy-plan-doc" x-text="plan.rebuild_plan_doc"></pre>
         </div>
     </div>
 </details>
