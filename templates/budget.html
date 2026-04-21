@@ -72,7 +72,7 @@
     <button class="budget-tab" :class="{ active: view === 'status' }" @click="view = 'status'">Status</button>
     <button class="budget-tab" :class="{ active: view === 'transactions' }" @click="view = 'transactions'">Transactions</button>
     <button class="budget-tab" :class="{ active: view === 'budgets' }" @click="view = 'budgets'">Budgets</button>
-    <button class="budget-tab" :class="{ active: view === 'connect' }" @click="view = 'connect'">
+    <button class="budget-tab" :class="{ active: view === 'connect' }" @click="goToConnect()">
         Connect
         <span class="budget-badge" x-show="plaidItems.length > 0" x-text="plaidItems.length"></span>
     </button>
@@ -144,14 +144,14 @@
             </div>
         </template>
         <div class="budget-empty" x-show="(report.category_status || []).length === 0">
-            <p>No transactions yet this month. <a href="#" @click.prevent="view='connect'">Connect a bank</a>
-               or <a href="#" @click.prevent="view='connect'">upload a CSV</a> to get started.</p>
+            <p>No transactions yet this month. <a href="#" @click.prevent="goToConnect()">Connect a bank</a>
+               or <a href="#" @click.prevent="goToConnect()">upload a CSV</a> to get started.</p>
         </div>
     </div>
 </div>
 
 {# ── Connect (Plaid / CSV upload) ─────────────────────────────── #}
-<div x-show="view === 'connect'" x-cloak>
+<div x-show="view === 'connect'" x-cloak x-ref="connectSection">
     <div class="card">
         <div class="card-title">Plaid credentials</div>
 
@@ -334,7 +334,7 @@
 
     <div class="budget-empty" x-show="filteredTxns.length === 0">
         <p>No transactions for this month.</p>
-        <button class="btn btn-primary" @click="view='connect'">Connect a bank or upload CSV</button>
+        <button class="btn btn-primary" @click="goToConnect()">Connect a bank or upload CSV</button>
     </div>
 </div>
 
@@ -451,6 +451,6 @@
 
 </div>
 
-{# Plaid Link SDK — loaded on demand #}
-<script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" async></script>
+{# Plaid Link SDK (defer: runs before DOMContentLoaded; app.js runs after and can rely on Plaid) #}
+<script defer src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
 {% endblock %}

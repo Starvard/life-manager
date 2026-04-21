@@ -582,6 +582,25 @@ document.addEventListener("alpine:init", () => {
             window.location.href = "/budget?month=" + this.currentMonth;
         },
 
+        /** Switch to Connect tab and scroll the panel into view (links above the fold looked like no-ops). */
+        goToConnect() {
+            this.view = "connect";
+            this.$nextTick(() => {
+                const el = this.$refs.connectSection;
+                if (el && typeof el.scrollIntoView === "function") {
+                    el.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+            });
+        },
+
+        async waitForPlaid(maxMs = 15000) {
+            const t0 = Date.now();
+            while (typeof window.Plaid === "undefined" && Date.now() - t0 < maxMs) {
+                await new Promise((r) => setTimeout(r, 50));
+            }
+            return typeof window.Plaid !== "undefined";
+        },
+
         prevMonth() {
             const idx = this.allMonths.indexOf(this.currentMonth);
             if (idx > 0) {
@@ -936,9 +955,10 @@ document.addEventListener("alpine:init", () => {
 
         async startPlaidLink() {
             if (!this.plaidConfigured) return;
-            if (typeof window.Plaid === "undefined") {
-                this.errorMsg = "Plaid SDK hasn't loaded yet. Please reload the page.";
-                setTimeout(() => { this.errorMsg = ""; }, 4000);
+            const sdkReady = await this.waitForPlaid();
+            if (!sdkReady) {
+                this.errorMsg = "Plaid SDK hasn't loaded yet. Check your network or ad blockers, then reload.";
+                setTimeout(() => { this.errorMsg = ""; }, 6000);
                 return;
             }
             this.linking = true;
