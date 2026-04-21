@@ -21,7 +21,14 @@ import threading
 
 import config
 from services.budget_category_list import BUDGET_CATEGORY_ORDER
-from services.budget_store import load_categories, save_categories
+from services.budget_store import (
+    load_categories,
+    save_categories,
+    load_transactions,
+    save_transactions,
+    load_budgets,
+    save_budgets,
+)
 
 # ── Built-in display categories (emoji + label), ordered for pickers ─
 
@@ -398,6 +405,58 @@ def bulk_set_category(
             learned = True
         n += 1
     return n
+
+
+def replace_budget_category_globally(old_name: str, new_name: str) -> dict:
+    """Rename or merge a category everywhere: transactions, rules, budget limits.
+
+    Every transaction whose *display* category equals ``old_name`` gets
+    ``category_override`` set to ``new_name`` so the old label disappears from
+    pickers and reports.
+    """
+    old = (old_name or "").strip()
+    new = (new_name or "").strip()
+    if not old or not new:
+        return {"ok": False, "error": "Both old and new category names are required."}
+    if old == new:
+        return {"ok": True, "transactions_updated": 0, "rules_updated": 0, "budget_moved": False}
+
+    txns = load_transactions()
+    tx_n = 0
+    for tx in txns:
+        if get_display_category(tx) == old:
+            tx["category_override"] = new
+            tx_n += 1
+    if tx_n:
+        save_transactions(txns)
+
+    cats = load_categories()
+    rules = dict(cats.get("rules") or {})
+    rule_n = 0
+    for kw, cat in list(rules.items()):
+        if cat == old:
+            rules[kw] = new
+            rule_n += 1
+    if rule_n:
+        cats["rules"] = rules
+        save_categories(cats)
+        _invalidate_rules_cache()
+
+    bud = load_budgets()
+    limits = dict(bud.get("limits") or {})
+    budget_moved = False
+    if old in limits:
+        amt = limits.pop(old)
+        limits[new] = round(float(limits.get(new, 0)) + float(amt), 2)
+        budget_moved = True
+        save_budgets(limits)
+
+    return {
+        "ok": True,
+        "transactions_updated": tx_n,
+        "rules_updated": rule_n,
+        "budget_moved": budget_moved,
+    }
 
 
 def recategorize_all(transactions: list[dict]) -> int:

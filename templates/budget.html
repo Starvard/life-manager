@@ -2,7 +2,8 @@
 {% block title %}Budget - Life Manager{% endblock %}
 
 {% block content %}
-<div x-data='budgetPage({{ transactions|tojson }}, {{ report|tojson }}, {{ plan|tojson }}, {{ categories|tojson }}, "{{ current_month }}", {{ months|tojson }}, {{ overview|tojson }}, {{ budgets|tojson }}, {{ budget_categories|tojson }}, {{ plaid_items|tojson }}, {{ plaid_configured|tojson }}, {{ plaid_status|tojson }})'>
+<div x-data='budgetPage({{ transactions|tojson }}, {{ report|tojson }}, {{ plan|tojson }}, {{ categories|tojson }}, "{{ current_month }}", {{ months|tojson }}, {{ overview|tojson }}, {{ budgets|tojson }}, {{ budget_categories|tojson }}, {{ plaid_items|tojson }}, {{ plaid_configured|tojson }}, {{ plaid_status|tojson }})'
+     @keydown.escape.window="incomeModalOpen && closeIncomeModal()">
 
 <div class="page-header">
     <h1>Budget</h1>
@@ -35,10 +36,11 @@
 
 {# ── Quick Status (Over / Under budget) ───────────────────────── #}
 <div class="budget-summary">
-    <div class="budget-summary-card budget-income">
+    <button type="button" class="budget-summary-card budget-income budget-summary-card-btn"
+            @click="openIncomeBreakdown()" title="Show income by category">
         <div class="budget-summary-label">Income</div>
         <div class="budget-summary-value" x-text="formatMoney(report.total_income)"></div>
-    </div>
+    </button>
     <div class="budget-summary-card budget-expenses">
         <div class="budget-summary-label">Spent</div>
         <div class="budget-summary-value" x-text="formatMoney(Math.abs(report.total_expenses))"></div>
@@ -445,6 +447,41 @@
             No custom rules yet. We're using a set of built-in defaults for common
             merchants (Amazon, Netflix, Starbucks, grocery chains, gas, etc.).
         </p>
+
+        <div class="budget-replace-cat card" style="margin-top:1.25rem;">
+            <div class="card-title">Rename or merge a category</div>
+            <p class="text-muted" style="font-size:.85rem;">
+                If a stray label (like an old <code>Housing</code>) still appears in filters or reports,
+                move every transaction and rule to another category here. Budget limits for the old name
+                are merged into the new one.
+            </p>
+            <div class="budget-replace-cat-row">
+                <label class="budget-replace-field">
+                    <span>From</span>
+                    <select class="budget-rule-input" x-model="replaceFrom">
+                        <option value="">Pick a category…</option>
+                        <template x-for="c in allCategories" :key="'rep-from-' + c">
+                            <option :value="c" x-text="c"></option>
+                        </template>
+                    </select>
+                </label>
+                <label class="budget-replace-field">
+                    <span>To</span>
+                    <select class="budget-rule-input" x-model="replaceTo">
+                        <option value="">Pick target…</option>
+                        <template x-for="c in allCategories" :key="'rep-to-' + c">
+                            <option :value="c" x-text="c"></option>
+                        </template>
+                    </select>
+                </label>
+                <button type="button" class="btn btn-primary budget-replace-submit"
+                        :disabled="replacingCat || !replaceFrom || !replaceTo || replaceFrom === replaceTo"
+                        @click="applyReplaceCategory()">
+                    <span x-show="!replacingCat">Apply</span>
+                    <span x-show="replacingCat">Working…</span>
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -478,6 +515,32 @@
      x-transition:leave="transition duration-300" style="display:none;"></div>
 <div class="flash flash-danger" x-show="errorMsg" x-text="errorMsg"
      style="display:none;"></div>
+
+{# Income breakdown modal #}
+<div class="budget-modal-backdrop" x-show="incomeModalOpen" x-cloak
+     @keyup.escape.window="closeIncomeModal()">
+    <div class="budget-modal" role="dialog" aria-modal="true" aria-labelledby="budget-income-modal-title"
+         @click.outside="closeIncomeModal()">
+        <div class="budget-modal-head">
+            <h2 id="budget-income-modal-title">Income this month</h2>
+            <button type="button" class="budget-modal-close" @click="closeIncomeModal()" aria-label="Close">&times;</button>
+        </div>
+        <p class="budget-modal-total text-muted" style="font-size:0.85rem;margin:0 0 0.75rem;">
+            Total: <strong x-text="formatMoney(report.total_income)"></strong>
+        </p>
+        <div class="budget-income-rows" x-show="(report.income_breakdown || []).length > 0">
+            <template x-for="row in (report.income_breakdown || [])" :key="row.category">
+                <button type="button" class="budget-income-row" @click="goToIncomeCategory(row)">
+                    <span class="budget-income-cat" x-text="row.category"></span>
+                    <span class="budget-income-amt" x-text="formatMoney(row.total)"></span>
+                </button>
+            </template>
+        </div>
+        <p class="text-muted" style="font-size:0.85rem;" x-show="!(report.income_breakdown || []).length">
+            No positive transactions this month.
+        </p>
+    </div>
+</div>
 
 </div>
 
