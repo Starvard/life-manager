@@ -10,6 +10,7 @@ Import meta:   data/budget/import_meta.json
 import json
 import os
 import threading
+from collections import defaultdict
 from datetime import datetime
 
 import config
@@ -135,6 +136,61 @@ def get_available_months() -> list[str]:
     for m in list_plan_months():
         months.add(m)
     return sorted(months)
+
+
+def _month_add(month: str, delta: int) -> str:
+    """Return YYYY-MM shifted by delta months (delta may be negative)."""
+    y, m = int(month[:4]), int(month[5:7])
+    idx = y * 12 + (m - 1) + delta
+    ny, nm = divmod(idx, 12)
+    return f"{ny:04d}-{nm + 1:02d}"
+
+
+def expense_totals_by_category(month: str) -> dict[str, float]:
+    """Sum of absolute outflows per display category for a month (no duplicates)."""
+    from services.budget_categorizer import get_display_category
+
+    out: dict[str, float] = defaultdict(float)
+    for tx in get_transactions_by_month(month):
+        if tx.get("is_duplicate"):
+            continue
+        amt = float(tx.get("amount", 0))
+        if amt >= 0:
+            continue
+        cat = get_display_category(tx) or "Other"
+        out[cat] += abs(amt)
+    return dict(out)
+
+
+def compute_category_average_monthly_spend(
+    as_of_month: str, max_months: int = 12
+) -> dict[str, dict[str, float | int]]:
+    """Rolling average of outflows per category over up to ``max_months`` months ending at ``as_of_month``.
+
+    Includes ``as_of_month`` in the window. Returns per category:
+    ``{"average": float, "months": int}`` where ``months`` is how many months had data.
+    """
+    all_m = get_available_months()
+    eligible = [m for m in all_m if m <= as_of_month]
+    if not eligible:
+        return {}
+    window = eligible[-max_months:] if len(eligible) > max_months else eligible
+    sums: dict[str, float] = defaultdict(float)
+    counts: dict[str, int] = defaultdict(int)
+    for m in window:
+        by_cat = expense_totals_by_category(m)
+        for cat, amt in by_cat.items():
+            sums[cat] += amt
+            counts[cat] += 1
+    out: dict[str, dict[str, float | int]] = {}
+    for cat, total in sums.items():
+        c = counts[cat]
+        if c <= 0:
+            continue
+        out[cat] = {"average": round(total / c, 2), "months": int(c)}
+    # Categories that appear in window but had zero spend still get average 0 if we only iterate sums;
+    # we only include categories with at least one outflow in some month.
+    return out
 
 
 # ── Sheet overview (parsed monthly tab HTML) ────────────────────
@@ -321,19 +377,17 @@ def set_category_budget(category: str, amount: float | None) -> dict:
 
 # ── Monthly Report (computed) ─────────────────────────────────────
 
-def compute_monthly_report(month: str) -> dict:
-    """Compute income/expense/net totals and category breakdown for a month."""
+def aggregate_month_financials(month: str) -> dict:
+    """Per-month totals used by the report and prior-month comparisons."""
     from services.budget_categorizer import get_display_category
 
     txns = get_transactions_by_month(month)
-    plan = load_plan(month)
-    budgets = load_budgets().get("limits") or {}
-
     total_income = 0.0
     total_expenses = 0.0
-    by_category: dict[str, float] = {}
+    by_category: dict[str, float] = defaultdict(float)
     card_payment_income = 0.0
     card_payment_expense = 0.0
+    purchases_spend = 0.0  # outflows excluding card payoff transfers
 
     for tx in txns:
         if tx.get("is_duplicate"):
@@ -341,20 +395,68 @@ def compute_monthly_report(month: str) -> dict:
         amt = float(tx.get("amount", 0))
         cat = get_display_category(tx) or "Other"
 
-        by_category[cat] = by_category.get(cat, 0) + amt
+        by_category[cat] += amt
 
         if cat == CREDIT_CARD_PAYMENT_CATEGORY:
             if amt > 0:
                 card_payment_income += amt
             else:
                 card_payment_expense += amt
+        elif amt < 0:
+            purchases_spend += abs(amt)
 
         if amt > 0:
             total_income += amt
         else:
             total_expenses += amt
 
-    net = total_income + total_expenses
+    lifestyle_income = round(total_income - card_payment_income, 2)
+    lifestyle_expenses = round(total_expenses - card_payment_expense, 2)
+    lifestyle_net = round(lifestyle_income + lifestyle_expenses, 2)
+    card_payoff_total = round(abs(card_payment_expense), 2)
+    card_payment_net = round(card_payment_income + card_payment_expense, 2)
+
+    return {
+        "txns": txns,
+        "by_category": dict(by_category),
+        "total_income": round(total_income, 2),
+        "total_expenses": round(total_expenses, 2),
+        "net": round(total_income + total_expenses, 2),
+        "card_payment_income": round(card_payment_income, 2),
+        "card_payment_expense": round(card_payment_expense, 2),
+        "card_payoff_total": card_payoff_total,
+        "card_payment_net": card_payment_net,
+        "lifestyle_income": lifestyle_income,
+        "lifestyle_expenses": lifestyle_expenses,
+        "lifestyle_net": lifestyle_net,
+        "purchases_spend": round(purchases_spend, 2),
+    }
+
+
+def compute_monthly_report(month: str) -> dict:
+    """Compute income/expense/net totals and category breakdown for a month."""
+    cur = aggregate_month_financials(month)
+    txns = cur["txns"]
+    by_category = cur["by_category"]
+    total_income = float(cur["total_income"])
+    total_expenses = float(cur["total_expenses"])
+    net = float(cur["net"])
+    card_payment_income = float(cur["card_payment_income"])
+    card_payment_expense = float(cur["card_payment_expense"])
+    card_payoff_total = float(cur["card_payoff_total"])
+    card_payment_net = float(cur["card_payment_net"])
+    lifestyle_income = float(cur["lifestyle_income"])
+    lifestyle_expenses = float(cur["lifestyle_expenses"])
+    lifestyle_net = float(cur["lifestyle_net"])
+    purchases_spend_this = float(cur["purchases_spend"])
+
+    plan = load_plan(month)
+    budgets = load_budgets().get("limits") or {}
+
+    prior_key = _month_add(month, -1)
+    prior = aggregate_month_financials(prior_key)
+    purchases_spend_prior = float(prior["purchases_spend"])
+    card_payoffs_prior = float(prior["card_payoff_total"])
 
     income_breakdown: list[dict] = []
     for cat, raw in by_category.items():
@@ -369,12 +471,7 @@ def compute_monthly_report(month: str) -> dict:
     for cat, total in sorted(by_category.items(), key=lambda x: x[1]):
         cat_breakdown.append({"category": cat, "total": round(total, 2)})
 
-    # Lifestyle vs card payoffs (double-count with card charges otherwise confuses totals).
-    lifestyle_income = round(total_income - card_payment_income, 2)
-    lifestyle_expenses = round(total_expenses - card_payment_expense, 2)
-    lifestyle_net = round(lifestyle_income + lifestyle_expenses, 2)
-    card_payoff_total = round(abs(card_payment_expense), 2)
-    card_payment_net = round(card_payment_income + card_payment_expense, 2)
+    category_average_spend = compute_category_average_monthly_spend(month, max_months=12)
 
     # Simple budget status: per-category over/under, and overall.
     category_status: list[dict] = []
@@ -488,6 +585,18 @@ def compute_monthly_report(month: str) -> dict:
         "card_payoff_total": card_payoff_total,
         "card_payment_net": card_payment_net,
         "credit_card_payment_category": CREDIT_CARD_PAYMENT_CATEGORY,
+        "projected": {
+            "income": round(planned_income, 2),
+            "expenses": round(planned_expenses, 2),
+        },
+        "card_compare": {
+            "prior_month": prior_key,
+            "purchases_spend_prior_month": purchases_spend_prior,
+            "purchases_spend_this_month": purchases_spend_this,
+            "card_payoffs_this_month": card_payoff_total,
+            "card_payoffs_prior_month": card_payoffs_prior,
+        },
+        "category_average_spend": category_average_spend,
         "transaction_count": len([t for t in txns if not t.get("is_duplicate")]),
         "income_breakdown": income_breakdown,
         "categories": cat_breakdown,

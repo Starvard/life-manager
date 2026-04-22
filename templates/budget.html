@@ -34,64 +34,91 @@
     </div>
 </div>
 
-{# ── Quick Status (Over / Under budget) ───────────────────────── #}
-<div class="budget-summary">
-    <button type="button" class="budget-summary-card budget-income budget-summary-card-btn"
-            @click="openIncomeBreakdown()" title="Show income by category (card refunds shown separately below when present)">
-        <div class="budget-summary-label">Income</div>
-        <div class="budget-summary-value" x-text="formatMoney(lifestyleIncome())"></div>
-        <div class="budget-summary-sub text-muted" x-show="hasCardPaymentSplit() && cardRefundIncome() > 0"
-             x-text="'+ ' + formatMoney(cardRefundIncome()) + ' card refunds (not salary)'"></div>
-    </button>
-    <div class="budget-summary-card budget-expenses">
-        <div class="budget-summary-label">Spent</div>
-        <div class="budget-summary-value" x-text="formatMoney(lifestyleSpentAbs())"></div>
-        <div class="budget-summary-sub text-muted" x-show="hasCardPaymentSplit()"
-             x-text="'Incl. ' + formatMoney(bankSpentAbs()) + ' from bank · ' + formatMoney(cardPayoffTotal()) + ' card payoffs'"></div>
-    </div>
-    <div class="budget-summary-card" :class="lifestyleNet() >= 0 ? 'budget-net-pos' : 'budget-net-neg'">
-        <div class="budget-summary-label">Net <span class="budget-summary-hint">(everyday)</span></div>
-        <div class="budget-summary-value" x-text="formatMoney(lifestyleNet())"></div>
-        <div class="budget-summary-sub text-muted" x-show="hasCardPaymentSplit()"
-             x-text="'All activity: ' + formatMoney(report.net)"></div>
-    </div>
-    <div class="budget-summary-card"
-         :class="overallStatus().over ? 'budget-net-neg' : 'budget-net-pos'"
-         x-show="overallStatus().has_budget">
-        <div class="budget-summary-label">
-            <span x-show="!overallStatus().over">Under budget</span>
-            <span x-show="overallStatus().over">Over budget</span>
+{# ── At a glance: plan vs actual, then credit card context ─────── #}
+<div class="budget-at-a-glance">
+    <div class="budget-aag-main card">
+        <div class="budget-aag-grid">
+            <div class="budget-aag-block">
+                <div class="budget-aag-label">Income</div>
+                <div class="budget-aag-row">
+                    <span class="budget-aag-k">Projected</span>
+                    <span class="budget-aag-v" x-text="formatMoney(projectedIncome())"></span>
+                </div>
+                <div class="budget-aag-row">
+                    <span class="budget-aag-k">Actual</span>
+                    <button type="button" class="budget-aag-v budget-aag-link"
+                            @click="openIncomeBreakdown()" x-text="formatMoney(lifestyleIncome())"></button>
+                </div>
+            </div>
+            <div class="budget-aag-block">
+                <div class="budget-aag-label">Spend <span class="budget-aag-note">(purchases)</span></div>
+                <div class="budget-aag-row">
+                    <span class="budget-aag-k">Projected</span>
+                    <span class="budget-aag-v" x-text="formatMoney(projectedSpend())"></span>
+                </div>
+                <div class="budget-aag-row">
+                    <span class="budget-aag-k">Actual</span>
+                    <span class="budget-aag-v" x-text="formatMoney(lifestyleSpentAbs())"></span>
+                </div>
+            </div>
+            <div class="budget-aag-block budget-aag-net">
+                <div class="budget-aag-label">Net <span class="budget-aag-note">(purchases vs income)</span></div>
+                <div class="budget-aag-row">
+                    <span class="budget-aag-k">Projected</span>
+                    <span class="budget-aag-v" x-text="formatMoney(projectedNet())"></span>
+                </div>
+                <div class="budget-aag-row">
+                    <span class="budget-aag-k">Actual</span>
+                    <span class="budget-aag-v" :class="lifestyleNet() >= 0 ? 'pos' : 'neg'"
+                          x-text="formatMoney(lifestyleNet())"></span>
+                </div>
+            </div>
         </div>
-        <div class="budget-summary-value"
-             x-text="formatMoneySigned(overallStatus().total_remaining)"></div>
-        <div class="budget-summary-label" style="margin-top:.25rem;"
-             x-text="overallStatus().percent.toFixed(0) + '% of ' + formatMoney(overallStatus().total_budget) + ' used'">
+        <div class="budget-aag-budget" x-show="overallStatus().has_budget">
+            <div class="budget-aag-budget-head">
+                <span>Budget progress</span>
+                <span class="text-muted" style="font-size:0.78rem;"
+                      x-text="formatMoney(overallStatus().total_spent) + ' of ' + formatMoney(overallStatus().total_budget) + ' · ' + overallStatus().percent.toFixed(0) + '%'"></span>
+            </div>
+            <div class="budget-status-bar">
+                <div class="budget-status-bar-fill"
+                     :class="overallStatus().over ? 'over' : ''"
+                     :style="'width:' + Math.min(100, overallStatus().percent) + '%'"></div>
+            </div>
+            <div class="budget-aag-budget-foot"
+                 :class="overallStatus().over ? 'over' : ''"
+                 x-text="overallStatus().over ? ('Over by ' + formatMoney(Math.abs(overallStatus().total_remaining))) : (formatMoneySigned(overallStatus().total_remaining) + ' left')">
+            </div>
         </div>
+        <p class="budget-aag-meta text-muted" x-show="!overallStatus().has_budget" style="font-size:0.8rem;margin:0.5rem 0 0;">
+            <span x-text="report.transaction_count"></span> transactions this month.
+            Set limits on the <a href="#" @click.prevent="view='budgets'">Budgets</a> tab to track over/under.
+        </p>
     </div>
-    <div class="budget-summary-card budget-count"
-         x-show="!overallStatus().has_budget">
-        <div class="budget-summary-label">Transactions</div>
-        <div class="budget-summary-value" x-text="report.transaction_count"></div>
-    </div>
-</div>
 
-<div class="budget-cashflow-strip" x-show="hasCardPaymentSplit()" x-cloak>
-    <div class="budget-cf-head">
-        <span class="budget-cf-title">Where spending went</span>
-        <button type="button" class="btn btn-sm btn-outline" @click="goToCardPayments()">Card payoffs</button>
-    </div>
-    <p class="budget-cf-hint text-muted">
-        Card payoffs pay down charges already counted in groceries, shopping, etc.—so they are split out of the main “Spent” total and budget bar.
-    </p>
-    <div class="budget-spend-split-track" title="Share of outflows: everyday vs card payments">
-        <div class="budget-spend-split-fill budget-spend-split-lifestyle"
-             :style="'flex:' + lifestyleSpentAbs() + ' 1 0%'"></div>
-        <div class="budget-spend-split-fill budget-spend-split-card"
-             :style="'flex:' + cardPayoffTotal() + ' 1 0%'"></div>
-    </div>
-    <div class="budget-spend-split-legend">
-        <span><i class="budget-spend-dot lifestyle"></i> Everyday <strong x-text="formatMoney(lifestyleSpentAbs())"></strong></span>
-        <span><i class="budget-spend-dot card"></i> Card payoffs <strong x-text="formatMoney(cardPayoffTotal())"></strong></span>
+    <div class="budget-aag-card card">
+        <div class="budget-aag-card-title">Credit card</div>
+        <p class="budget-aag-card-hint text-muted">
+            Purchases are counted above. This box is only payoffs and last month’s card spend for context.
+        </p>
+        <div class="budget-aag-card-rows">
+            <div class="budget-aag-card-row">
+                <span>Last month card spend
+                    <span class="text-muted" x-show="report.card_compare && report.card_compare.prior_month"
+                          x-text="'(' + report.card_compare.prior_month + ')'"></span>
+                </span>
+                <strong x-text="formatMoney(cardPurchasesPriorMonth())"></strong>
+            </div>
+            <div class="budget-aag-card-row">
+                <span>This month card payoffs</span>
+                <strong x-text="formatMoney(cardPayoffTotal())"></strong>
+            </div>
+            <div class="budget-aag-card-row muted" x-show="cardPayoffsPriorMonth() > 0">
+                <span>Last month card payoffs</span>
+                <span x-text="formatMoney(cardPayoffsPriorMonth())"></span>
+            </div>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline budget-aag-card-btn" @click="goToCardPayments()">View payoff transactions</button>
     </div>
 </div>
 
@@ -411,6 +438,7 @@
                     <th style="text-align:left;">Category</th>
                     <th>Monthly limit</th>
                     <th>Spent this month</th>
+                    <th class="budget-avg-col">Avg / mo <span class="budget-avg-hint" title="Average of monthly outflows in this category over the months we have (up to 12, including this month)">(?)</span></th>
                     <th></th>
                 </tr>
             </thead>
@@ -426,6 +454,15 @@
                                    placeholder="—">
                         </td>
                         <td class="text-muted" x-text="formatMoney(spentForCategory(cat))"></td>
+                        <td class="text-muted budget-avg-col">
+                            <template x-if="categoryAvgSpend(cat)">
+                                <span>
+                                    <span x-text="formatMoney(categoryAvgSpend(cat).average)"></span>
+                                    <span class="budget-avg-mo" x-text="' · ' + categoryAvgSpend(cat).months + ' mo'"></span>
+                                </span>
+                            </template>
+                            <template x-if="!categoryAvgSpend(cat)">—</template>
+                        </td>
                         <td>
                             <button class="btn btn-sm btn-outline"
                                     @click="budgetLimits[cat] = null; saveBudgets();"

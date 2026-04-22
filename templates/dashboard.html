@@ -81,14 +81,14 @@ document.addEventListener('DOMContentLoaded', function() {
     var dayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
     var barColors = dailyScores.map(function(v, i) {
-        if (v === null) return 'rgba(92,95,115,0.2)';
-        if (i === todayIdx) return 'rgba(99,179,255,0.9)';
-        return 'rgba(167,139,250,0.6)';
+        if (v === null) return 'rgba(148,163,184,0.18)';
+        if (i === todayIdx) return 'rgba(125,211,252,0.55)';
+        return 'rgba(167,183,198,0.42)';
     });
     var barBorders = dailyScores.map(function(v, i) {
-        if (v === null) return 'rgba(92,95,115,0.3)';
-        if (i === todayIdx) return '#63b3ff';
-        return '#a78bfa';
+        if (v === null) return 'rgba(148,163,184,0.25)';
+        if (i === todayIdx) return 'rgba(125,211,252,0.75)';
+        return 'rgba(186,199,212,0.55)';
     });
 
     new Chart(document.getElementById('weeklyBarChart'), {
@@ -110,13 +110,13 @@ document.addEventListener('DOMContentLoaded', function() {
             plugins: {
                 legend: { display: false },
                 tooltip: {
-                    backgroundColor: '#1c1c28',
-                    borderColor: 'rgba(255,255,255,0.08)',
+                    backgroundColor: 'rgba(30,32,42,0.92)',
+                    borderColor: 'rgba(255,255,255,0.06)',
                     borderWidth: 1,
-                    titleColor: '#e8eaed',
-                    bodyColor: '#8b8fa3',
-                    cornerRadius: 8,
-                    padding: 10,
+                    titleColor: '#e2e8f0',
+                    bodyColor: '#94a3b8',
+                    cornerRadius: 10,
+                    padding: 11,
                     callbacks: {
                         label: function(ctx) { return ctx.raw > 0 ? ctx.raw + '%' : 'No data'; }
                     }
@@ -126,13 +126,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 y: {
                     beginAtZero: true,
                     max: 100,
-                    grid: { color: 'rgba(255,255,255,0.04)', drawBorder: false },
-                    ticks: { color: '#5c5f73', font: { size: 10, family: 'Inter' }, callback: function(v) { return v + '%'; } },
+                    grid: { color: 'rgba(148,163,184,0.06)', drawBorder: false },
+                    ticks: { color: '#94a3b8', font: { size: 10, family: 'Inter' }, callback: function(v) { return v + '%'; } },
                     border: { display: false }
                 },
                 x: {
                     grid: { display: false },
-                    ticks: { color: '#8b8fa3', font: { size: 11, weight: '600', family: 'Inter' } },
+                    ticks: { color: '#a8b4c8', font: { size: 11, weight: '600', family: 'Inter' } },
                     border: { display: false }
                 }
             }
@@ -164,7 +164,11 @@ document.addEventListener('DOMContentLoaded', function() {
         areaTotal.push(total);
     }
 
-    var donutColors = ['#63b3ff', '#a78bfa', '#34d399', '#fbbf24', '#f87171', '#22d3ee', '#f472b6', '#fb923c'];
+    var donutColors = [
+        'rgba(125,211,252,0.55)', 'rgba(167,183,198,0.5)', 'rgba(134,239,172,0.5)',
+        'rgba(253,224,200,0.55)', 'rgba(251,207,232,0.5)', 'rgba(196,181,253,0.45)',
+        'rgba(165,243,252,0.45)', 'rgba(214,211,209,0.45)'
+    ];
 
     new Chart(document.getElementById('areaDonutChart'), {
         type: 'doughnut',
@@ -173,21 +177,21 @@ document.addEventListener('DOMContentLoaded', function() {
             datasets: [{
                 data: areaDone,
                 backgroundColor: donutColors.slice(0, areaNames.length),
-                borderColor: '#16161f',
-                borderWidth: 2,
-                hoverBorderColor: '#22222f',
-                spacing: 2
+                borderColor: 'rgba(15,17,24,0.85)',
+                borderWidth: 1.5,
+                hoverBorderColor: 'rgba(30,32,42,0.95)',
+                spacing: 3
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: '65%',
+            cutout: '68%',
             plugins: {
                 legend: {
                     position: 'bottom',
                     labels: {
-                        color: '#8b8fa3',
+                        color: '#a8b4c8',
                         font: { size: 11, family: 'Inter' },
                         padding: 12,
                         usePointStyle: true,
@@ -195,13 +199,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 },
                 tooltip: {
-                    backgroundColor: '#1c1c28',
-                    borderColor: 'rgba(255,255,255,0.08)',
+                    backgroundColor: 'rgba(30,32,42,0.92)',
+                    borderColor: 'rgba(255,255,255,0.06)',
                     borderWidth: 1,
-                    titleColor: '#e8eaed',
-                    bodyColor: '#8b8fa3',
-                    cornerRadius: 8,
-                    padding: 10,
+                    titleColor: '#e2e8f0',
+                    bodyColor: '#94a3b8',
+                    cornerRadius: 10,
+                    padding: 11,
                     callbacks: {
                         label: function(ctx) {
                             var i = ctx.dataIndex;
