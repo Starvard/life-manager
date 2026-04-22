@@ -42,6 +42,29 @@
 </div>
 </template>
 
+<template x-if="positionStrategy &amp;&amp; positionStrategy.length">
+<div class="card fantasy-pos-strategy-card">
+    <div class="card-title">Position strategy</div>
+    <p class="fantasy-hint" x-show="rookieBoardHint" x-text="rookieBoardHint"></p>
+    <p class="fantasy-hint" x-show="!rookieBoardHint">Depth vs rough rebuild targets, weak starter flags, and whether to lean draft or trades — not a single-player mandate.</p>
+    <ul class="fantasy-pos-strategy-list">
+        <template x-for="row in positionStrategy" :key="row.pos">
+            <li class="fantasy-pos-strategy-row">
+                <div class="fantasy-pos-strategy-head">
+                    <span class="fantasy-pos-strategy-label" x-text="row.label || row.pos"></span>
+                    <span class="fantasy-pos-strategy-meta" x-text="posStratMeta(row)"></span>
+                </div>
+                <ul class="fantasy-pos-strategy-bullets">
+                    <template x-for="(ln, i) in (row.lines || [])" :key="row.pos + '-' + i">
+                        <li x-text="ln"></li>
+                    </template>
+                </ul>
+            </li>
+        </template>
+    </ul>
+</div>
+</template>
+
 <template x-if="upgradePlans().length">
 <div class="card fantasy-upgrades-card">
     <div class="card-title">Upgrade plans — weak spots &amp; picks</div>

@@ -701,6 +701,52 @@ button.budget-summary-card:focus-visible {
 }
 .fantasy-best-weak .fantasy-best-name { color: #f1a7a7; }
 
+/* ── Position strategy (rebuild) ───────────────────────────── */
+.fantasy-pos-strategy-card { margin-bottom: 1rem; }
+.fantasy-pos-strategy-list {
+    list-style: none;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+.fantasy-pos-strategy-row {
+    padding: 0.55rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-hover);
+}
+.fantasy-pos-strategy-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.75rem;
+    align-items: baseline;
+    margin-bottom: 0.35rem;
+}
+.fantasy-pos-strategy-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+.fantasy-pos-strategy-meta {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    line-height: 1.35;
+    flex: 1;
+    min-width: 0;
+}
+.fantasy-pos-strategy-bullets {
+    margin: 0;
+    padding-left: 1.1rem;
+    font-size: 0.8rem;
+    color: var(--text);
+    line-height: 1.45;
+}
+.fantasy-pos-strategy-bullets li { margin: 0.15rem 0; }
+
 /* ── Upgrade plans card ───────────────────────────────────── */
 .fantasy-upgrades-card { margin-bottom: 1.25rem; }
 .fantasy-upgrade-list { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }

@@ -1377,6 +1377,9 @@ document.addEventListener("alpine:init", () => {
         plan: { trade_ideas: [], rebuild_horizon_years: 3 },
         rebuildBoard: { order: [], assets: {} },
         bestLineup: null,
+        positionStrategy: null,
+        rookieBoardHint: null,
+        positionStrategyGeneratedAt: null,
         lastSync: null,
         snapshot: null,
         tradeSuggestions: null,
@@ -1431,6 +1434,9 @@ document.addEventListener("alpine:init", () => {
             this.lastTradeRefresh = state.last_trade_refresh || null;
             this.lastTradeError = state.last_trade_error || null;
             this.bestLineup = state.best_lineup || null;
+            this.positionStrategy = state.position_strategy || null;
+            this.rookieBoardHint = state.rookie_board_hint || null;
+            this.positionStrategyGeneratedAt = state.position_strategy_generated_at || null;
         },
 
         async sync() {
@@ -1520,6 +1526,27 @@ document.addEventListener("alpine:init", () => {
                 empty: "Empty",
             };
             return map[tier] || tier;
+        },
+
+        posStratMeta(row) {
+            if (!row) return "";
+            const bits = [];
+            if (row.owned != null && row.target_depth != null) {
+                bits.push(`${row.owned} rostered · target ~${row.target_depth}`);
+            }
+            if (row.weak_starters > 0) {
+                bits.push(`${row.weak_starters} thin starter view`);
+            }
+            if (row.gap > 0) {
+                bits.push(`short ~${row.gap}`);
+            } else if (row.surplus > 0) {
+                bits.push(`+${row.surplus} vs target`);
+            }
+            const bo = row.best_owned;
+            if (bo && bo.name) {
+                bits.push(`top: ${bo.name}` + (bo.value != null ? ` ≈${Math.round(bo.value)}` : ""));
+            }
+            return bits.join(" · ");
         },
 
         upgradePlans() {
