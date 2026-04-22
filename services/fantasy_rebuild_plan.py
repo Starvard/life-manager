@@ -400,6 +400,202 @@ def _find_player_upgrade(
     return (target_name, reason)
 
 
+def _parse_pick_slot(name: str) -> tuple[int, int] | None:
+    """Return (round, pick_in_round) from FantasyCalc pick name '2026 Pick 1.01'."""
+    m = re.match(r"^(\d{4})\s+Pick\s+(\d+)\.(\d+)", (name or "").strip())
+    if not m:
+        return None
+    return int(m.group(2)), int(m.group(3))
+
+
+def _top_rookie_pick_names(rows: list[dict], season: str, rnd: int, limit: int = 6) -> list[str]:
+    """Highest-valued rookie pick rows for a season/round (by FantasyCalc)."""
+    season = str(season)
+    cands: list[tuple[float, str]] = []
+    for row in rows:
+        pl = row.get("player") or {}
+        if pl.get("position") != "PICK":
+            continue
+        name = (pl.get("name") or "").strip()
+        slot = _parse_pick_slot(name)
+        if not slot or slot[0] != rnd:
+            continue
+        if not name.startswith(season):
+            continue
+        try:
+            val = float(row.get("value") or 0)
+        except (TypeError, ValueError):
+            val = 0.0
+        cands.append((val, name))
+    cands.sort(key=lambda x: -x[0])
+    return [n for _, n in cands[:limit]]
+
+
+def _draft_capital_summary(snapshot: dict, season: str) -> str:
+    picks = snapshot.get("draft_picks") or []
+    if not picks:
+        return ""
+    by_r: dict[int, int] = {}
+    for p in picks:
+        if str(p.get("season") or "") != season:
+            continue
+        try:
+            r = int(p.get("round") or 0)
+        except (TypeError, ValueError):
+            r = 0
+        if r <= 0:
+            continue
+        by_r[r] = by_r.get(r, 0) + 1
+    if not by_r:
+        return ""
+    parts = [f"{by_r[r]}×R{r}" for r in sorted(by_r)]
+    return f"{season} capital: " + ", ".join(parts)
+
+
+def _target_depth_by_pos(num_qbs: int) -> dict[str, int]:
+    """Rough roster targets for a rebuild (offense only)."""
+    qb_t = 4 if num_qbs >= 2 else 2
+    return {"QB": qb_t, "RB": 4, "WR": 5, "TE": 2}
+
+
+def _weak_starter_counts(best_lineup: dict | None) -> dict[str, int]:
+    out = {"QB": 0, "RB": 0, "WR": 0, "TE": 0}
+    if not best_lineup or not isinstance(best_lineup, dict):
+        return out
+    for s in best_lineup.get("slots") or []:
+        if not isinstance(s, dict):
+            continue
+        if not s.get("is_weak") and not s.get("is_empty"):
+            continue
+        pos = (s.get("pos") or "").upper()
+        if pos in out:
+            out[pos] += 1
+    return out
+
+
+def _count_owned_by_pos(snapshot: dict, vmap: dict[str, dict]) -> dict[str, int]:
+    counts = {"QB": 0, "RB": 0, "WR": 0, "TE": 0}
+    for pid in _owned_player_ids(snapshot):
+        info = vmap.get(str(pid)) or {}
+        pos = (info.get("pos") or "").upper()
+        if pos in counts:
+            counts[pos] += 1
+        else:
+            meta = _player_meta_from_snapshot(str(pid), snapshot) or {}
+            p2 = (meta.get("pos") or "").upper()
+            if p2 in counts:
+                counts[p2] += 1
+    return counts
+
+
+def _best_owned_at_pos(snapshot: dict, vmap: dict[str, dict], pos: str, tiers: dict[str, dict]) -> dict | None:
+    pos = pos.upper()
+    best = None
+    best_val = -1.0
+    for pid in _owned_player_ids(snapshot):
+        info = vmap.get(str(pid)) or {}
+        meta = _player_meta_from_snapshot(str(pid), snapshot) or {}
+        p = (info.get("pos") or "").upper()
+        if p != pos:
+            p = (meta.get("pos") or "").upper()
+        if p != pos:
+            continue
+        try:
+            val = float(info.get("value") or 0)
+        except (TypeError, ValueError):
+            val = 0.0
+        if val > best_val:
+            best_val = val
+            name = info.get("name") or meta.get("name") or f"Player {pid}"
+            best = {"name": name, "value": val, "tier": _tier_for(val, pos, tiers)}
+    return best
+
+
+def build_position_strategy(
+    snapshot: dict,
+    vmap: dict[str, dict],
+    tiers: dict[str, dict],
+    best_lineup: dict | None,
+    settings: dict,
+    horizon_years: int,
+) -> list[dict]:
+    """
+    Per-position rebuild guidance: roster depth vs targets, weak starters,
+    and how to use picks (trade vs draft) without locking to one player.
+    """
+    h = _horizon_note(horizon_years)
+    try:
+        current_season = str(int(settings.get("season") or datetime.now(timezone.utc).year))
+    except (TypeError, ValueError):
+        current_season = str(datetime.now(timezone.utc).year)
+    num_qbs = int(settings.get("valuation_num_qbs") or 2)
+    targets = _target_depth_by_pos(num_qbs)
+    owned = _count_owned_by_pos(snapshot, vmap)
+    weak_n = _weak_starter_counts(best_lineup)
+    cap = _draft_capital_summary(snapshot, current_season)
+    pos_order = ("QB", "RB", "WR", "TE")
+    out: list[dict] = []
+
+    for pos in pos_order:
+        tgt = targets[pos]
+        n = owned.get(pos, 0)
+        gap = max(0, tgt - n)
+        surplus = max(0, n - tgt)
+        weak = weak_n.get(pos, 0)
+        best = _best_owned_at_pos(snapshot, vmap, pos, tiers)
+
+        lines: list[str] = []
+        if num_qbs >= 2 and pos == "QB":
+            lines.append(
+                "Superflex: treat a second startable QB as a roster pillar, not a bench luxury."
+            )
+        if weak > 0:
+            lines.append(
+                f"{weak} projected starter slot(s) at {pos} look thin in the best-lineup view — "
+                f"prioritize real starts over depth at other spots until this stabilizes."
+            )
+        if gap >= 2:
+            lines.append(
+                f"Depth target ~{tgt} at {pos}; you are short by about {gap}. "
+                f"Use early capital (1sts / young studs) here before padding elsewhere."
+            )
+        elif gap == 1:
+            lines.append(
+                f"One credible {pos} away from a healthy rebuild core — "
+                f"trade a pick package or a surplus position for a starter, or draft the best {pos} fit."
+            )
+        elif surplus >= 2 and (best is None or (best.get("tier") or "") in ("weak", "adequate", "unknown")):
+            lines.append(
+                f"You have extra {pos} bodies but no clear anchor — "
+                "consolidate: package 2-for-1 or attach a pick to climb a tier instead of holding six middling names."
+            )
+        elif surplus >= 1 and weak == 0 and best and (best.get("tier") or "") in ("elite", "solid"):
+            lines.append(
+                f"Strong {pos} anchor — fine to treat extras as trade collateral or taxi cuts, "
+                "not all as long-term keeps."
+            )
+        else:
+            lines.append(
+                f"About {n} rostered vs ~{tgt} target — balance draft hits with trades using your {h} lens."
+            )
+
+        if cap:
+            lines.append(cap + ". Early 1sts are for premium profiles (QB/RB/WR1 types), not depth.")
+
+        out.append({
+            "pos": pos,
+            "label": pos + (" / SFLEX" if pos == "QB" and num_qbs >= 2 else ""),
+            "owned": n,
+            "target_depth": tgt,
+            "gap": gap,
+            "surplus": surplus,
+            "weak_starters": weak,
+            "best_owned": best,
+            "lines": lines,
+        })
+    return out
+
+
 def _pick_plan_line(
     season: str,
     rnd: int,
@@ -486,6 +682,28 @@ def generate_rebuild_plan(state: dict) -> dict:
     tiers = _positional_tiers(vmap)
     state["best_lineup"] = build_best_lineup(snap, vmap, tiers)
     state["best_lineup_generated_at"] = datetime.now(timezone.utc).isoformat()
+
+    try:
+        season_for_board = int(settings.get("season") or datetime.now(timezone.utc).year)
+    except (TypeError, ValueError):
+        season_for_board = datetime.now(timezone.utc).year
+    season_board_str = str(season_for_board)
+    r1_pick_names = _top_rookie_pick_names(rows, season_board_str, 1, limit=8)
+    rookie_board_hint: str | None = None
+    if r1_pick_names:
+        sample = ", ".join(
+            re.sub(r"^\d{4}\s+Pick\s+", "", nm) for nm in r1_pick_names[:6]
+        )
+        rookie_board_hint = (
+            f"FantasyCalc's top-valued {season_board_str} R1 rookie slots (model board, not a must-draft): "
+            f"{sample}. Compare to your ranks; if the model loves one name you do not, shop the pick pre-draft."
+        )
+    state["rookie_board_hint"] = rookie_board_hint
+    state["position_strategy"] = build_position_strategy(
+        snap, vmap, tiers, state["best_lineup"], settings, horizon
+    )
+    state["position_strategy_generated_at"] = datetime.now(timezone.utc).isoformat()
+
     board = state.setdefault("rebuild_board", {})
     assets = board.setdefault("assets", {})
     order = board.get("order") or []
@@ -506,6 +724,28 @@ def generate_rebuild_plan(state: dict) -> dict:
         current_season = int(settings.get("season") or datetime.now(timezone.utc).year)
     except (TypeError, ValueError):
         current_season = datetime.now(timezone.utc).year
+
+    lines.append("BY POSITION — depth, bench vs trade, draft capital")
+    lines.append("")
+    if rookie_board_hint:
+        lines.append(rookie_board_hint)
+        lines.append("")
+    for row in state.get("position_strategy") or []:
+        if not isinstance(row, dict):
+            continue
+        label = row.get("label") or row.get("pos") or ""
+        bo = row.get("best_owned") if isinstance(row.get("best_owned"), dict) else None
+        top = ""
+        if bo and bo.get("name"):
+            top = f" Top on roster: {bo.get('name')}"
+            if bo.get("tier"):
+                top += f" ({bo.get('tier')})"
+        lines.append(
+            f"{label}: {row.get('owned', 0)} rostered vs ~{row.get('target_depth', 0)} target depth.{top}"
+        )
+        for ln in row.get("lines") or []:
+            lines.append(f"  • {ln}")
+        lines.append("")
 
     def _apply_auto(ast: dict, target: str, rationale: str, auto_text: str):
         """Write auto plan fields, preserving any user-edited desired_upgrade."""
