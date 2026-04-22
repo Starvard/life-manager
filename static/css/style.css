@@ -337,6 +337,8 @@ button.budget-summary-card:focus-visible {
 }
 .budget-summary-label { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
 .budget-summary-value { font-size: 1.4rem; font-weight: 700; margin-top: 0.1rem; color: var(--text-bright); }
+.budget-summary-sub { font-size: 0.65rem; line-height: 1.35; margin-top: 0.35rem; max-width: 100%; }
+.budget-summary-hint { font-weight: 500; text-transform: none; letter-spacing: 0; opacity: 0.85; }
 .budget-income { border-left-color: var(--success); }
 .budget-income .budget-summary-value { color: var(--success); }
 .budget-expenses { border-left-color: var(--danger); }
@@ -917,6 +919,7 @@ button.budget-summary-card:focus-visible {
 .budget-status-list { display: flex; flex-direction: column; gap: 0.55rem; }
 .budget-status-row { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: var(--radius); padding: 0.7rem 0.95rem; }
 .budget-status-row.over { border-left-color: var(--danger); }
+.budget-status-row-card-pay { border-left-color: #7c3aed; background: rgba(124,58,237,0.06); }
 .budget-status-row-head { display: flex; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.4rem; font-size: 0.92rem; }
 .budget-status-cat { font-weight: 600; color: var(--text-bright); }
 .budget-status-spent { color: var(--text); }
@@ -1006,6 +1009,34 @@ button.budget-summary-card:focus-visible {
     font-size: 0.88rem; font-weight: 700; font-variant-numeric: tabular-nums;
     color: var(--success); flex-shrink: 0;
 }
+
+.budget-cashflow-strip {
+    margin: -0.35rem 0 1.25rem;
+    padding: 0.75rem 0.95rem;
+    background: var(--surface-hover);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+.budget-cf-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.35rem; }
+.budget-cf-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+.budget-cf-hint { font-size: 0.75rem; line-height: 1.45; margin: 0 0 0.65rem; }
+.budget-spend-split-track {
+    display: flex; width: 100%; height: 12px; border-radius: 999px; overflow: hidden;
+    background: var(--surface-active); border: 1px solid var(--border);
+}
+.budget-spend-split-fill { min-width: 0; transition: flex 0.25s ease; }
+.budget-spend-split-lifestyle { background: linear-gradient(90deg, #f87171 0%, #ef4444 100%); }
+.budget-spend-split-card { background: linear-gradient(90deg, #a78bfa 0%, #7c3aed 100%); }
+.budget-spend-split-legend {
+    display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; margin-top: 0.5rem;
+    font-size: 0.75rem; color: var(--text-muted);
+}
+.budget-spend-split-legend strong { color: var(--text-bright); font-weight: 600; }
+.budget-spend-dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.35rem; vertical-align: middle;
+}
+.budget-spend-dot.lifestyle { background: #ef4444; }
+.budget-spend-dot.card { background: #7c3aed; }
 
 /* ── Home Recipes ───────────────────────────────────────────── */
 .rcp-tabs { display: flex; gap: 0.25rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); flex-wrap: wrap; }

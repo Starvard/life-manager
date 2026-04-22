@@ -37,17 +37,23 @@
 {# ── Quick Status (Over / Under budget) ───────────────────────── #}
 <div class="budget-summary">
     <button type="button" class="budget-summary-card budget-income budget-summary-card-btn"
-            @click="openIncomeBreakdown()" title="Show income by category">
+            @click="openIncomeBreakdown()" title="Show income by category (card refunds shown separately below when present)">
         <div class="budget-summary-label">Income</div>
-        <div class="budget-summary-value" x-text="formatMoney(report.total_income)"></div>
+        <div class="budget-summary-value" x-text="formatMoney(lifestyleIncome())"></div>
+        <div class="budget-summary-sub text-muted" x-show="hasCardPaymentSplit() && cardRefundIncome() > 0"
+             x-text="'+ ' + formatMoney(cardRefundIncome()) + ' card refunds (not salary)'"></div>
     </button>
     <div class="budget-summary-card budget-expenses">
         <div class="budget-summary-label">Spent</div>
-        <div class="budget-summary-value" x-text="formatMoney(Math.abs(report.total_expenses))"></div>
+        <div class="budget-summary-value" x-text="formatMoney(lifestyleSpentAbs())"></div>
+        <div class="budget-summary-sub text-muted" x-show="hasCardPaymentSplit()"
+             x-text="'Incl. ' + formatMoney(bankSpentAbs()) + ' from bank · ' + formatMoney(cardPayoffTotal()) + ' card payoffs'"></div>
     </div>
-    <div class="budget-summary-card" :class="report.net >= 0 ? 'budget-net-pos' : 'budget-net-neg'">
-        <div class="budget-summary-label">Net</div>
-        <div class="budget-summary-value" x-text="formatMoney(report.net)"></div>
+    <div class="budget-summary-card" :class="lifestyleNet() >= 0 ? 'budget-net-pos' : 'budget-net-neg'">
+        <div class="budget-summary-label">Net <span class="budget-summary-hint">(everyday)</span></div>
+        <div class="budget-summary-value" x-text="formatMoney(lifestyleNet())"></div>
+        <div class="budget-summary-sub text-muted" x-show="hasCardPaymentSplit()"
+             x-text="'All activity: ' + formatMoney(report.net)"></div>
     </div>
     <div class="budget-summary-card"
          :class="overallStatus().over ? 'budget-net-neg' : 'budget-net-pos'"
@@ -66,6 +72,26 @@
          x-show="!overallStatus().has_budget">
         <div class="budget-summary-label">Transactions</div>
         <div class="budget-summary-value" x-text="report.transaction_count"></div>
+    </div>
+</div>
+
+<div class="budget-cashflow-strip" x-show="hasCardPaymentSplit()" x-cloak>
+    <div class="budget-cf-head">
+        <span class="budget-cf-title">Where spending went</span>
+        <button type="button" class="btn btn-sm btn-outline" @click="goToCardPayments()">Card payoffs</button>
+    </div>
+    <p class="budget-cf-hint text-muted">
+        Card payoffs pay down charges already counted in groceries, shopping, etc.—so they are split out of the main “Spent” total and budget bar.
+    </p>
+    <div class="budget-spend-split-track" title="Share of outflows: everyday vs card payments">
+        <div class="budget-spend-split-fill budget-spend-split-lifestyle"
+             :style="'flex:' + lifestyleSpentAbs() + ' 1 0%'"></div>
+        <div class="budget-spend-split-fill budget-spend-split-card"
+             :style="'flex:' + cardPayoffTotal() + ' 1 0%'"></div>
+    </div>
+    <div class="budget-spend-split-legend">
+        <span><i class="budget-spend-dot lifestyle"></i> Everyday <strong x-text="formatMoney(lifestyleSpentAbs())"></strong></span>
+        <span><i class="budget-spend-dot card"></i> Card payoffs <strong x-text="formatMoney(cardPayoffTotal())"></strong></span>
     </div>
 </div>
 
@@ -115,7 +141,8 @@
     <h3 class="budget-report-title" x-show="(report.category_status || []).length > 0">By category</h3>
     <div class="budget-status-list">
         <template x-for="row in (report.category_status || [])" :key="row.category">
-            <div class="budget-status-row" :class="row.over ? 'over' : ''">
+            <div class="budget-status-row"
+                 :class="{ over: row.over, 'budget-status-row-card-pay': row.category === report.credit_card_payment_category }">
                 <div class="budget-status-row-head">
                     <span class="budget-status-cat" x-text="row.category"></span>
                     <span class="budget-status-spent">

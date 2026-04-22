@@ -495,6 +495,14 @@ document.addEventListener("alpine:init", () => {
             total_income: 0,
             total_expenses: 0,
             net: 0,
+            lifestyle_income: 0,
+            lifestyle_expenses: 0,
+            lifestyle_net: 0,
+            card_payment_income: 0,
+            card_payment_expense: 0,
+            card_payoff_total: 0,
+            card_payment_net: 0,
+            credit_card_payment_category: "💳 Credit Card Payments",
             transaction_count: 0,
             categories: [],
             income_breakdown: [],
@@ -924,6 +932,47 @@ document.addEventListener("alpine:init", () => {
             return this.report.overall_status || { has_budget: false, total_budget: 0, total_spent: 0, total_remaining: 0, percent: 0, over: false };
         },
 
+        lifestyleIncome() {
+            const v = this.report.lifestyle_income;
+            return v != null ? v : this.report.total_income;
+        },
+
+        lifestyleSpentAbs() {
+            const v = this.report.lifestyle_expenses;
+            if (v != null) return Math.abs(v);
+            return Math.abs(this.report.total_expenses || 0);
+        },
+
+        bankSpentAbs() {
+            return Math.abs(this.report.total_expenses || 0);
+        },
+
+        cardPayoffTotal() {
+            return Number(this.report.card_payoff_total) || 0;
+        },
+
+        cardRefundIncome() {
+            return Number(this.report.card_payment_income) || 0;
+        },
+
+        hasCardPaymentSplit() {
+            return this.cardPayoffTotal() > 0.005 || this.cardRefundIncome() > 0.005;
+        },
+
+        lifestyleNet() {
+            const v = this.report.lifestyle_net;
+            if (v != null) return v;
+            return Number(this.report.net) || 0;
+        },
+
+        goToCardPayments() {
+            const cat = this.report.credit_card_payment_category || "💳 Credit Card Payments";
+            this.filterCategory = cat;
+            this.searchQuery = "";
+            this.filterTxns();
+            this.view = "transactions";
+        },
+
         spentForCategory(cat) {
             const row = (this.report.category_status || []).find(r => r.category === cat);
             return row ? row.spent : 0;
@@ -947,6 +996,13 @@ document.addEventListener("alpine:init", () => {
             if (res.ok) {
                 const data = await res.json();
                 if (!Array.isArray(data.income_breakdown)) data.income_breakdown = [];
+                if (data.lifestyle_income == null) data.lifestyle_income = data.total_income;
+                if (data.lifestyle_expenses == null) data.lifestyle_expenses = data.total_expenses;
+                if (data.lifestyle_net == null) data.lifestyle_net = data.net;
+                if (data.card_payoff_total == null) data.card_payoff_total = 0;
+                if (data.credit_card_payment_category == null) {
+                    data.credit_card_payment_category = "💳 Credit Card Payments";
+                }
                 this.report = data;
             }
         },
