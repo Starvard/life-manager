@@ -503,6 +503,15 @@ document.addEventListener("alpine:init", () => {
             card_payoff_total: 0,
             card_payment_net: 0,
             credit_card_payment_category: "💳 Credit Card Payments",
+            projected: { income: 0, expenses: 0 },
+            card_compare: {
+                prior_month: "",
+                purchases_spend_prior_month: 0,
+                purchases_spend_this_month: 0,
+                card_payoffs_this_month: 0,
+                card_payoffs_prior_month: 0,
+            },
+            category_average_spend: {},
             transaction_count: 0,
             categories: [],
             income_breakdown: [],
@@ -559,6 +568,21 @@ document.addEventListener("alpine:init", () => {
         init() {
             if (!Array.isArray(this.report.income_breakdown)) {
                 this.report.income_breakdown = [];
+            }
+            if (!this.report.projected || typeof this.report.projected !== "object") {
+                this.report.projected = { income: 0, expenses: 0 };
+            }
+            if (!this.report.card_compare || typeof this.report.card_compare !== "object") {
+                this.report.card_compare = {
+                    prior_month: "",
+                    purchases_spend_prior_month: 0,
+                    purchases_spend_this_month: 0,
+                    card_payoffs_this_month: 0,
+                    card_payoffs_prior_month: 0,
+                };
+            }
+            if (!this.report.category_average_spend || typeof this.report.category_average_spend !== "object") {
+                this.report.category_average_spend = {};
             }
             if (!this.report.snapshot) {
                 this.report.snapshot = {
@@ -965,6 +989,43 @@ document.addEventListener("alpine:init", () => {
             return Number(this.report.net) || 0;
         },
 
+        projectedIncome() {
+            const p = this.report.projected;
+            if (p && p.income != null) return Number(p.income) || 0;
+            return Number(this.report.snapshot && this.report.snapshot.planned_income) || 0;
+        },
+
+        projectedSpend() {
+            const p = this.report.projected;
+            if (p && p.expenses != null) return Number(p.expenses) || 0;
+            return Number(this.report.snapshot && this.report.snapshot.planned_expenses) || 0;
+        },
+
+        projectedNet() {
+            return this.projectedIncome() - this.projectedSpend();
+        },
+
+        cardPurchasesPriorMonth() {
+            const c = this.report.card_compare;
+            if (!c) return 0;
+            return Number(c.purchases_spend_prior_month) || 0;
+        },
+
+        cardPayoffsPriorMonth() {
+            const c = this.report.card_compare;
+            if (!c) return 0;
+            return Number(c.card_payoffs_prior_month) || 0;
+        },
+
+        categoryAvgSpend(cat) {
+            const m = this.report.category_average_spend && this.report.category_average_spend[cat];
+            if (!m) return null;
+            const avg = m.average;
+            const mo = m.months;
+            if (avg == null || mo == null) return null;
+            return { average: avg, months: mo };
+        },
+
         goToCardPayments() {
             const cat = this.report.credit_card_payment_category || "💳 Credit Card Payments";
             this.filterCategory = cat;
@@ -1003,6 +1064,17 @@ document.addEventListener("alpine:init", () => {
                 if (data.credit_card_payment_category == null) {
                     data.credit_card_payment_category = "💳 Credit Card Payments";
                 }
+                if (!data.projected) data.projected = { income: 0, expenses: 0 };
+                if (!data.card_compare) {
+                    data.card_compare = {
+                        prior_month: "",
+                        purchases_spend_prior_month: 0,
+                        purchases_spend_this_month: 0,
+                        card_payoffs_this_month: 0,
+                        card_payoffs_prior_month: 0,
+                    };
+                }
+                if (!data.category_average_spend) data.category_average_spend = {};
                 this.report = data;
             }
         },
