@@ -9,6 +9,7 @@ Import meta:   data/budget/import_meta.json
 
 import json
 import os
+import shutil
 import threading
 from collections import defaultdict
 from datetime import datetime
@@ -335,8 +336,42 @@ def record_import(source_file: str, tx_count: int, fingerprint: str):
 
 # ── Category budgets (simple over/under) ─────────────────────────
 
+def bundled_default_budgets_path() -> str:
+    """Repo-shipped defaults (image filesystem), not the persistent volume."""
+    return os.path.join(config.BASE_DIR, "data", "budget", "budgets.json")
+
+
+def ensure_default_budget_limits_from_bundle() -> None:
+    """On Fly (LM_DATA_DIR=/data), the volume is seeded only once; later deploys
+    never re-copy new files from the image. If budgets.json on the volume is
+    missing or has no limits, copy the bundled repo defaults so the Budgets tab
+    is pre-filled after deploy.
+    """
+    repo_data = os.path.join(config.BASE_DIR, "data")
+    if os.path.normpath(config.DATA_DIR) == os.path.normpath(repo_data):
+        return
+    bundled = bundled_default_budgets_path()
+    if not os.path.isfile(bundled):
+        return
+    _ensure_dirs()
+    dest = config.BUDGET_BUDGETS_FILE
+    existing = _load_json(dest)
+    limits = (
+        existing.get("limits")
+        if isinstance(existing, dict) and isinstance(existing.get("limits"), dict)
+        else {}
+    )
+    if limits:
+        return
+    try:
+        shutil.copy2(bundled, dest)
+    except OSError:
+        return
+
+
 def load_budgets() -> dict:
     """Return {category: monthly_limit} map. Stored in budgets.json."""
+    ensure_default_budget_limits_from_bundle()
     _ensure_dirs()
     data = _load_json(config.BUDGET_BUDGETS_FILE)
     if isinstance(data, dict) and isinstance(data.get("limits"), dict):
