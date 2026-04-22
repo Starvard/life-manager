@@ -13,6 +13,7 @@ import threading
 from datetime import datetime
 
 import config
+from services.budget_category_list import CREDIT_CARD_PAYMENT_CATEGORY
 
 _file_locks: dict[str, threading.Lock] = {}
 _locks_lock = threading.Lock()
@@ -331,6 +332,8 @@ def compute_monthly_report(month: str) -> dict:
     total_income = 0.0
     total_expenses = 0.0
     by_category: dict[str, float] = {}
+    card_payment_income = 0.0
+    card_payment_expense = 0.0
 
     for tx in txns:
         if tx.get("is_duplicate"):
@@ -339,6 +342,12 @@ def compute_monthly_report(month: str) -> dict:
         cat = get_display_category(tx) or "Other"
 
         by_category[cat] = by_category.get(cat, 0) + amt
+
+        if cat == CREDIT_CARD_PAYMENT_CATEGORY:
+            if amt > 0:
+                card_payment_income += amt
+            else:
+                card_payment_expense += amt
 
         if amt > 0:
             total_income += amt
@@ -351,12 +360,21 @@ def compute_monthly_report(month: str) -> dict:
     for cat, raw in by_category.items():
         if raw <= 0:
             continue
+        if cat == CREDIT_CARD_PAYMENT_CATEGORY:
+            continue
         income_breakdown.append({"category": cat, "total": round(raw, 2)})
     income_breakdown.sort(key=lambda r: (-r["total"], r["category"]))
 
     cat_breakdown = []
     for cat, total in sorted(by_category.items(), key=lambda x: x[1]):
         cat_breakdown.append({"category": cat, "total": round(total, 2)})
+
+    # Lifestyle vs card payoffs (double-count with card charges otherwise confuses totals).
+    lifestyle_income = round(total_income - card_payment_income, 2)
+    lifestyle_expenses = round(total_expenses - card_payment_expense, 2)
+    lifestyle_net = round(lifestyle_income + lifestyle_expenses, 2)
+    card_payoff_total = round(abs(card_payment_expense), 2)
+    card_payment_net = round(card_payment_income + card_payment_expense, 2)
 
     # Simple budget status: per-category over/under, and overall.
     category_status: list[dict] = []
@@ -406,12 +424,15 @@ def compute_monthly_report(month: str) -> dict:
         )
     category_status.sort(key=lambda r: (r.get("no_budget", False), -r["spent"]))
 
-    total_budget_limit = sum(v for k, v in budgets.items() if k.lower() != "income")
-    total_spent = abs(total_expenses)
+    total_budget_limit = sum(
+        v for k, v in budgets.items() if k.lower() != "income" and k != CREDIT_CARD_PAYMENT_CATEGORY
+    )
+    # Spending bar: exclude card payoffs (they settle card purchases already in other categories).
+    total_spent = abs(total_expenses) - abs(card_payment_expense)
     overall_status = {
         "total_budget": round(total_budget_limit, 2),
-        "total_spent": round(total_spent, 2),
-        "total_remaining": round(total_budget_limit - total_spent, 2),
+        "total_spent": round(max(0.0, total_spent), 2),
+        "total_remaining": round(total_budget_limit - max(0.0, total_spent), 2),
         "over": bool(total_budget_limit > 0 and total_spent > total_budget_limit),
         "percent": round((total_spent / total_budget_limit * 100), 1)
         if total_budget_limit > 0
@@ -438,12 +459,14 @@ def compute_monthly_report(month: str) -> dict:
     planned_expenses = sum(_sum_allocated(k) for k in expense_section_keys)
 
     actual_expenses = abs(total_expenses)
+    lifestyle_actual_expenses = abs(lifestyle_expenses)
     snapshot = {
         "planned_income": round(planned_income, 2),
         "actual_income": round(total_income, 2),
         "income_variance": round(planned_income - total_income, 2),
         "planned_expenses": round(planned_expenses, 2),
         "actual_expenses": round(actual_expenses, 2),
+        "lifestyle_actual_expenses": round(lifestyle_actual_expenses, 2),
         "expense_variance": round(planned_expenses - actual_expenses, 2),
         "planned_net": round(planned_income - planned_expenses, 2),
         "actual_net": round(net, 2),
@@ -457,6 +480,14 @@ def compute_monthly_report(month: str) -> dict:
         "total_income": round(total_income, 2),
         "total_expenses": round(total_expenses, 2),
         "net": round(net, 2),
+        "lifestyle_income": lifestyle_income,
+        "lifestyle_expenses": lifestyle_expenses,
+        "lifestyle_net": lifestyle_net,
+        "card_payment_income": round(card_payment_income, 2),
+        "card_payment_expense": round(card_payment_expense, 2),
+        "card_payoff_total": card_payoff_total,
+        "card_payment_net": card_payment_net,
+        "credit_card_payment_category": CREDIT_CARD_PAYMENT_CATEGORY,
         "transaction_count": len([t for t in txns if not t.get("is_duplicate")]),
         "income_breakdown": income_breakdown,
         "categories": cat_breakdown,

@@ -7,6 +7,9 @@ consistent. Edit this file to add/reorder categories app-wide.
 
 from __future__ import annotations
 
+# Used when separating card payoffs from "everyday" spending in reports.
+CREDIT_CARD_PAYMENT_CATEGORY = "💳 Credit Card Payments"
+
 # User-defined emoji categories — order is preserved in dropdowns and quick-pick grids.
 BUDGET_CATEGORY_ORDER: list[str] = [
     "🛒 Groceries",
