@@ -109,7 +109,7 @@ _DEFAULT_KEYWORD_RULES: list[tuple[str, str]] = [
     ("hbo", "🎉 Entertainment"),
     ("apple.com/bill", "👜 Amazon Prime"),
     ("icloud", "📸 Google One"),
-    ("youtube", "🎉 Entertainment"),
+    ("youtube", "🎭 YouTube"),
     ("prime video", "👜 Amazon Prime"),
     ("amazon prime", "👜 Amazon Prime"),
     ("audible", "👜 Amazon Prime"),
