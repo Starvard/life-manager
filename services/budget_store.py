@@ -617,20 +617,31 @@ def compute_monthly_report(month: str) -> dict:
     # Simple budget status: per-category over/under, and overall.
     category_status: list[dict] = []
     for cat, limit in budgets.items():
-        # For expense-style categories the spent total is the absolute value of
-        # negative sums. For income categories the "spent" concept doesn't
-        # apply — we still report progress toward the goal.
+        # Expense categories: negative raw → spent = abs(raw). Income-budget rows
+        # (Dyndrite, etc.): only **positive** flows count as received; a negative
+        # net (mis-tags / noise) must not use the expense formula or "remaining"
+        # becomes limit - abs(raw) (e.g. -$6k with no pay yet).
         raw = by_category.get(cat, 0.0)
-        if cat.lower() == "income" or raw >= 0:
-            spent = raw  # treat as income received
-            remaining = round(limit - spent, 2)
-            over = spent > limit and limit > 0
-            pct = (spent / limit * 100) if limit > 0 else 0
+        is_income_budget = cat in SALARY_INCOME_CATEGORY_NAMES or cat.lower() == "income"
+        if is_income_budget:
+            received = max(0.0, float(raw))
+            spent = received
+            remaining = round(float(limit) - received, 2)
+            over = received > float(limit) and float(limit) > 0
+            pct = (received / float(limit) * 100) if float(limit) > 0 else 0.0
+            kind = "income"
+        elif raw >= 0:
+            spent = float(raw)
+            remaining = round(float(limit) - spent, 2)
+            over = spent > float(limit) and float(limit) > 0
+            pct = (spent / float(limit) * 100) if float(limit) > 0 else 0.0
+            kind = "income"
         else:
-            spent = abs(raw)
-            remaining = round(limit - spent, 2)
-            over = spent > limit
-            pct = (spent / limit * 100) if limit > 0 else 0
+            spent = abs(float(raw))
+            remaining = round(float(limit) - spent, 2)
+            over = spent > float(limit)
+            pct = (spent / float(limit) * 100) if float(limit) > 0 else 0.0
+            kind = "expense"
         category_status.append(
             {
                 "category": cat,
@@ -639,7 +650,7 @@ def compute_monthly_report(month: str) -> dict:
                 "remaining": remaining,
                 "percent": round(pct, 1),
                 "over": bool(over),
-                "kind": "income" if (cat.lower() == "income" or raw >= 0) else "expense",
+                "kind": kind,
             }
         )
     # Also surface categories that have activity but no budget set
