@@ -382,6 +382,35 @@ button.budget-aag-link:hover { color: #99f6e4; }
 .budget-aag-card-row:last-of-type { border-bottom: none; }
 .budget-aag-card-row.muted { font-size: 0.78rem; opacity: 0.85; }
 .budget-aag-card-btn { margin-top: 0.75rem; width: 100%; }
+.budget-aag-salary-hint { font-size: 0.72rem; line-height: 1.4; margin: 0 0 0.5rem; }
+.budget-aag-salary-row {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 0.4rem 0.75rem; margin-bottom: 0.5rem; font-size: 0.8rem;
+}
+.budget-aag-salary-input-wrap { flex: 1; min-width: 7rem; max-width: 12rem; }
+.budget-aag-salary-input {
+    width: 100%; padding: 0.35rem 0.5rem; font-size: 0.88rem; border-radius: var(--radius, 6px);
+    border: 1px solid var(--border); background: var(--bg); color: var(--text-bright);
+}
+
+/* Cash flow bar chart (budget) */
+.budget-cashflow-card { margin-bottom: 1.25rem; }
+.budget-cashflow-bars {
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 0.25rem;
+    min-height: 120px; padding: 0.25rem 0 0;
+}
+.budget-cashflow-item { flex: 1; min-width: 0; text-align: center; }
+.budget-cashflow-bar-wrap {
+    height: 100px; margin: 0 auto; width: 100%; max-width: 2rem; display: flex;
+    flex-direction: column; justify-content: flex-end; align-items: stretch; border-bottom: 1px solid var(--border-light);
+}
+.budget-cashflow-bar {
+    width: 100%; border-radius: 3px 3px 0 0; min-height: 2px; transition: height 0.2s ease;
+}
+.budget-cashflow-bar.pos { background: linear-gradient(180deg, #34d399, #059669); }
+.budget-cashflow-bar.neg { background: linear-gradient(180deg, #f87171, #b91c1c); }
+.budget-cashflow-label { font-size: 0.62rem; color: var(--text-muted); margin-top: 0.35rem; line-height: 1.1; }
+.budget-cashflow-net { font-size: 0.8rem; margin: 0.6rem 0 0; font-weight: 600; }
 
 .budget-avg-col { min-width: 5.5rem; white-space: nowrap; }
 .budget-avg-hint { cursor: help; opacity: 0.55; font-weight: 400; }

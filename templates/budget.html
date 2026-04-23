@@ -39,13 +39,24 @@
     <div class="budget-aag-main card">
         <div class="budget-aag-grid">
             <div class="budget-aag-block">
-                <div class="budget-aag-label">Income</div>
+                <div class="budget-aag-label">Take-home income</div>
+                <p class="budget-aag-salary-hint text-muted">Set your expected pay (e.g. Dyndrite + Gusto). &ldquo;Projected&rdquo; in the bar uses this, not the Budgets tab.</p>
+                <div class="budget-aag-salary-row">
+                    <label for="budget-planned-salary" class="budget-aag-k">Planned for month</label>
+                    <div class="budget-aag-salary-input-wrap">
+                        <input id="budget-planned-salary" type="number" class="budget-aag-salary-input" min="0" step="1"
+                               x-model.number="plannedSalaryValue"
+                               @change="savePlannedSalary()"
+                               @blur="savePlannedSalary()"
+                               placeholder="e.g. 7863">
+                    </div>
+                </div>
                 <div class="budget-aag-row">
-                    <span class="budget-aag-k">Projected</span>
+                    <span class="budget-aag-k">Projected (plan)</span>
                     <span class="budget-aag-v" x-text="formatMoney(projectedIncome())"></span>
                 </div>
                 <div class="budget-aag-row">
-                    <span class="budget-aag-k">Actual</span>
+                    <span class="budget-aag-k">Actual (in bank)</span>
                     <button type="button" class="budget-aag-v budget-aag-link"
                             @click="openIncomeBreakdown()" x-text="formatMoney(lifestyleIncome())"></button>
                 </div>
@@ -53,16 +64,16 @@
             <div class="budget-aag-block">
                 <div class="budget-aag-label">Spend <span class="budget-aag-note">(purchases)</span></div>
                 <div class="budget-aag-row">
-                    <span class="budget-aag-k">Projected</span>
+                    <span class="budget-aag-k">Projected (plan)</span>
                     <span class="budget-aag-v" x-text="formatMoney(projectedSpend())"></span>
                 </div>
                 <div class="budget-aag-row">
-                    <span class="budget-aag-k">Actual</span>
+                    <span class="budget-aag-k">Actual (out of bank)</span>
                     <span class="budget-aag-v" x-text="formatMoney(lifestyleSpentAbs())"></span>
                 </div>
             </div>
             <div class="budget-aag-block budget-aag-net">
-                <div class="budget-aag-label">Net <span class="budget-aag-note">(purchases vs income)</span></div>
+                <div class="budget-aag-label">Cash flow <span class="budget-aag-note">(take-home &minus; card payoffs, vs spend)</span></div>
                 <div class="budget-aag-row">
                     <span class="budget-aag-k">Projected</span>
                     <span class="budget-aag-v" x-text="formatMoney(projectedNet())"></span>
@@ -99,9 +110,20 @@
     <div class="budget-aag-card card">
         <div class="budget-aag-card-title">Credit card</div>
         <p class="budget-aag-card-hint text-muted">
-            Purchases are counted above. This box is only payoffs and last month’s card spend for context.
+            Purchases are counted in Spend. Compare payoffs to <strong>last month’s</strong> take-home (what the card is typically clearing against).
         </p>
         <div class="budget-aag-card-rows">
+            <div class="budget-aag-card-row">
+                <span>Last month’s take-home
+                    <span class="text-muted" x-show="report.card_compare && report.card_compare.prior_month"
+                          x-text="'(' + report.card_compare.prior_month + ')'"></span>
+                </span>
+                <strong x-text="formatMoney(priorMonthSalaryIncome())"></strong>
+            </div>
+            <div class="budget-aag-card-row" x-show="cardPayoffTotal() > 0.005 && cardPayoffVsPriorSalary() != null">
+                <span>Card payoffs vs that income</span>
+                <strong x-text="(cardPayoffVsPriorSalary() == null) ? '—' : (cardPayoffVsPriorSalary().toFixed(0) + '%')"></strong>
+            </div>
             <div class="budget-aag-card-row">
                 <span>Last month card spend
                     <span class="text-muted" x-show="report.card_compare && report.card_compare.prior_month"
@@ -120,6 +142,24 @@
         </div>
         <button type="button" class="btn btn-sm btn-outline budget-aag-card-btn" @click="goToCardPayments()">View payoff transactions</button>
     </div>
+</div>
+
+<div class="card budget-cashflow-card" x-show="(report.cash_flow_series || []).length > 0" x-cloak>
+    <div class="card-title">Cash flow (last 12 months)</div>
+    <p class="text-muted" style="font-size:0.8rem; margin: 0 0 0.75rem;">Bar height = take-home in minus spending out (internal transfers ignored). Taller green = you kept more that month; red = more went out than came in as salary/take-home.</p>
+    <div class="budget-cashflow-bars" role="img" :aria-label="'Net by month, up to ' + (report.cash_flow_series || []).length + ' months'">
+        <template x-for="row in cashflowSeriesBars()" :key="row.month">
+            <div class="budget-cashflow-item" :title="row.month + ': ' + formatMoneySigned(row.net)">
+                <div class="budget-cashflow-bar-wrap">
+                    <div class="budget-cashflow-bar"
+                         :class="row.net >= 0 ? 'pos' : 'neg'"
+                         :style="'height:' + row.pct + '%'"></div>
+                </div>
+                <div class="budget-cashflow-label" x-text="cashflowBarLabel(row.month)"></div>
+            </div>
+        </template>
+    </div>
+    <p class="budget-cashflow-net" x-text="'This month (net): ' + formatMoneySigned(cashflowThisMonthNet())"></p>
 </div>
 
 {# ── Sub-tabs ──────────────────────────────────────────────── #}

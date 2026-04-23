@@ -43,6 +43,7 @@ from services.budget_store import (
     load_transactions, save_transactions,
     get_transactions_by_month, get_available_months,
     update_transaction, load_plan, save_plan, list_plan_months,
+    set_planned_salary,
     compute_monthly_report, record_import, load_import_meta,
     load_categories,
     load_overview,
@@ -1032,6 +1033,21 @@ def api_budget_set_one_budget(category):
     amount = body.get("amount")
     res = set_category_budget(category, amount)
     return jsonify({"ok": True, **res})
+
+
+@app.route("/api/budget/salary", methods=["PUT"])
+def api_budget_salary():
+    body = request.get_json(force=True) or {}
+    month = (body.get("month") or request.args.get("month") or "").strip()
+    if not month or len(month) < 7:
+        return jsonify({"ok": False, "error": "expected month YYYY-MM"}), 400
+    raw = body.get("salary", body.get("amount", 0))
+    try:
+        n = float(raw) if raw not in (None, "") else 0.0
+    except (TypeError, ValueError):
+        n = 0.0
+    set_planned_salary(month, n)
+    return jsonify({"ok": True, "plan": load_plan(month)})
 
 
 @app.route("/api/budget/recategorize", methods=["POST"])
