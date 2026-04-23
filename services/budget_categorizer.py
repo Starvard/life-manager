@@ -156,7 +156,11 @@ _DEFAULT_KEYWORD_RULES: list[tuple[str, str]] = [
     ("marriott", "🎉 Entertainment"),
     ("hilton", "🎉 Entertainment"),
     ("hyatt", "🎉 Entertainment"),
-    # Transfers / income
+    # Transfers / income (map known payors to salary bucket)
+    ("gusto", "🔥 Dyndrite"),
+    ("gusto pay", "🔥 Dyndrite"),
+    ("gusto, inc", "🔥 Dyndrite"),
+    ("dyndrite", "🔥 Dyndrite"),
     ("payroll", "💰 Other Income"),
     ("direct dep", "💰 Other Income"),
     ("paycheck", "💰 Other Income"),

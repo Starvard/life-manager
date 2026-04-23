@@ -572,6 +572,7 @@ document.addEventListener("alpine:init", () => {
         replaceFrom: "",
         replaceTo: "",
         replacingCat: false,
+        plannedSalaryValue: 0,
 
         init() {
             if (!Array.isArray(this.report.income_breakdown)) {
@@ -587,6 +588,8 @@ document.addEventListener("alpine:init", () => {
                     purchases_spend_this_month: 0,
                     card_payoffs_this_month: 0,
                     card_payoffs_prior_month: 0,
+                    prior_salary_income: 0,
+                    card_payoff_vs_salary_pct: null,
                 };
             }
             if (!this.report.category_average_spend || typeof this.report.category_average_spend !== "object") {
@@ -618,7 +621,7 @@ document.addEventListener("alpine:init", () => {
             }
             if (!this.plan.sections || Object.keys(this.plan.sections).length === 0) {
                 this.plan.sections = {
-                    income: { label: "Income", items: [] },
+                    income: { label: "Income", items: [], salary: 0 },
                     bills: { label: "Bills", items: [] },
                     savings: { label: "Savings", items: [] },
                     food_gas: { label: "Food & Gas", items: [] },
@@ -626,7 +629,15 @@ document.addEventListener("alpine:init", () => {
                     personal: { label: "Personal Care", items: [] },
                     misc: { label: "Misc", items: [] },
                 };
+            } else if (this.plan.sections.income && this.plan.sections.income.salary == null) {
+                this.plan.sections.income.salary = 0;
             }
+            this.syncPlannedSalaryFromPlan();
+        },
+
+        syncPlannedSalaryFromPlan() {
+            const s = (this.plan.sections && this.plan.sections.income) ? this.plan.sections.income.salary : 0;
+            this.plannedSalaryValue = s != null && s !== "" ? Number(s) : 0;
         },
 
         monthLabel(m) {
@@ -1025,6 +1036,60 @@ document.addEventListener("alpine:init", () => {
             return Number(c.card_payoffs_prior_month) || 0;
         },
 
+        priorMonthSalaryIncome() {
+            const c = this.report.card_compare;
+            if (!c) return 0;
+            if (c.prior_salary_income != null) return Number(c.prior_salary_income) || 0;
+            return 0;
+        },
+
+        cardPayoffVsPriorSalary() {
+            const c = this.report.card_compare;
+            if (!c) return null;
+            if (c.card_payoff_vs_salary_pct == null) return null;
+            return Number(c.card_payoff_vs_salary_pct);
+        },
+
+        async savePlannedSalary() {
+            let n = this.plannedSalaryValue;
+            if (n == null || n === "" || Number.isNaN(Number(n))) n = 0;
+            n = Math.max(0, Number(n));
+            this.plannedSalaryValue = n;
+            if (!this.plan.sections) this.plan.sections = {};
+            if (!this.plan.sections.income) this.plan.sections.income = { label: "Income", items: [] };
+            this.plan.sections.income.salary = n;
+            await api("PUT", "/api/budget/salary", { month: this.currentMonth, salary: n });
+            await this.refreshReport();
+        },
+
+        cashflowThisMonthNet() {
+            const rows = this.report.cash_flow_series || [];
+            const m = this.currentMonth;
+            const r = rows.find((x) => x.month === m);
+            return r ? Number(r.net) : (this.lifestyleNet() || 0);
+        },
+
+        cashflowBarLabel(m) {
+            if (!m || m.length < 7) return "";
+            const mo = parseInt(m.slice(5, 7), 10);
+            const short = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+            return (short[mo - 1] || "") + m.slice(2, 4);
+        },
+
+        cashflowSeriesBars() {
+            const rows = this.report.cash_flow_series || [];
+            if (!rows.length) return [];
+            const maxAbs = Math.max(1, ...rows.map((r) => Math.abs(Number(r.net) || 0)));
+            return rows.map((r) => {
+                const net = Number(r.net) || 0;
+                return {
+                    month: r.month,
+                    net,
+                    pct: (Math.abs(net) / maxAbs) * 100,
+                };
+            });
+        },
+
         categoryAvgSpend(cat) {
             const m = this.report.category_average_spend && this.report.category_average_spend[cat];
             if (!m) return null;
@@ -1080,10 +1145,21 @@ document.addEventListener("alpine:init", () => {
                         purchases_spend_this_month: 0,
                         card_payoffs_this_month: 0,
                         card_payoffs_prior_month: 0,
+                        prior_salary_income: 0,
+                        card_payoff_vs_salary_pct: null,
                     };
+                } else {
+                    if (data.card_compare.prior_salary_income == null) {
+                        data.card_compare.prior_salary_income = 0;
+                    }
                 }
+                if (!data.cash_flow_series) data.cash_flow_series = [];
                 if (!data.category_average_spend) data.category_average_spend = {};
                 this.report = data;
+                if (data.plan) {
+                    this.plan = data.plan;
+                    this.syncPlannedSalaryFromPlan();
+                }
             }
         },
 

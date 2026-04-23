@@ -9,13 +9,17 @@ Import meta:   data/budget/import_meta.json
 
 import json
 import os
-import shutil
 import threading
 from collections import defaultdict
 from datetime import datetime
 
 import config
-from services.budget_category_list import CREDIT_CARD_PAYMENT_CATEGORY
+from services.budget_category_list import (
+    BUDGET_CATEGORY_ORDER,
+    CREDIT_CARD_PAYMENT_CATEGORY,
+    INTERNAL_TRANSFER_CATEGORY,
+    SALARY_INCOME_CATEGORY_NAMES,
+)
 
 _file_locks: dict[str, threading.Lock] = {}
 _locks_lock = threading.Lock()
@@ -147,6 +151,10 @@ def _month_add(month: str, delta: int) -> str:
     return f"{ny:04d}-{nm + 1:02d}"
 
 
+def _is_salary_income_category(cat: str) -> bool:
+    return str(cat) in SALARY_INCOME_CATEGORY_NAMES
+
+
 def expense_totals_by_category(month: str) -> dict[str, float]:
     """Sum of absolute outflows per display category for a month (no duplicates)."""
     from services.budget_categorizer import get_display_category
@@ -235,6 +243,11 @@ def load_plan(month: str) -> dict:
     _ensure_dirs()
     data = _load_json(_plan_path(month))
     if isinstance(data, dict):
+        sec = (data.get("sections") or {}).get("income")
+        if isinstance(sec, dict) and "salary" not in sec:
+            sec = {**sec, "salary": 0}
+            out = {**data, "sections": {**data.get("sections", {}), "income": sec}}
+            return out
         return data
     return _default_plan(month)
 
@@ -245,11 +258,27 @@ def save_plan(month: str, plan: dict):
     _save_json(_plan_path(month), plan)
 
 
+def set_planned_salary(month: str, amount: float) -> dict:
+    plan = load_plan(month)
+    sections = dict(plan.get("sections") or {})
+    inc = dict(sections.get("income") or {})
+    n = max(0.0, round(float(amount or 0), 2))
+    inc["salary"] = n
+    if "label" not in inc:
+        inc["label"] = "Income"
+    if "items" not in inc:
+        inc["items"] = []
+    sections["income"] = inc
+    plan["sections"] = sections
+    save_plan(month, plan)
+    return plan
+
+
 def _default_plan(month: str) -> dict:
     return {
         "month": month,
         "sections": {
-            "income": {"label": "Income", "items": []},
+            "income": {"label": "Income", "items": [], "salary": 0},
             "bills": {"label": "Bills", "items": []},
             "savings": {"label": "Savings", "items": []},
             "food_gas": {"label": "Food & Gas", "items": []},
@@ -346,26 +375,89 @@ def _default_budgets_json_path() -> str:
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "budget_default_limits.json")
 
 
+def _strip_non_budget_limit_keys(nested: dict) -> dict:
+    d = dict(nested)
+    lims = d.get("limits")
+    if isinstance(lims, dict):
+        d["limits"] = {
+            k: v
+            for k, v in lims.items()
+            if str(k) not in SALARY_INCOME_CATEGORY_NAMES and str(k) != INTERNAL_TRANSFER_CATEGORY
+        }
+    return d
+
+
 def ensure_default_budget_limits_from_bundle() -> None:
-    """If budgets.json is missing or has an empty ``limits`` map, copy factory
-    defaults from the app image. Covers: Fly volume only seeded once; Docker
-    image without ``data/budget/``; first run on local ``./data``.
+    """Merge factory default expense limits; strip salary/transfer from stored limits.
+    Bumps ``defaults_version`` in ``budget_default_limits.json`` when new rows ship.
     """
     bundled = _default_budgets_json_path()
     if not os.path.isfile(bundled):
         return
+    raw = _load_json(bundled)
+    if not isinstance(raw, dict) or not isinstance(raw.get("limits"), dict):
+        return
+    factory: dict = raw["limits"]
+    try:
+        factory_version = int(raw.get("defaults_version", 0))
+    except (TypeError, ValueError):
+        factory_version = 0
+
     _ensure_dirs()
     dest = config.BUDGET_BUDGETS_FILE
     existing = _load_json(dest)
-    limits = (
-        existing.get("limits")
-        if isinstance(existing, dict) and isinstance(existing.get("limits"), dict)
-        else {}
-    )
-    if limits:
-        return
+    if not isinstance(existing, dict):
+        existing = {}
+    limits: dict = {}
+    if isinstance(existing.get("limits"), dict):
+        for k, v in existing["limits"].items():
+            ks = str(k)
+            if ks in SALARY_INCOME_CATEGORY_NAMES or ks == INTERNAL_TRANSFER_CATEGORY:
+                continue
+            try:
+                limits[ks] = float(v)
+            except (TypeError, ValueError):
+                pass
+
     try:
-        shutil.copy2(bundled, dest)
+        stored_version = int(existing.get("defaults_version", 0))
+    except (TypeError, ValueError):
+        stored_version = 0
+
+    raw_lims = existing.get("limits") if isinstance(existing.get("limits"), dict) else {}
+    must_strip = any(
+        str(k) in SALARY_INCOME_CATEGORY_NAMES or str(k) == INTERNAL_TRANSFER_CATEGORY
+        for k in raw_lims
+    )
+
+    prior_keys = set(limits.keys())
+    merged = dict(limits)
+    for cat in BUDGET_CATEGORY_ORDER:
+        if cat in SALARY_INCOME_CATEGORY_NAMES or cat == INTERNAL_TRANSFER_CATEGORY:
+            continue
+        if cat in factory and cat not in merged:
+            try:
+                merged[cat] = float(factory[cat])
+            except (TypeError, ValueError):
+                pass
+
+    if not merged and not prior_keys and not factory and not must_strip:
+        return
+    if (
+        set(merged.keys()) == prior_keys
+        and prior_keys
+        and stored_version >= factory_version
+        and existing.get("defaults_filled")
+        and not must_strip
+    ):
+        return
+
+    out = dict(_strip_non_budget_limit_keys(existing)) if existing else {}
+    out["limits"] = {k: round(merged[k], 2) for k in sorted(merged.keys(), key=str)}
+    out["defaults_filled"] = True
+    out["defaults_version"] = factory_version
+    try:
+        _save_json(dest, out)
     except OSError:
         return
 
@@ -376,10 +468,13 @@ def load_budgets() -> dict:
     _ensure_dirs()
     data = _load_json(config.BUDGET_BUDGETS_FILE)
     if isinstance(data, dict) and isinstance(data.get("limits"), dict):
-        out = {}
+        out: dict = {}
         for k, v in data["limits"].items():
+            ks = str(k)
+            if ks in SALARY_INCOME_CATEGORY_NAMES or ks == INTERNAL_TRANSFER_CATEGORY:
+                continue
             try:
-                out[str(k)] = float(v)
+                out[ks] = float(v)
             except (TypeError, ValueError):
                 continue
         return {"limits": out}
@@ -396,11 +491,25 @@ def save_budgets(limits: dict) -> None:
             amt = float(v)
         except (TypeError, ValueError):
             continue
-        cleaned[str(k).strip()] = round(amt, 2)
-    _save_json(config.BUDGET_BUDGETS_FILE, {"limits": cleaned})
+        ks = str(k).strip()
+        if ks in SALARY_INCOME_CATEGORY_NAMES or ks == INTERNAL_TRANSFER_CATEGORY:
+            continue
+        cleaned[ks] = round(amt, 2)
+    path = config.BUDGET_BUDGETS_FILE
+    root = _load_json(path) if os.path.isfile(path) else None
+    if not isinstance(root, dict):
+        root = {}
+    base = _strip_non_budget_limit_keys(root)
+    base["limits"] = dict(sorted(cleaned.items(), key=lambda kv: str(kv[0])))
+    _save_json(path, base)
 
 
 def set_category_budget(category: str, amount: float | None) -> dict:
+    if (
+        str(category) in SALARY_INCOME_CATEGORY_NAMES
+        or str(category) == INTERNAL_TRANSFER_CATEGORY
+    ):
+        return load_budgets()
     budgets = load_budgets()
     limits = dict(budgets.get("limits") or {})
     if amount is None or amount == "" or float(amount) <= 0:
@@ -433,6 +542,9 @@ def aggregate_month_financials(month: str) -> dict:
 
         by_category[cat] += amt
 
+        if cat == INTERNAL_TRANSFER_CATEGORY:
+            continue
+
         if cat == CREDIT_CARD_PAYMENT_CATEGORY:
             if amt > 0:
                 card_payment_income += amt
@@ -442,9 +554,13 @@ def aggregate_month_financials(month: str) -> dict:
             purchases_spend += abs(amt)
 
         if amt > 0:
-            total_income += amt
+            if _is_salary_income_category(cat):
+                total_income += amt
         else:
             total_expenses += amt
+
+    if INTERNAL_TRANSFER_CATEGORY in by_category:
+        by_category[INTERNAL_TRANSFER_CATEGORY] = 0.0
 
     lifestyle_income = round(total_income - card_payment_income, 2)
     lifestyle_expenses = round(total_expenses - card_payment_expense, 2)
@@ -467,6 +583,31 @@ def aggregate_month_financials(month: str) -> dict:
         "lifestyle_net": lifestyle_net,
         "purchases_spend": round(purchases_spend, 2),
     }
+
+
+def _planned_salary_from_plan(plan: dict) -> float:
+    sec = (plan or {}).get("sections") or {}
+    inc = sec.get("income") or {}
+    return float(inc.get("salary") or 0)
+
+
+def compute_cashflow_series(ending_month: str, n_months: int = 12) -> list[dict[str, float | str]]:
+    """Recent months' lifestyle net and in/out (for a simple bar chart; oldest first)."""
+    m0 = _month_add(ending_month, -(max(1, n_months) - 1))
+    out: list[dict[str, float | str]] = []
+    m = m0
+    while m <= ending_month:
+        a = aggregate_month_financials(m)
+        out.append(
+            {
+                "month": m,
+                "net": float(a["lifestyle_net"]),
+                "income": float(a["lifestyle_income"]),
+                "outflow": float(abs(a["lifestyle_expenses"])),
+            }
+        )
+        m = _month_add(m, 1)
+    return out
 
 
 def compute_monthly_report(month: str) -> dict:
@@ -493,12 +634,13 @@ def compute_monthly_report(month: str) -> dict:
     prior = aggregate_month_financials(prior_key)
     purchases_spend_prior = float(prior["purchases_spend"])
     card_payoffs_prior = float(prior["card_payoff_total"])
+    prior_salary_income = float(prior["lifestyle_income"])
 
     income_breakdown: list[dict] = []
     for cat, raw in by_category.items():
         if raw <= 0:
             continue
-        if cat == CREDIT_CARD_PAYMENT_CATEGORY:
+        if cat in (CREDIT_CARD_PAYMENT_CATEGORY, INTERNAL_TRANSFER_CATEGORY):
             continue
         income_breakdown.append({"category": cat, "total": round(raw, 2)})
     income_breakdown.sort(key=lambda r: (-r["total"], r["category"]))
@@ -512,6 +654,8 @@ def compute_monthly_report(month: str) -> dict:
     # Simple budget status: per-category over/under, and overall.
     category_status: list[dict] = []
     for cat, limit in budgets.items():
+        if cat == INTERNAL_TRANSFER_CATEGORY or cat in SALARY_INCOME_CATEGORY_NAMES:
+            continue
         # For expense-style categories the spent total is the absolute value of
         # negative sums. For income categories the "spent" concept doesn't
         # apply — we still report progress toward the goal.
@@ -541,6 +685,8 @@ def compute_monthly_report(month: str) -> dict:
     for cat, raw in by_category.items():
         if cat in budgets:
             continue
+        if cat == INTERNAL_TRANSFER_CATEGORY or cat in SALARY_INCOME_CATEGORY_NAMES:
+            continue
         if raw >= 0 and cat.lower() != "income":
             continue
         category_status.append(
@@ -558,7 +704,12 @@ def compute_monthly_report(month: str) -> dict:
     category_status.sort(key=lambda r: (r.get("no_budget", False), -r["spent"]))
 
     total_budget_limit = sum(
-        v for k, v in budgets.items() if k.lower() != "income" and k != CREDIT_CARD_PAYMENT_CATEGORY
+        v
+        for k, v in budgets.items()
+        if k.lower() != "income"
+        and k != CREDIT_CARD_PAYMENT_CATEGORY
+        and k not in SALARY_INCOME_CATEGORY_NAMES
+        and k != INTERNAL_TRANSFER_CATEGORY
     )
     # Spending bar: exclude card payoffs (they settle card purchases already in other categories).
     total_spent = abs(total_expenses) - abs(card_payment_expense)
@@ -580,7 +731,11 @@ def compute_monthly_report(month: str) -> dict:
         items = sec.get("items") or []
         return sum(float(i.get("allocated") or 0) for i in items)
 
-    planned_income = _sum_allocated("income")
+    planned_salary = _planned_salary_from_plan(plan)
+    sum_inc_items = _sum_allocated("income")
+    planned_income = (
+        float(planned_salary) if planned_salary and planned_salary > 0 else float(sum_inc_items)
+    )
     expense_section_keys = (
         "bills",
         "savings",
@@ -593,20 +748,29 @@ def compute_monthly_report(month: str) -> dict:
 
     actual_expenses = abs(total_expenses)
     lifestyle_actual_expenses = abs(lifestyle_expenses)
+    snap_actual_income = float(lifestyle_income)
     snapshot = {
         "planned_income": round(planned_income, 2),
-        "actual_income": round(total_income, 2),
-        "income_variance": round(planned_income - total_income, 2),
+        "actual_income": round(snap_actual_income, 2),
+        "income_variance": round(float(planned_income) - snap_actual_income, 2),
         "planned_expenses": round(planned_expenses, 2),
         "actual_expenses": round(actual_expenses, 2),
         "lifestyle_actual_expenses": round(lifestyle_actual_expenses, 2),
         "expense_variance": round(planned_expenses - actual_expenses, 2),
         "planned_net": round(planned_income - planned_expenses, 2),
-        "actual_net": round(net, 2),
-        "net_variance": round((planned_income - planned_expenses) - net, 2),
+        "actual_net": round(lifestyle_net, 2),
+        "net_variance": round(
+            (float(planned_income) - float(planned_expenses)) - float(lifestyle_net), 2
+        ),
         "has_planned_expenses": planned_expenses > 0,
         "has_planned_income": planned_income > 0,
     }
+
+    card_payoff_vs_salary = (
+        None
+        if prior_salary_income <= 0.005
+        else round((card_payoff_total / prior_salary_income) * 100, 1)
+    )
 
     return {
         "month": month,
@@ -631,12 +795,20 @@ def compute_monthly_report(month: str) -> dict:
             "purchases_spend_this_month": purchases_spend_this,
             "card_payoffs_this_month": card_payoff_total,
             "card_payoffs_prior_month": card_payoffs_prior,
+            "prior_salary_income": round(prior_salary_income, 2),
+            "card_payoff_vs_salary_pct": card_payoff_vs_salary,
         },
+        "cash_flow_series": compute_cashflow_series(month, 12),
+        "has_planned_salary": bool(planned_salary and float(planned_salary) > 0),
         "category_average_spend": category_average_spend,
         "transaction_count": len([t for t in txns if not t.get("is_duplicate")]),
         "income_breakdown": income_breakdown,
         "categories": cat_breakdown,
-        "has_plan": bool(plan.get("sections", {}).get("income", {}).get("items")),
+        "has_plan": bool(
+            plan.get("sections", {}).get("income", {}).get("items")
+        )
+        or (float(_planned_salary_from_plan(plan) or 0) > 0),
+        "plan": plan,
         "snapshot": snapshot,
         "category_status": category_status,
         "overall_status": overall_status,
