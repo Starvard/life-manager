@@ -32,7 +32,16 @@
             <li class="fantasy-best-row" :class="'fantasy-tier-' + (s.tier || 'unknown') + (s.is_weak ? ' fantasy-best-weak' : '')">
                 <span class="fantasy-best-slot" x-text="s.label"></span>
                 <span class="fantasy-best-player">
-                    <span class="fantasy-best-name" x-text="s.is_empty ? 'Empty' : s.name"></span>
+                    <button
+                        type="button"
+                        class="fantasy-best-name-btn"
+                        x-show="!s.is_empty &amp;&amp; s.player_id"
+                        @click="openPlayerRosterPlan(s.player_id)"
+                        :title="'Show plan in full roster'"
+                    >
+                        <span class="fantasy-best-name" x-text="s.name"></span>
+                    </button>
+                    <span class="fantasy-best-name" x-show="s.is_empty || !s.player_id" x-text="s.is_empty ? 'Empty' : s.name"></span>
                     <span class="fantasy-best-meta" x-text="bestMeta(s)"></span>
                 </span>
                 <span class="fantasy-best-tier" x-text="tierLabel(s)"></span>
@@ -68,13 +77,25 @@
 <template x-if="upgradePlans().length">
 <div class="card fantasy-upgrades-card">
     <div class="card-title">Upgrade plans — weak spots &amp; picks</div>
-    <p class="fantasy-hint">One plan per slot that needs improvement, plus every draft pick you own. Edit any plan to override.</p>
+    <p class="fantasy-hint">One plan per slot that needs improvement, plus every draft pick you own. Click a name to open the same plan in Full roster. Edit any plan to override.</p>
     <ul class="fantasy-upgrade-list">
         <template x-for="u in upgradePlans()" :key="u.aid">
             <li class="fantasy-upgrade-row">
                 <div class="fantasy-upgrade-head">
                     <span class="fantasy-upgrade-slot" :class="'fantasy-tier-' + (u.tier || 'unknown')" x-text="u.slotLabel"></span>
-                    <span class="fantasy-upgrade-name" x-text="u.name"></span>
+                    <button
+                        type="button"
+                        class="fantasy-upgrade-name-btn"
+                        x-show="!u.virtual &amp;&amp; u.aid &amp;&amp; u.aid.indexOf('virtual-') === -1"
+                        @click="openRosterPlanForAsset(u.aid)"
+                    >
+                        <span class="fantasy-upgrade-name" x-text="u.name"></span>
+                    </button>
+                    <span
+                        class="fantasy-upgrade-name"
+                        x-show="u.virtual || (u.aid &amp;&amp; u.aid.indexOf('virtual-') === 0)"
+                        x-text="u.name"
+                    ></span>
                     <span class="fantasy-upgrade-tier" x-text="u.tierLabel"></span>
                 </div>
                 <textarea
@@ -99,19 +120,34 @@
 </div>
 </template>
 
-<details class="fantasy-advanced">
+<details
+    class="fantasy-advanced"
+    :open="fantasyMoreOpen"
+    @toggle="fantasyMoreOpen = $event.target.open"
+>
     <summary>More (full roster, trade ideas, notes, settings)</summary>
     <div class="fantasy-advanced-body">
 
         <div class="fantasy-full-roster" x-show="rebuildBoard.order &amp;&amp; rebuildBoard.order.length">
-            <div class="fantasy-label">Full roster &amp; plans</div>
+            <div class="fantasy-label">Full roster &amp; plans <span class="fantasy-hint fantasy-hint--inline">(click a name in Best lineup to jump here)</span></div>
             <template x-for="group in groupedAssets()" :key="group.title">
                 <section class="fantasy-roster-group">
                     <h3 class="fantasy-roster-group-title" x-text="group.title"></h3>
                     <ul class="fantasy-roster-rows">
                         <template x-for="aid in group.ids" :key="aid">
-                            <li class="fantasy-roster-row">
-                                <div class="fantasy-roster-current">
+                            <li
+                                class="fantasy-roster-row"
+                                :class="{ 'fantasy-roster-row--highlighted': highlightedRosterAid === aid }"
+                            >
+                                <div
+                                    class="fantasy-roster-current fantasy-roster-current--clickable"
+                                    role="button"
+                                    tabindex="0"
+                                    @click="openRosterPlanForAsset(aid)"
+                                    @keydown.enter.prevent="openRosterPlanForAsset(aid)"
+                                    @keydown.space.prevent="openRosterPlanForAsset(aid)"
+                                    :title="rebuildBoard.assets[aid] &amp;&amp; rebuildBoard.assets[aid].kind === 'pick' ? 'Scroll to this pick plan' : 'Scroll to this player plan'"
+                                >
                                     <div class="fantasy-roster-name" x-text="currentLabel(aid)"></div>
                                     <div class="fantasy-roster-meta" x-text="currentMeta(aid)"></div>
                                 </div>
