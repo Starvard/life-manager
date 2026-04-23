@@ -1439,6 +1439,7 @@ document.addEventListener("alpine:init", () => {
         plan: { trade_ideas: [], rebuild_horizon_years: 3 },
         rebuildBoard: { order: [], assets: {} },
         bestLineup: null,
+        bestLineupWithAssumptions: null,
         positionStrategy: null,
         rookieBoardHint: null,
         positionStrategyGeneratedAt: null,
@@ -1457,6 +1458,12 @@ document.addEventListener("alpine:init", () => {
         /** Roster row aid to highlight after scroll (e.g. p-123) */
         highlightedRosterAid: null,
         _rosterHighlightTimer: null,
+
+        rosterModalOpen: false,
+        rosterModalAid: null,
+        rookieSearch: "",
+        rookieSearchResults: [],
+        rookieSearchLoading: false,
 
         init() {
             const el = document.getElementById("fantasy-bootstrap");
@@ -1489,9 +1496,15 @@ document.addEventListener("alpine:init", () => {
         applyState(state) {
             if (!state) return;
             this.settings = Object.assign({ trade_strategy: "rebuild" }, state.settings || {});
-            this.plan = Object.assign({ trade_ideas: [], rebuild_horizon_years: 3 }, state.plan || {});
+            this.plan = Object.assign({
+                trade_ideas: [],
+                rebuild_horizon_years: 3,
+                assumed_rookies: {},
+                project_rookies_into_lineup: false,
+            }, state.plan || {});
             if (!this.plan.trade_ideas) this.plan.trade_ideas = [];
             if (this.plan.rebuild_horizon_years == null) this.plan.rebuild_horizon_years = 3;
+            if (!this.plan.assumed_rookies) this.plan.assumed_rookies = {};
             this.rebuildBoard = state.rebuild_board || { order: [], assets: {} };
             if (!this.rebuildBoard.assets) this.rebuildBoard.assets = {};
             if (!this.rebuildBoard.order) this.rebuildBoard.order = [];
@@ -1504,6 +1517,7 @@ document.addEventListener("alpine:init", () => {
             this.positionStrategy = state.position_strategy || null;
             this.rookieBoardHint = state.rookie_board_hint || null;
             this.positionStrategyGeneratedAt = state.position_strategy_generated_at || null;
+            this.bestLineupWithAssumptions = state.best_lineup_with_assumptions || null;
         },
 
         async sync() {
@@ -1817,6 +1831,17 @@ document.addEventListener("alpine:init", () => {
          * Works for players and draft picks (a.k in rebuildBoard.assets).
          */
         openRosterPlanForAsset(aid) {
+            this.openAssetPlanModal(aid);
+        },
+
+        openPlayerRosterPlan(playerId) {
+            if (!playerId) {
+                return;
+            }
+            this.openAssetPlanModal("p-" + String(playerId));
+        },
+
+        openAssetPlanModal(aid) {
             if (!aid || (typeof aid === "string" && aid.indexOf("virtual-") === 0)) {
                 return;
             }
@@ -1824,32 +1849,145 @@ document.addEventListener("alpine:init", () => {
             if (!a) {
                 return;
             }
-            this.fantasyMoreOpen = true;
-            this.highlightedRosterAid = aid;
-            if (this._rosterHighlightTimer) {
-                clearTimeout(this._rosterHighlightTimer);
+            this.rosterModalAid = aid;
+            this.rosterModalOpen = true;
+            this.rookieSearch = "";
+            this.rookieSearchResults = [];
+            if (a.kind === "pick") {
+                this._fetchRookieList("");
             }
-            // Let <details> open and paint before scroll/focus
-            setTimeout(() => {
-                const ta = document.getElementById("rb-plan-" + aid);
-                if (ta) {
-                    ta.scrollIntoView({ behavior: "smooth", block: "center" });
-                    try {
-                        ta.focus({ preventScroll: true });
-                    } catch (e) { /* ignore */ }
-                }
-                this._rosterHighlightTimer = setTimeout(() => {
-                    this.highlightedRosterAid = null;
-                    this._rosterHighlightTimer = null;
-                }, 4000);
-            }, 80);
         },
 
-        openPlayerRosterPlan(playerId) {
-            if (!playerId) {
+        closeRosterPlanModal() {
+            this.rosterModalOpen = false;
+            this.rosterModalAid = null;
+        },
+
+        rosterModalHeader() {
+            if (!this.rosterModalAid) {
+                return "";
+            }
+            const a = (this.rebuildBoard.assets || {})[this.rosterModalAid];
+            if (!a) {
+                return "Plan";
+            }
+            if (a.kind === "pick") {
+                return a.label || a.pick_key || "Draft pick";
+            }
+            const pl = this._findPlayer(a.player_id);
+            return (pl && pl.name) || ("Player " + a.player_id);
+        },
+
+        async _fetchRookieList(q) {
+            this.rookieSearchLoading = true;
+            try {
+                const url = "/api/fantasy/players?q=" + encodeURIComponent((q || "").trim()) + "&limit=12";
+                const res = await fetch(url);
+                const d = await res.json();
+                this.rookieSearchResults = (d && d.players) || [];
+            } catch (e) {
+                this.rookieSearchResults = [];
+            }
+            this.rookieSearchLoading = false;
+        },
+
+        onRookieSearchInput() {
+            this._fetchRookieList(this.rookieSearch);
+        },
+
+        planTargetLine() {
+            if (!this.rosterModalAid) {
+                return "";
+            }
+            const a = (this.rebuildBoard.assets || {})[this.rosterModalAid];
+            if (!a) {
+                return "";
+            }
+            return a.plan_target || (a.desired_upgrade || "").split(".")[0] || "";
+        },
+
+        planRationaleText() {
+            if (!this.rosterModalAid) {
+                return "";
+            }
+            const a = (this.rebuildBoard.assets || {})[this.rosterModalAid];
+            if (!a) {
+                return "";
+            }
+            return a.plan_rationale || "";
+        },
+
+        assumedRookieName() {
+            if (!this.rosterModalAid) {
+                return null;
+            }
+            const a = (this.rebuildBoard.assets || {})[this.rosterModalAid];
+            if (!a || a.kind !== "pick") {
+                return null;
+            }
+            const ar = (this.plan.assumed_rookies || {})[this.rosterModalAid];
+            if (ar && ar.name) {
+                return ar.name;
+            }
+            const m = a.model_suggested_rookie;
+            if (m && m.name) {
+                return m.name;
+            }
+            return null;
+        },
+
+        setAssumedRookieFromSearch(p) {
+            if (!this.rosterModalAid || !p || !p.id) {
                 return;
             }
-            this.openRosterPlanForAsset("p-" + String(playerId));
+            const a = (this.rebuildBoard.assets || {})[this.rosterModalAid];
+            if (!a || a.kind !== "pick") {
+                return;
+            }
+            const ar = { ...(this.plan.assumed_rookies || {}) };
+            ar[this.rosterModalAid] = {
+                sleeper_player_id: p.id,
+                name: p.name,
+                pos: p.pos,
+                team: p.team,
+                source: "user",
+            };
+            this.plan.assumed_rookies = ar;
+            this.plan.project_rookies_into_lineup = true;
+            this.savePlan();
+        },
+
+        clearAssumedRookie() {
+            if (!this.rosterModalAid) {
+                return;
+            }
+            const a = (this.rebuildBoard.assets || {})[this.rosterModalAid];
+            if (!a || a.kind !== "pick") {
+                return;
+            }
+            const ar = { ...(this.plan.assumed_rookies || {}) };
+            delete ar[this.rosterModalAid];
+            this.plan.assumed_rookies = ar;
+            this.savePlan();
+        },
+
+        useModelSuggestedRookie() {
+            if (!this.rosterModalAid) {
+                return;
+            }
+            const a = (this.rebuildBoard.assets || {})[this.rosterModalAid];
+            const m = a && a.model_suggested_rookie;
+            if (!m || !m.player_id) {
+                return;
+            }
+            this.setAssumedRookieFromSearch({
+                id: m.player_id, name: m.name, pos: m.pos, team: "",
+            });
+        },
+
+        toggleProjectLineup() {
+            this.plan.project_rookies_into_lineup = !this.plan.project_rookies_into_lineup;
+            this.savePlan();
         },
     }));
 

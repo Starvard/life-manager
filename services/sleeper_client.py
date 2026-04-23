@@ -74,7 +74,14 @@ def fetch_league_users(league_id: str) -> list[dict]:
 # Only fields we actually use downstream when rendering rosters and trades.
 # Sleeper's full /players/nfl payload is ~5–8 MB on disk and ~25–50 MB once
 # parsed into Python objects — way too much to keep around on a 256 MB box.
-_PLAYER_FIELDS = ("first_name", "last_name", "full_name", "position", "team")
+_PLAYER_FIELDS = (
+    "first_name",
+    "last_name",
+    "full_name",
+    "position",
+    "team",
+    "years_exp",  # 0 = rookie, used for draft planning search
+)
 
 
 def _slim_players_map(raw: dict) -> dict:
@@ -94,6 +101,39 @@ def fetch_league_traded_picks(league_id: str) -> list[dict]:
         return []
     try:
         data = _get_json(f"{SLEEPER_BASE}/league/{lid}/traded_picks")
+    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError, OSError):
+        return []
+    return data if isinstance(data, list) else []
+
+
+def fetch_league_drafts(league_id: str) -> list[dict]:
+    lid = (league_id or "").strip()
+    if not lid:
+        return []
+    try:
+        data = _get_json(f"{SLEEPER_BASE}/league/{lid}/drafts")
+    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError, OSError):
+        return []
+    return data if isinstance(data, list) else []
+
+
+def fetch_draft(draft_id: str) -> dict | None:
+    did = (draft_id or "").strip()
+    if not did:
+        return None
+    try:
+        data = _get_json(f"{SLEEPER_BASE}/draft/{did}")
+    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError, OSError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def fetch_draft_traded_picks(draft_id: str) -> list[dict]:
+    did = (draft_id or "").strip()
+    if not did:
+        return []
+    try:
+        data = _get_json(f"{SLEEPER_BASE}/draft/{did}/traded_picks")
     except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError, OSError):
         return []
     return data if isinstance(data, list) else []

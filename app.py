@@ -71,6 +71,7 @@ from services.fantasy_store import (
     remove_trade_idea as fantasy_remove_trade_idea,
     apply_sync_snapshot as fantasy_apply_sync_snapshot,
 )
+from services.fantasy_sleeper import search_nfl_rookies_for_draft
 from services.fantasy_sleeper import sync_team as fantasy_sync_team
 from services.fantasy_trade_jobs import refresh_trade_suggestions as fantasy_refresh_trades
 from services import recipes_store, recipes_search
@@ -1210,6 +1211,17 @@ def fantasy_page():
 @app.route("/api/fantasy/state")
 def api_fantasy_state():
     return jsonify(fantasy_state_for_client(fantasy_load_state()))
+
+
+@app.route("/api/fantasy/players", methods=["GET"])
+def api_fantasy_players():
+    """Rookie (years_exp=0) QB/RB/WR/TE name search for draft planning. q may be empty for a short list."""
+    q = (request.args.get("q") or "").strip()
+    try:
+        lim = int(request.args.get("limit") or 12)
+    except (TypeError, ValueError):
+        lim = 12
+    return jsonify({"ok": True, "players": search_nfl_rookies_for_draft(q, limit=lim)})
 
 
 @app.route("/api/fantasy/settings", methods=["PUT"])

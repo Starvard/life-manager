@@ -726,6 +726,86 @@ button.budget-summary-card:focus-visible {
 .fantasy-suggest-note { font-size: 0.78rem; color: var(--text-muted); margin: 0.35rem 0 0; line-height: 1.45; }
 .fantasy-toolbar-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; }
 
+.fantasy-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 1.5rem 1rem;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+.fantasy-modal {
+    max-width: 32rem;
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    margin: auto 0;
+}
+.fantasy-modal-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem;
+    border-bottom: 1px solid var(--border-light);
+}
+.fantasy-modal-title { font-size: 1rem; font-weight: 700; color: var(--text-bright); margin: 0; line-height: 1.35; }
+.fantasy-modal-close {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.4rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+}
+.fantasy-modal-close:hover { color: var(--text); }
+.fantasy-modal-body { padding: 0.9rem 1rem 1.1rem; }
+.fantasy-modal-lead { font-size: 0.92rem; font-weight: 600; color: var(--text-bright); margin: 0 0 0.5rem; line-height: 1.4; }
+.fantasy-modal-rationale {
+    font-family: inherit;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--text);
+    margin: 0 0 0.75rem;
+    white-space: pre-wrap;
+    max-height: 9rem;
+    overflow-y: auto;
+    background: var(--surface-hover);
+    padding: 0.5rem 0.65rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-light);
+}
+.fantasy-pick-extras { display: flex; flex-direction: column; gap: 0.4rem; }
+.fantasy-assume-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.75rem; font-size: 0.88rem; margin: 0.5rem 0; }
+.fantasy-rookie-search { list-style: none; margin: 0.35rem 0 0; padding: 0; max-height: 10rem; overflow-y: auto; border: 1px solid var(--border-light); border-radius: var(--radius-sm); }
+.fantasy-rookie-search li { border-bottom: 1px solid var(--border-light); }
+.fantasy-rookie-search li:last-child { border-bottom: none; }
+.fantasy-rookie-pick {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 0.4rem 0.55rem;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+}
+.fantasy-rookie-pick:hover { background: var(--surface-hover); }
+.fantasy-rookie-pos { display: block; font-size: 0.72rem; color: var(--text-muted); }
+.fantasy-checkbox { display: flex; align-items: flex-start; gap: 0.45rem; font-size: 0.8rem; color: var(--text); margin-top: 0.5rem; }
+.fantasy-checkbox input { margin-top: 0.15rem; }
+.fantasy-best-projection { border-style: dashed; opacity: 0.98; }
+.fantasy-best-assumed { box-shadow: inset 0 0 0 1px rgba(150, 180, 255, 0.35); }
+
 /* ── Best starting lineup (top card) ───────────────────────── */
 .fantasy-best-card { margin-bottom: 1rem; }
 .fantasy-best-list { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
