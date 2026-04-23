@@ -967,6 +967,9 @@ document.addEventListener("alpine:init", () => {
         },
 
         lifestyleIncome() {
+            if (this.report.income_salary_actual != null) {
+                return Number(this.report.income_salary_actual) || 0;
+            }
             const v = this.report.lifestyle_income;
             return v != null ? v : this.report.total_income;
         },
@@ -1110,6 +1113,9 @@ document.addEventListener("alpine:init", () => {
                 const data = await res.json();
                 if (!Array.isArray(data.income_breakdown)) data.income_breakdown = [];
                 if (data.lifestyle_income == null) data.lifestyle_income = data.total_income;
+                if (data.income_salary_actual == null && data.lifestyle_income != null) {
+                    data.income_salary_actual = data.lifestyle_income;
+                }
                 if (data.lifestyle_expenses == null) data.lifestyle_expenses = data.total_expenses;
                 if (data.lifestyle_net == null) data.lifestyle_net = data.net;
                 if (data.card_payoff_total == null) data.card_payoff_total = 0;
