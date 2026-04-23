@@ -39,24 +39,17 @@
     <div class="budget-aag-main card">
         <div class="budget-aag-grid">
             <div class="budget-aag-block">
-                <div class="budget-aag-label">Take-home income</div>
-                <p class="budget-aag-salary-hint text-muted">Set your expected pay (e.g. Dyndrite + Gusto). &ldquo;Projected&rdquo; in the bar uses this, not the Budgets tab.</p>
-                <div class="budget-aag-salary-row">
-                    <label for="budget-planned-salary" class="budget-aag-k">Planned for month</label>
-                    <div class="budget-aag-salary-input-wrap">
-                        <input id="budget-planned-salary" type="number" class="budget-aag-salary-input" min="0" step="1"
-                               x-model.number="plannedSalaryValue"
-                               @change="savePlannedSalary()"
-                               @blur="savePlannedSalary()"
-                               placeholder="e.g. 7863">
-                    </div>
-                </div>
+                <div class="budget-aag-label">Income</div>
+                <p class="text-muted" style="font-size:0.75rem; margin:0 0 0.5rem; line-height:1.4;">
+                    <strong>Projected</strong> = sum of income rows on the <a href="#" @click.prevent="view='budgets'">Budgets</a> tab
+                    (Dyndrite, Other Income, etc.). <strong>Actual</strong> = deposits this month, excluding card refunds and internal transfers.
+                </p>
                 <div class="budget-aag-row">
-                    <span class="budget-aag-k">Projected (plan)</span>
+                    <span class="budget-aag-k">Projected</span>
                     <span class="budget-aag-v" x-text="formatMoney(projectedIncome())"></span>
                 </div>
                 <div class="budget-aag-row">
-                    <span class="budget-aag-k">Actual (in bank)</span>
+                    <span class="budget-aag-k">Actual</span>
                     <button type="button" class="budget-aag-v budget-aag-link"
                             @click="openIncomeBreakdown()" x-text="formatMoney(lifestyleIncome())"></button>
                 </div>
