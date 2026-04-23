@@ -1390,6 +1390,11 @@ document.addEventListener("alpine:init", () => {
         tradeRefreshing: false,
         tradeRefreshMsg: "",
         newIdea: "",
+        /** Open "More" when jumping to a roster plan from a click elsewhere */
+        fantasyMoreOpen: false,
+        /** Roster row aid to highlight after scroll (e.g. p-123) */
+        highlightedRosterAid: null,
+        _rosterHighlightTimer: null,
 
         init() {
             const el = document.getElementById("fantasy-bootstrap");
@@ -1743,6 +1748,46 @@ document.addEventListener("alpine:init", () => {
         async removeIdea(id) {
             const res = await api("DELETE", "/api/fantasy/trade-ideas/" + encodeURIComponent(id));
             if (res.ok && res.state) this.applyState(res.state);
+        },
+
+        /**
+         * Open the full roster section, scroll to this asset’s plan, focus the textarea.
+         * Works for players and draft picks (a.k in rebuildBoard.assets).
+         */
+        openRosterPlanForAsset(aid) {
+            if (!aid || (typeof aid === "string" && aid.indexOf("virtual-") === 0)) {
+                return;
+            }
+            const a = (this.rebuildBoard.assets || {})[aid];
+            if (!a) {
+                return;
+            }
+            this.fantasyMoreOpen = true;
+            this.highlightedRosterAid = aid;
+            if (this._rosterHighlightTimer) {
+                clearTimeout(this._rosterHighlightTimer);
+            }
+            // Let <details> open and paint before scroll/focus
+            setTimeout(() => {
+                const ta = document.getElementById("rb-plan-" + aid);
+                if (ta) {
+                    ta.scrollIntoView({ behavior: "smooth", block: "center" });
+                    try {
+                        ta.focus({ preventScroll: true });
+                    } catch (e) { /* ignore */ }
+                }
+                this._rosterHighlightTimer = setTimeout(() => {
+                    this.highlightedRosterAid = null;
+                    this._rosterHighlightTimer = null;
+                }, 4000);
+            }, 80);
+        },
+
+        openPlayerRosterPlan(playerId) {
+            if (!playerId) {
+                return;
+            }
+            this.openRosterPlanForAsset("p-" + String(playerId));
         },
     }));
 
