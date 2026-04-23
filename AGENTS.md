@@ -1,5 +1,7 @@
 # AGENTS.md
 
+**Maintainer process (merge policy, no pre-test merge, etc.):** see `AGENTS_PREFERENCES.md`.
+
 ## Cursor Cloud specific instructions
 
 ### Overview
@@ -33,8 +35,6 @@ See `DESIGN.md` for the full file map and architecture. Key entry point is `app.
 ### Git / PR workflow (this repo)
 
 For iterative work (including Fantasy and other features), **open a new branch and a new PR for each batch of changes** instead of stacking follow-ups on an already-merged branch. The maintainer merges each PR to test on `main`. Use branch names like `cursor/<topic>-87a8` (see cloud agent rules for the suffix).
-
-**Merge policy:** The maintainer does not pre-test in other environments; PRs are typically merged to `main` and validated by deploy. When finishing a change in this environment, use `gh pr merge` (or the GitHub UI) to land the work so it is not left unmerged.
 
 ### Gotchas
 
