@@ -629,6 +629,8 @@ document.addEventListener("alpine:init", () => {
                     misc: { label: "Misc", items: [] },
                 };
             }
+            // Fresh numbers from server (bypasses any stale HTML-embedded report / HTTP cache)
+            void this.refreshReport();
         },
 
         monthLabel(m) {
@@ -1112,7 +1114,10 @@ document.addEventListener("alpine:init", () => {
         },
 
         async refreshReport() {
-            const res = await fetch(`/api/budget/report?month=${this.currentMonth}`);
+            const res = await fetch(
+                `/api/budget/report?month=${this.currentMonth}&_=${Date.now()}`,
+                { cache: "no-store" }
+            );
             if (res.ok) {
                 const data = await res.json();
                 if (!Array.isArray(data.income_breakdown)) data.income_breakdown = [];
