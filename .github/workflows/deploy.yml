@@ -4,14 +4,41 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - run: flyctl deploy --remote-only
+      - name: Set deploy version from merged PR or short SHA
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          API="https://api.github.com/repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls"
+          JSON=$(curl -fsS -H "Accept: application/vnd.github+json" -H "Authorization: Bearer ${GH_TOKEN}" "$API" || true)
+          PR_NUM=$(printf '%s' "$JSON" | python3 -c 'import json,sys
+try:
+    a=json.load(sys.stdin)
+    print(a[0]["number"] if a else "", end="")
+except Exception:
+    pass' 2>/dev/null || true)
+          if [ -n "${PR_NUM}" ]; then
+            echo "label=pr${PR_NUM}" >> "$GITHUB_OUTPUT"
+          else
+            echo "label=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy
+        run: flyctl deploy --remote-only --build-arg "LM_APP_VERSION=${{ steps.version.outputs.label }}"
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

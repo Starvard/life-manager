@@ -15,6 +15,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Set at deploy time by CI to the merged PR (e.g. pr42); baked into the image for Home / healthz.
+ARG LM_APP_VERSION=
+ENV LM_APP_VERSION=${LM_APP_VERSION}
+
 # Data directory — mounted as persistent volume in production
 # Falls back to local ./data if no volume is mounted
 ENV LM_DATA_DIR=/data
