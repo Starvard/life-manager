@@ -9,6 +9,7 @@ from flask import (
 )
 
 import config
+from services.local_time import local_today
 
 _CACHE_BUST = str(int(time.time()))
 from services.routine_manager import load_routines, save_routines
@@ -131,20 +132,20 @@ def inject_network_url():
 
 def _default_week_key():
     """ISO week containing today (Mon–Sun). Matches /cards/day with no date param."""
-    return iso_week_key(week_start_date(date.today()))
+    return iso_week_key(week_start_date(local_today()))
 
 
 def _anchor_date_iso_for_week(week_key: str) -> str:
     """Pick a calendar date in week_key for Day-view links (prefer today if in-range)."""
     parts = week_key.split("-W")
     if len(parts) != 2:
-        return date.today().isoformat()
+        return local_today().isoformat()
     try:
         y, wn = int(parts[0]), int(parts[1])
         monday = date.fromisocalendar(y, wn, 1)
     except ValueError:
-        return date.today().isoformat()
-    today = date.today()
+        return local_today().isoformat()
+    today = local_today()
     sunday = monday + timedelta(days=6)
     if monday <= today <= sunday:
         return today.isoformat()
@@ -157,7 +158,7 @@ def _anchor_date_iso_for_week(week_key: str) -> str:
 def routine_nav_defaults():
     return {
         "routine_default_week": _default_week_key(),
-        "routine_today_iso": date.today().isoformat(),
+        "routine_today_iso": local_today().isoformat(),
     }
 
 
@@ -232,11 +233,11 @@ def cards_page():
 
 @app.route("/cards/day")
 def cards_day_page():
-    day_str = request.args.get("date", date.today().isoformat())
+    day_str = request.args.get("date", local_today().isoformat())
     try:
         selected_date = date.fromisoformat(day_str)
     except ValueError:
-        selected_date = date.today()
+        selected_date = local_today()
         day_str = selected_date.isoformat()
     monday = selected_date - timedelta(days=selected_date.weekday())
     wk = iso_week_key(monday)
@@ -258,7 +259,7 @@ def cards_day_page():
 
 @app.route("/baby")
 def baby_page():
-    d = request.args.get("date", date.today().isoformat())
+    d = request.args.get("date", local_today().isoformat())
     card = get_baby_card(d)
     days = list_baby_days()
     return render_template("baby.html", card_date=d, card=card, days=days)
@@ -1227,7 +1228,7 @@ def recipes_page():
             "menu_slots": recipes_store.MENU_SLOTS,
             "menu_targets": recipes_store.MENU_SLOT_TARGETS,
             "current_week": week_key,
-            "today": date.today().isoformat(),
+            "today": local_today().isoformat(),
         },
     )
 

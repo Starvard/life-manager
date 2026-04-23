@@ -162,9 +162,12 @@ document.addEventListener("alpine:init", () => {
             const nSched = _taskScheduledSlotCount(sched);
             const nFill = _taskTotalFillCount(days);
             const pool = Math.min(nSched, nFill);
+            const inherited = Math.max(0, Number(task.prev_week_overdue_streak) || 0);
             let streak = 0;
+            let brokeWithinWeek = false;
             for (let d = ti; d >= 0; d--) {
                 const sc = _schedInt(sched, d);
+                if (sc === 0) continue;
                 const row = days[d] || [];
                 let unmet = false;
                 for (let doi = 0; doi < sc; doi++) {
@@ -175,8 +178,9 @@ document.addEventListener("alpine:init", () => {
                     }
                 }
                 if (unmet) streak++;
-                else break;
+                else { brokeWithinWeek = true; break; }
             }
+            if (!brokeWithinWeek) streak += inherited;
             return streak > 0 ? Math.min(streak, 4) : 0;
         },
 
@@ -327,9 +331,12 @@ document.addEventListener("alpine:init", () => {
             const nSched = _taskScheduledSlotCount(sched);
             const nFill = _taskTotalFillCount(days);
             const pool = Math.min(nSched, nFill);
+            const inherited = Math.max(0, Number(task.prev_week_overdue_streak) || 0);
             let streak = 0;
+            let brokeWithinWeek = false;
             for (let d = ti; d >= 0; d--) {
                 const sc = _schedInt(sched, d);
+                if (sc === 0) continue;
                 const row = days[d] || [];
                 let unmet = false;
                 for (let doi = 0; doi < sc; doi++) {
@@ -340,8 +347,9 @@ document.addEventListener("alpine:init", () => {
                     }
                 }
                 if (unmet) streak++;
-                else break;
+                else { brokeWithinWeek = true; break; }
             }
+            if (!brokeWithinWeek) streak += inherited;
             return streak > 0 ? Math.min(streak, 4) : 0;
         },
 

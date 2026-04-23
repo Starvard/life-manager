@@ -50,12 +50,10 @@
         <template x-for="(task, ti) in card.tasks" :key="'t'+ti">
             <div class="day-task-row"
                  :class="{
-                    'row-muted': !hasDotsForDay(task),
-                    'routine-row-carryover': task.carryover
+                    'row-muted': !hasDotsForDay(task)
                  }">
                 <div class="day-task-name">
                     <span x-text="task.name"></span>
-                    <span class="carryover-badge" x-show="task.carryover" title="Rolled from last week">↩</span>
                 </div>
                 <div class="day-task-dots">
                     <template x-for="(filled, doi) in task.days[dayIdx]" :key="doi">

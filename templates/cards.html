@@ -68,12 +68,10 @@
     <template x-for="(task, ti) in card.tasks" :key="'t'+ti">
         <div class="routine-row"
              :class="{
-                'row-muted': task.scheduled && task.scheduled.every(s => s === 0),
-                'routine-row-carryover': task.carryover
+                'row-muted': task.scheduled && task.scheduled.every(s => s === 0)
              }">
             <div class="rg-task">
                 <span x-text="task.name"></span>
-                <span class="carryover-badge" x-show="task.carryover" title="Rolled from last week">↩</span>
             </div>
             <template x-for="(day, di) in task.days" :key="di">
                 <div class="rg-day">

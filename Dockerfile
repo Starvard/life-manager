@@ -2,9 +2,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system deps for reportlab/pillow
+# Install system deps for reportlab/pillow.
+# tzdata is needed so Python's zoneinfo can resolve the LM_TIMEZONE /
+# TZ setting (e.g. "America/New_York"); without it the container runs in
+# UTC and the routine rollover happens 4–5 hours early on the East Coast.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libjpeg62-turbo-dev zlib1g-dev libfreetype6-dev \
+    gcc libjpeg62-turbo-dev zlib1g-dev libfreetype6-dev tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
