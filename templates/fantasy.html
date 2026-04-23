@@ -37,12 +37,31 @@
                         class="fantasy-best-name-btn"
                         x-show="!s.is_empty &amp;&amp; s.player_id"
                         @click="openPlayerRosterPlan(s.player_id)"
-                        :title="'Show plan in full roster'"
+                        :title="'Open plan'"
                     >
                         <span class="fantasy-best-name" x-text="s.name"></span>
                     </button>
                     <span class="fantasy-best-name" x-show="s.is_empty || !s.player_id" x-text="s.is_empty ? 'Empty' : s.name"></span>
                     <span class="fantasy-best-meta" x-text="bestMeta(s)"></span>
+                </span>
+                <span class="fantasy-best-tier" x-text="tierLabel(s)"></span>
+            </li>
+        </template>
+    </ul>
+</div>
+</template>
+
+<template x-if="plan.project_rookies_into_lineup &amp;&amp; bestLineupWithAssumptions &amp;&amp; bestLineupWithAssumptions.slots &amp;&amp; bestLineupWithAssumptions.slots.length">
+<div class="card fantasy-best-card fantasy-best-projection">
+    <div class="card-title">Projected lineup (with assumed rookies)</div>
+    <p class="fantasy-hint">FantasyCalc values; draft picks you “assume” are merged in. Turn off in the pick plan modal if you only want your current roster.</p>
+    <ul class="fantasy-best-list">
+        <template x-for="s in bestLineupWithAssumptions.slots" :key="'proj-' + s.slot + '-' + (s.player_id || 'empty')">
+            <li class="fantasy-best-row" :class="'fantasy-tier-' + (s.tier || 'unknown') + (s.is_assumed ? ' fantasy-best-assumed' : '') + (s.is_weak ? ' fantasy-best-weak' : '')">
+                <span class="fantasy-best-slot" x-text="s.label"></span>
+                <span class="fantasy-best-player">
+                    <span class="fantasy-best-name" x-text="s.is_empty ? 'Empty' : s.name"></span>
+                    <span class="fantasy-best-meta" x-text="bestMeta(s) + (s.is_assumed ? ' · assumed' : '')"></span>
                 </span>
                 <span class="fantasy-best-tier" x-text="tierLabel(s)"></span>
             </li>
@@ -77,7 +96,7 @@
 <template x-if="upgradePlans().length">
 <div class="card fantasy-upgrades-card">
     <div class="card-title">Upgrade plans — weak spots &amp; picks</div>
-    <p class="fantasy-hint">One plan per slot that needs improvement, plus every draft pick you own. Click a name to open the same plan in Full roster. Edit any plan to override.</p>
+    <p class="fantasy-hint">One plan per slot that needs improvement, plus every draft pick you own. Click a name for a plan pop-up. Edit the plan in More if you want.</p>
     <ul class="fantasy-upgrade-list">
         <template x-for="u in upgradePlans()" :key="u.aid">
             <li class="fantasy-upgrade-row">
@@ -143,9 +162,9 @@
                                     class="fantasy-roster-current fantasy-roster-current--clickable"
                                     role="button"
                                     tabindex="0"
-                                    @click="openRosterPlanForAsset(aid)"
-                                    @keydown.enter.prevent="openRosterPlanForAsset(aid)"
-                                    @keydown.space.prevent="openRosterPlanForAsset(aid)"
+                                    @click.stop="openRosterPlanForAsset(aid)"
+                                    @keydown.enter.prevent.stop="openRosterPlanForAsset(aid)"
+                                    @keydown.space.prevent.stop="openRosterPlanForAsset(aid)"
                                     :title="rebuildBoard.assets[aid] &amp;&amp; rebuildBoard.assets[aid].kind === 'pick' ? 'Scroll to this pick plan' : 'Scroll to this player plan'"
                                 >
                                     <div class="fantasy-roster-name" x-text="currentLabel(aid)"></div>
@@ -286,7 +305,55 @@
     </div>
 </details>
 
-<p class="fantasy-error" x-show="lastTradeError" x-text="lastTradeError"></p>
+    <p class="fantasy-error" x-show="lastTradeError" x-text="lastTradeError"></p>
+
+    <div
+        class="fantasy-modal-backdrop"
+        x-cloak
+        x-show="rosterModalOpen"
+        @click.self="closeRosterPlanModal()"
+        @keydown.escape.window="closeRosterPlanModal()"
+    >
+        <div class="fantasy-modal" role="dialog" aria-modal="true" :aria-labelledby="'roster-modal-title'">
+            <div class="fantasy-modal-head">
+                <h2 class="fantasy-modal-title" id="roster-modal-title" x-text="rosterModalHeader()"></h2>
+                <button type="button" class="fantasy-modal-close" @click="closeRosterPlanModal()">&times;</button>
+            </div>
+            <div class="fantasy-modal-body" x-show="rosterModalAid &amp;&amp; rebuildBoard.assets[rosterModalAid]">
+                <p class="fantasy-modal-lead" x-text="planTargetLine()"></p>
+                <pre class="fantasy-modal-rationale" x-text="planRationaleText()"></pre>
+                <template x-if="rebuildBoard.assets[rosterModalAid] &amp;&amp; rebuildBoard.assets[rosterModalAid].kind === 'pick'">
+                    <div class="fantasy-pick-extras">
+                        <p class="fantasy-hint" x-text="(rebuildBoard.assets[rosterModalAid] &amp;&amp; rebuildBoard.assets[rosterModalAid].model_action_line) || ''"></p>
+                        <p class="fantasy-hint" x-text="(rebuildBoard.assets[rosterModalAid] &amp;&amp; rebuildBoard.assets[rosterModalAid].model_note) || ''"></p>
+                        <div class="fantasy-assume-row" x-show="(rebuildBoard.assets[rosterModalAid] &amp;&amp; rebuildBoard.assets[rosterModalAid].model_suggested_rookie)">
+                            <span class="fantasy-label">Assumed pick</span>
+                            <span x-text="assumedRookieName() || '—'"></span>
+                            <button type="button" class="btn btn-secondary btn-sm" @click="useModelSuggestedRookie()">Use model lean</button>
+                            <button type="button" class="btn btn-secondary btn-sm" @click="clearAssumedRookie()">Clear</button>
+                        </div>
+                        <label class="fantasy-label">Search rookies (type 2+ letters; uses cached Sleeper player file)</label>
+                        <input type="search" class="fantasy-input" x-model="rookieSearch" @input.debounce.300ms="onRookieSearchInput()" placeholder="e.g. Loveland">
+                        <p class="fantasy-hint" x-show="rookieSearchLoading">Searching…</p>
+                        <ul class="fantasy-rookie-search">
+                            <template x-for="p in rookieSearchResults" :key="p.id">
+                                <li>
+                                    <button type="button" class="fantasy-rookie-pick" @click="setAssumedRookieFromSearch(p)">
+                                        <span x-text="p.name"></span>
+                                        <span class="fantasy-rookie-pos" x-text="(p.pos || '') + (p.team ? ' · ' + p.team : '')"></span>
+                                    </button>
+                                </li>
+                            </template>
+                        </ul>
+                        <label class="fantasy-checkbox">
+                            <input type="checkbox" :checked="plan.project_rookies_into_lineup" @change="toggleProjectLineup()">
+                            <span>Project assumed rookies into the “Projected lineup” card above</span>
+                        </label>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
 
 </div>
 {% endblock %}

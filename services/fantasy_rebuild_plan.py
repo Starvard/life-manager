@@ -154,10 +154,214 @@ def _player_meta_from_snapshot(pid: str, snapshot: dict) -> dict | None:
     return None
 
 
+def _years_exp_from_fcrow(row: dict) -> int | None:
+    pl = row.get("player") or {}
+    ye = pl.get("yearsExp")
+    if ye is None:
+        return None
+    try:
+        return int(ye)
+    except (TypeError, ValueError):
+        return None
+
+
+def _rookie_qb_wr_rb_te_from_rows(
+    rows: list[dict], limit: int = 6
+) -> list[dict]:
+    """
+    Rookies (yearsExp == 0) at QB/RB/WR/TE, highest value first, for model suggestions.
+    """
+    out: list[dict] = []
+    cands: list[tuple[float, str, str, str]] = []
+    for row in rows:
+        pl = row.get("player") or {}
+        pos = (pl.get("position") or "").upper()
+        if pos not in ("QB", "RB", "WR", "TE"):
+            continue
+        if _years_exp_from_fcrow(row) != 0:
+            continue
+        sid = pl.get("sleeperId")
+        if not sid:
+            continue
+        try:
+            val = float(row.get("value") or 0)
+        except (TypeError, ValueError):
+            val = 0.0
+        name = pl.get("name") or str(sid)
+        cands.append((-val, str(sid), name, pos))
+    cands.sort()
+    for _neg, sid, name, pos in cands[: max(0, int(limit or 0))]:
+        out.append({
+            "player_id": sid,
+            "name": name,
+            "pos": pos,
+        })
+    return out
+
+
+def _fc_name_for_sleeper_pick(
+    season: str, display_slot: str | None, rnum: int, pick_in_round: int
+) -> str:
+    if display_slot and re.match(r"^\d+\.\d{1,2}$", display_slot.strip()):
+        return f"{str(season).strip()} Pick {display_slot.strip()}"
+    if rnum >= 1 and pick_in_round >= 1:
+        return f"{str(season).strip()} Pick {rnum}.{pick_in_round:02d}"
+    return ""
+
+
+def _rookie_suggestions_for_pick(
+    rows: list[dict],
+    season: str,
+    display_slot: str | None,
+) -> tuple[dict | None, list[dict], str, str, str | None]:
+    """
+    (top_rookie, alternates(2), action_line, model_note, fc_error)
+
+    Binds 1.01/1.02 in FantasyCalc to a pick token name when possible; otherwise
+    uses top model rookie as a generic early-R1 stand-in.
+    """
+    season = str(season).strip()
+    pslot = (display_slot or "").strip() if display_slot else ""
+    p_in_r = 1
+    m = re.match(r"^(\d+)\.(\d{1,2})$", pslot)
+    if m:
+        rnd_x = int(m.group(1))
+        p_in_r = int(m.group(2))
+    else:
+        rnd_x = 1
+
+    roster = _rookie_qb_wr_rb_te_from_rows(rows, limit=8)
+    top0 = roster[0] if roster else None
+    alts = roster[1:3] if len(roster) > 1 else []
+    if not top0:
+        return (
+            None, [], "No rookie rows in the model — try syncing after FantasyCalc updates.",
+            "FantasyCalc has no 0-exp QB/RB/WR/TE rows.", None,
+        )
+
+    fc_lbl = _fc_name_for_sleeper_pick(season, pslot, rnd_x, p_in_r)
+    matched_val: float | None = None
+    for row in rows:
+        pl = row.get("player") or {}
+        if pl.get("position") != "PICK":
+            continue
+        n = (pl.get("name") or "").strip()
+        if not fc_lbl or n != fc_lbl:
+            continue
+        try:
+            matched_val = float(row.get("value") or 0)
+        except (TypeError, ValueError):
+            matched_val = 0.0
+        break
+
+    if fc_lbl and matched_val is not None:
+        note = (
+            f"FantasyCalc’s pick token {fc_lbl} is the closest match to your {pslot} slot. "
+            f"Top 0-year prospect in the data right now: {top0.get('name')} — often aligned with 1.01, but check your own ranks before draft day."
+        )
+    elif rnd_x <= 1:
+        note = (
+            f"Model leans {top0.get('name')} ({top0.get('pos')}) among 0-year QB/RB/WR/TE in FantasyCalc — use as a planning stand-in, not a lock."
+        )
+    else:
+        note = (
+            f"Later pick — model highlights {top0.get('name')} as a reference rookie; your board thins a lot in R{rnd_x}."
+        )
+
+    aline = f"Leaning draft: {top0.get('name')} — compare to {', '.join(x.get('name') for x in alts) if alts else 'the rest of your list'}."
+    return (top0, alts, aline, note, fc_lbl or None)
+
+
+def _extra_pool_for_assumptions(
+    state: dict, vmap: dict[str, dict]
+) -> list[dict]:
+    plan = (state.get("plan") or {}) if isinstance(state.get("plan"), dict) else {}
+    if not plan.get("project_rookies_into_lineup"):
+        return []
+    raw = plan.get("assumed_rookies")
+    if not isinstance(raw, dict) or not raw:
+        return []
+    snap = state.get("cached_snapshot")
+    if not isinstance(snap, dict):
+        return []
+    out: list[dict] = []
+    board = (state.get("rebuild_board") or {}).get("assets") or {}
+    for aid, entry in raw.items():
+        if not isinstance(aid, str) or not aid.startswith("k-"):
+            continue
+        ast = board.get(aid)
+        if not isinstance(ast, dict) or ast.get("kind") != "pick":
+            continue
+        e = entry if isinstance(entry, dict) else {}
+        pid = str((e or {}).get("sleeper_player_id") or "").strip()
+        if not pid or pid == "0":
+            continue
+        info = vmap.get(pid) or {}
+        pos = (info.get("pos") or "").upper()
+        try:
+            val = float(info.get("value") or 0)
+        except (TypeError, ValueError):
+            val = 0.0
+        if not pos:
+            continue
+        name = info.get("name") or f"Player {pid}"
+        out.append({
+            "id": pid, "pos": pos, "value": val, "name": name, "team": "",
+            "assumed": True, "assumed_from_pick_aid": aid,
+        })
+    return out
+
+
+def apply_lineup_projection(
+    state: dict,
+    vmap: dict[str, dict] | None = None,
+    tiers: dict[str, dict] | None = None,
+) -> dict:
+    """
+    Recompute `best_lineup_with_assumptions` from plan.assumed_rookies.
+    Pass vmap + tiers from generate_rebuild_plan to avoid a second values fetch.
+    """
+    snap = state.get("cached_snapshot")
+    if not isinstance(snap, dict):
+        return state
+    plan = (state.get("plan") or {}) if isinstance(state.get("plan"), dict) else {}
+    if not plan.get("project_rookies_into_lineup") or not isinstance(
+        (plan.get("assumed_rookies") or {}), dict
+    ) or not plan.get("assumed_rookies"):
+        state["best_lineup_with_assumptions"] = None
+        state["best_lineup_with_assumptions_at"] = None
+        return state
+    if vmap is None or tiers is None:
+        s = (state.get("settings") or {})
+        num_qbs = int(s.get("valuation_num_qbs") or 2)
+        num_teams = int(s.get("valuation_num_teams") or 12)
+        ppr = float(s.get("valuation_ppr") or 1.0)
+        rows, _ = fantasycalc_client.fetch_dynasty_values(
+            num_qbs=num_qbs, num_teams=num_teams, ppr=ppr
+        )
+        if not rows:
+            state["best_lineup_with_assumptions"] = None
+            state["best_lineup_with_assumptions_at"] = None
+            return state
+        vmap = fantasycalc_client.values_by_sleeper_id(rows)
+        tiers = _positional_tiers(vmap)
+    extra = _extra_pool_for_assumptions(state, vmap)  # type: ignore
+    if not extra:
+        state["best_lineup_with_assumptions"] = None
+        state["best_lineup_with_assumptions_at"] = None
+        return state
+    state["best_lineup_with_assumptions"] = build_best_lineup(
+        snap, vmap, tiers, extra_pool=extra
+    )
+    state["best_lineup_with_assumptions_at"] = datetime.now(timezone.utc).isoformat()
+    return state
+
+
 def build_best_lineup(
     snapshot: dict,
     vmap: dict[str, dict],
     tiers: dict[str, dict],
+    extra_pool: list[dict] | None = None,
 ) -> dict:
     """
     Greedy best-lineup builder: for each starting slot in league.roster_positions,
@@ -185,6 +389,21 @@ def build_best_lineup(
             pos = (meta.get("pos") or "").upper()
         pool.append({
             "id": pid, "pos": pos, "value": val, "name": name, "team": team,
+        })
+
+    seen = {c["id"] for c in pool}
+    for c in extra_pool or []:
+        if not c or c.get("id") in seen:
+            continue
+        seen.add(c["id"])
+        pool.append({
+            "id": c["id"],
+            "pos": c.get("pos") or "",
+            "value": float(c.get("value") or 0),
+            "name": c.get("name") or f"Player {c.get('id')}",
+            "team": c.get("team") or "",
+            "assumed": c.get("assumed"),
+            "assumed_from_pick_aid": c.get("assumed_from_pick_aid"),
         })
 
     used: set[str] = set()
@@ -221,12 +440,13 @@ def build_best_lineup(
                 "pos": "",
                 "team": "",
                 "value": 0,
+                "is_assumed": False,
             })
             continue
         used.add(best["id"])
         tier = _tier_for(best["value"], best["pos"], tiers)
         is_weak = tier in ("weak", "unknown", "empty")
-        slots_out.append({
+        slot_row = {
             "slot": slot_raw,
             "label": _slot_display(slot),
             "is_empty": False,
@@ -237,7 +457,13 @@ def build_best_lineup(
             "pos": best["pos"],
             "team": best["team"],
             "value": best["value"],
-        })
+        }
+        if best.get("assumed"):
+            slot_row["is_assumed"] = True
+            slot_row["assumed_from_pick_aid"] = best.get("assumed_from_pick_aid")
+        else:
+            slot_row["is_assumed"] = False
+        slots_out.append(slot_row)
 
     # Also surface top unused bench asset (for trade or promote context)
     bench_leftovers = [c for c in pool if c["id"] not in used]
@@ -788,9 +1014,62 @@ def generate_rebuild_plan(state: dict) -> dict:
             tgt, why = _pick_plan_line(season, rnd, med, horizon, current_season)
             auto_text = f"{tgt}. {why}"
             _apply_auto(ast, tgt, why, auto_text)
+            # Model rookie board + what this pick likely targets (Sleeper 1.01 + FantasyCalc)
+            ds = str(ast.get("display_slot") or "").strip()
+            top_r, alts, aline, mnote, fc_tok = _rookie_suggestions_for_pick(
+                rows, season, ds if ds else None
+            )
+            ast["model_suggested_rookie"] = top_r
+            ast["model_rookie_alternates"] = alts
+            ast["model_action_line"] = aline
+            ast["model_note"] = mnote
+            if fc_tok:
+                ast["model_fc_pick_name"] = fc_tok
             lines.append(f"DRAFT PICK: {label}")
             lines.append(f"  Aim: {auto_text}")
+            if top_r and top_r.get("name"):
+                an = " / ".join(x.get("name") for x in (alts or []) if x and x.get("name"))
+                lines.append(
+                    f"  Model rookie lean: {top_r.get('name')} ({top_r.get('pos')})"
+                    + (f" (also watch {an})" if an else "")
+                )
+            if mnote:
+                lines.append(f"  {mnote}")
             lines.append("")
+
+    ar_map = (
+        {k: v for k, v in (plan.get("assumed_rookies") or {}).items()}
+        if isinstance(plan.get("assumed_rookies"), dict)
+        else {}
+    )
+    for aid2 in order:
+        ast2 = assets.get(aid2)
+        if not isinstance(ast2, dict) or ast2.get("kind") != "pick":
+            continue
+        top_r2 = ast2.get("model_suggested_rookie")
+        if not isinstance(top_r2, dict) or not top_r2.get("player_id"):
+            continue
+        try:
+            prn = int(ast2.get("round") or 0)
+        except (TypeError, ValueError):
+            prn = 0
+        ds2 = str(ast2.get("display_slot") or "").strip()
+        # Default first-round early picks to the model's top rookie if user has not chosen
+        if prn == 1 and (ds2 in ("1.01", "1.02", "") or not ds2):
+            ex = ar_map.get(aid2) if isinstance(ar_map.get(aid2), dict) else None
+            if not (ex and ex.get("sleeper_player_id")):
+                ar_map[aid2] = {
+                    "sleeper_player_id": str(top_r2.get("player_id") or "").strip(),
+                    "name": str(top_r2.get("name") or "").strip(),
+                    "source": "model_default",
+                }
+    if ar_map:
+        plan["assumed_rookies"] = ar_map
+
+    if not plan.get("project_rookies_into_lineup") and ar_map:
+        plan["project_rookies_into_lineup"] = True
+
+    apply_lineup_projection(state, vmap, tiers)
 
     doc = "\n".join(lines).strip()
     plan["rebuild_plan_doc"] = doc
