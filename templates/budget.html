@@ -623,7 +623,7 @@
             <button type="button" class="budget-modal-close" @click="closeIncomeModal()" aria-label="Close">&times;</button>
         </div>
         <p class="budget-modal-total text-muted" style="font-size:0.85rem;margin:0 0 0.75rem;">
-            Total: <strong x-text="formatMoney((report.income_salary_actual != null) ? report.income_salary_actual : (report.lifestyle_income != null ? report.lifestyle_income : report.total_income))"></strong>
+            Total: <strong x-text="formatMoney(lifestyleIncome())"></strong>
             <span class="text-muted" style="font-size:0.8rem;"> (income-budget categories)</span>
         </p>
         <div class="budget-income-rows" x-show="(report.income_breakdown || []).length > 0">
