@@ -162,6 +162,19 @@ def _projected_income_from_limits(limits: dict) -> float:
     return round(t, 2)
 
 
+def _income_salary_categories_actual(by_category: dict) -> float:
+    """Sum of **positive** flows in the salary / take-home budget categories (Dyndrite, etc.)."""
+    t = 0.0
+    for k in SALARY_INCOME_CATEGORY_NAMES:
+        try:
+            raw = float((by_category or {}).get(k) or 0)
+        except (TypeError, ValueError):
+            raw = 0.0
+        if raw > 0:
+            t += raw
+    return round(t, 2)
+
+
 def expense_totals_by_category(month: str) -> dict[str, float]:
     """Sum of absolute outflows per display category for a month (no duplicates)."""
     from services.budget_categorizer import get_display_category
@@ -507,7 +520,11 @@ def aggregate_month_financials(month: str) -> dict:
     if INTERNAL_TRANSFER_CATEGORY in by_category:
         by_category[INTERNAL_TRANSFER_CATEGORY] = 0.0
 
-    lifestyle_income = round(total_income - card_payment_income, 2)
+    # Inflows: everything positive except internal + card. Do NOT subtract card
+    # refunds from total (they are not in total_income); that produced bogus negatives.
+    lifestyle_income = round(total_income, 2)
+    # Banner "Actual" vs Projected (budget sum): only salary / income-budget rows
+    income_salary_actual = _income_salary_categories_actual(dict(by_category))
     lifestyle_expenses = round(total_expenses - card_payment_expense, 2)
     lifestyle_net = round(lifestyle_income + lifestyle_expenses, 2)
     card_payoff_total = round(abs(card_payment_expense), 2)
@@ -524,6 +541,7 @@ def aggregate_month_financials(month: str) -> dict:
         "card_payoff_total": card_payoff_total,
         "card_payment_net": card_payment_net,
         "lifestyle_income": lifestyle_income,
+        "income_salary_actual": income_salary_actual,
         "lifestyle_expenses": lifestyle_expenses,
         "lifestyle_net": lifestyle_net,
         "purchases_spend": round(purchases_spend, 2),
@@ -562,6 +580,7 @@ def compute_monthly_report(month: str) -> dict:
     card_payoff_total = float(cur["card_payoff_total"])
     card_payment_net = float(cur["card_payment_net"])
     lifestyle_income = float(cur["lifestyle_income"])
+    income_salary_actual = float(cur.get("income_salary_actual") or 0)
     lifestyle_expenses = float(cur["lifestyle_expenses"])
     lifestyle_net = float(cur["lifestyle_net"])
     purchases_spend_this = float(cur["purchases_spend"])
@@ -573,7 +592,11 @@ def compute_monthly_report(month: str) -> dict:
     prior = aggregate_month_financials(prior_key)
     purchases_spend_prior = float(prior["purchases_spend"])
     card_payoffs_prior = float(prior["card_payoff_total"])
-    prior_salary_income = float(prior["lifestyle_income"])
+    prior_salary_income = float(
+        prior.get("income_salary_actual")
+        or prior.get("lifestyle_income")
+        or 0
+    )
 
     income_breakdown: list[dict] = []
     for cat, raw in by_category.items():
@@ -581,7 +604,8 @@ def compute_monthly_report(month: str) -> dict:
             continue
         if cat in (CREDIT_CARD_PAYMENT_CATEGORY, INTERNAL_TRANSFER_CATEGORY):
             continue
-        income_breakdown.append({"category": cat, "total": round(raw, 2)})
+        if cat in SALARY_INCOME_CATEGORY_NAMES:
+            income_breakdown.append({"category": cat, "total": round(raw, 2)})
     income_breakdown.sort(key=lambda r: (-r["total"], r["category"]))
 
     cat_breakdown = []
@@ -679,7 +703,7 @@ def compute_monthly_report(month: str) -> dict:
 
     actual_expenses = abs(total_expenses)
     lifestyle_actual_expenses = abs(lifestyle_expenses)
-    snap_actual_income = float(lifestyle_income)
+    snap_actual_income = income_salary_actual
     snapshot = {
         "planned_income": round(planned_income, 2),
         "actual_income": round(snap_actual_income, 2),
@@ -709,6 +733,7 @@ def compute_monthly_report(month: str) -> dict:
         "total_expenses": round(total_expenses, 2),
         "net": round(net, 2),
         "lifestyle_income": lifestyle_income,
+        "income_salary_actual": round(income_salary_actual, 2),
         "lifestyle_expenses": lifestyle_expenses,
         "lifestyle_net": lifestyle_net,
         "card_payment_income": round(card_payment_income, 2),

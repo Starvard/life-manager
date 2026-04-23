@@ -41,8 +41,8 @@
             <div class="budget-aag-block">
                 <div class="budget-aag-label">Income</div>
                 <p class="text-muted" style="font-size:0.75rem; margin:0 0 0.5rem; line-height:1.4;">
-                    <strong>Projected</strong> = sum of income rows on the <a href="#" @click.prevent="view='budgets'">Budgets</a> tab
-                    (Dyndrite, Other Income, etc.). <strong>Actual</strong> = deposits this month, excluding card refunds and internal transfers.
+                    <strong>Projected</strong> and <strong>Actual</strong> both use the same income rows on the <a href="#" @click.prevent="view='budgets'">Budgets</a> tab
+                    (Dyndrite, Other Income, Jenna Sales, From Savings): budget target vs money received in those categories this month.
                 </p>
                 <div class="budget-aag-row">
                     <span class="budget-aag-k">Projected</span>
@@ -623,7 +623,8 @@
             <button type="button" class="budget-modal-close" @click="closeIncomeModal()" aria-label="Close">&times;</button>
         </div>
         <p class="budget-modal-total text-muted" style="font-size:0.85rem;margin:0 0 0.75rem;">
-            Total: <strong x-text="formatMoney(report.total_income)"></strong>
+            Total: <strong x-text="formatMoney((report.income_salary_actual != null) ? report.income_salary_actual : (report.lifestyle_income != null ? report.lifestyle_income : report.total_income))"></strong>
+            <span class="text-muted" style="font-size:0.8rem;"> (income-budget categories)</span>
         </p>
         <div class="budget-income-rows" x-show="(report.income_breakdown || []).length > 0">
             <template x-for="row in (report.income_breakdown || [])" :key="row.category">
