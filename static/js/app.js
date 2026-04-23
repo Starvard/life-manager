@@ -967,11 +967,15 @@ document.addEventListener("alpine:init", () => {
         },
 
         lifestyleIncome() {
+            let n;
             if (this.report.income_salary_actual != null) {
-                return Number(this.report.income_salary_actual) || 0;
+                n = Number(this.report.income_salary_actual) || 0;
+            } else {
+                const v = this.report.lifestyle_income;
+                n = v != null ? v : this.report.total_income;
             }
-            const v = this.report.lifestyle_income;
-            return v != null ? v : this.report.total_income;
+            // Never show negative "Actual" income; old API / cached JS could pass through bad values
+            return Math.max(0, n);
         },
 
         lifestyleSpentAbs() {

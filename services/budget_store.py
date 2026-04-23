@@ -522,10 +522,13 @@ def aggregate_month_financials(month: str) -> dict:
 
     # Inflows: everything positive except internal + card. Do NOT subtract card
     # refunds from total (they are not in total_income); that produced bogus negatives.
-    lifestyle_income = round(total_income, 2)
+    lifestyle_income = max(0.0, round(total_income, 2))
     # Banner "Actual" vs Projected (budget sum): only salary / income-budget rows
-    income_salary_actual = _income_salary_categories_actual(dict(by_category))
+    income_salary_actual = max(
+        0.0, _income_salary_categories_actual(dict(by_category))
+    )
     lifestyle_expenses = round(total_expenses - card_payment_expense, 2)
+    # Income line must never read negative in the UI; net uses the same non-negative inflow
     lifestyle_net = round(lifestyle_income + lifestyle_expenses, 2)
     card_payoff_total = round(abs(card_payment_expense), 2)
     card_payment_net = round(card_payment_income + card_payment_expense, 2)
@@ -579,8 +582,8 @@ def compute_monthly_report(month: str) -> dict:
     card_payment_expense = float(cur["card_payment_expense"])
     card_payoff_total = float(cur["card_payoff_total"])
     card_payment_net = float(cur["card_payment_net"])
-    lifestyle_income = float(cur["lifestyle_income"])
-    income_salary_actual = float(cur.get("income_salary_actual") or 0)
+    lifestyle_income = max(0.0, float(cur["lifestyle_income"]))
+    income_salary_actual = max(0.0, float(cur.get("income_salary_actual") or 0))
     lifestyle_expenses = float(cur["lifestyle_expenses"])
     lifestyle_net = float(cur["lifestyle_net"])
     purchases_spend_this = float(cur["purchases_spend"])
@@ -592,10 +595,13 @@ def compute_monthly_report(month: str) -> dict:
     prior = aggregate_month_financials(prior_key)
     purchases_spend_prior = float(prior["purchases_spend"])
     card_payoffs_prior = float(prior["card_payoff_total"])
-    prior_salary_income = float(
-        prior.get("income_salary_actual")
-        or prior.get("lifestyle_income")
-        or 0
+    prior_salary_income = max(
+        0.0,
+        float(
+            prior.get("income_salary_actual")
+            or prior.get("lifestyle_income")
+            or 0
+        ),
     )
 
     income_breakdown: list[dict] = []
