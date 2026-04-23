@@ -382,17 +382,6 @@ button.budget-aag-link:hover { color: #99f6e4; }
 .budget-aag-card-row:last-of-type { border-bottom: none; }
 .budget-aag-card-row.muted { font-size: 0.78rem; opacity: 0.85; }
 .budget-aag-card-btn { margin-top: 0.75rem; width: 100%; }
-.budget-aag-salary-hint { font-size: 0.72rem; line-height: 1.4; margin: 0 0 0.5rem; }
-.budget-aag-salary-row {
-    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
-    gap: 0.4rem 0.75rem; margin-bottom: 0.5rem; font-size: 0.8rem;
-}
-.budget-aag-salary-input-wrap { flex: 1; min-width: 7rem; max-width: 12rem; }
-.budget-aag-salary-input {
-    width: 100%; padding: 0.35rem 0.5rem; font-size: 0.88rem; border-radius: var(--radius, 6px);
-    border: 1px solid var(--border); background: var(--bg); color: var(--text-bright);
-}
-
 /* Cash flow bar chart (budget) */
 .budget-cashflow-card { margin-bottom: 1.25rem; }
 .budget-cashflow-bars {

@@ -572,7 +572,6 @@ document.addEventListener("alpine:init", () => {
         replaceFrom: "",
         replaceTo: "",
         replacingCat: false,
-        plannedSalaryValue: 0,
 
         init() {
             if (!Array.isArray(this.report.income_breakdown)) {
@@ -621,7 +620,7 @@ document.addEventListener("alpine:init", () => {
             }
             if (!this.plan.sections || Object.keys(this.plan.sections).length === 0) {
                 this.plan.sections = {
-                    income: { label: "Income", items: [], salary: 0 },
+                    income: { label: "Income", items: [] },
                     bills: { label: "Bills", items: [] },
                     savings: { label: "Savings", items: [] },
                     food_gas: { label: "Food & Gas", items: [] },
@@ -629,15 +628,7 @@ document.addEventListener("alpine:init", () => {
                     personal: { label: "Personal Care", items: [] },
                     misc: { label: "Misc", items: [] },
                 };
-            } else if (this.plan.sections.income && this.plan.sections.income.salary == null) {
-                this.plan.sections.income.salary = 0;
             }
-            this.syncPlannedSalaryFromPlan();
-        },
-
-        syncPlannedSalaryFromPlan() {
-            const s = (this.plan.sections && this.plan.sections.income) ? this.plan.sections.income.salary : 0;
-            this.plannedSalaryValue = s != null && s !== "" ? Number(s) : 0;
         },
 
         monthLabel(m) {
@@ -1050,18 +1041,6 @@ document.addEventListener("alpine:init", () => {
             return Number(c.card_payoff_vs_salary_pct);
         },
 
-        async savePlannedSalary() {
-            let n = this.plannedSalaryValue;
-            if (n == null || n === "" || Number.isNaN(Number(n))) n = 0;
-            n = Math.max(0, Number(n));
-            this.plannedSalaryValue = n;
-            if (!this.plan.sections) this.plan.sections = {};
-            if (!this.plan.sections.income) this.plan.sections.income = { label: "Income", items: [] };
-            this.plan.sections.income.salary = n;
-            await api("PUT", "/api/budget/salary", { month: this.currentMonth, salary: n });
-            await this.refreshReport();
-        },
-
         cashflowThisMonthNet() {
             const rows = this.report.cash_flow_series || [];
             const m = this.currentMonth;
@@ -1158,7 +1137,6 @@ document.addEventListener("alpine:init", () => {
                 this.report = data;
                 if (data.plan) {
                     this.plan = data.plan;
-                    this.syncPlannedSalaryFromPlan();
                 }
             }
         },
