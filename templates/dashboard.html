@@ -8,7 +8,7 @@
             <h1>Home</h1>
             <p class="subtitle">Week {{ week_key }} &middot; all Life Manager areas</p>
         </div>
-        <div class="app-version-block" title="Release label for this server (bump version.txt in main after each deploy you care about)">
+        <div class="app-version-block" title="Deploy label: on Fly this is the merged pull request (pr#); locally it is a short git commit. Set LM_APP_VERSION to override.">
             <span class="app-version-label">Deployed as</span>
             <code class="app-version-value">{{ app_version }}</code>
         </div>
