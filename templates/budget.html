@@ -7,7 +7,10 @@
 
 <div class="page-header">
     <h1>Budget</h1>
-    <p class="subtitle" x-text="monthLabel(currentMonth)"></p>
+    <p class="subtitle"><span x-text="monthLabel(currentMonth)"></span>
+        <span class="text-muted" style="font-size:0.7rem; margin-left:0.4rem; font-weight:500;"
+              title="Server build. If you still see an old budget bug, this number should change after deploy.">build: {{ budget_page_version }}</span>
+    </p>
 </div>
 
 {# ── Month Picker ──────────────────────────────────────────── #}

@@ -721,7 +721,8 @@ def budget_page():
         "redirect_uri": _creds["redirect_uri"],
         "sources": plaid_credentials.credential_source(),
     }
-    return render_template(
+    v, _vsrc = get_app_version()
+    html = render_template(
         "budget.html",
         months=months,
         current_month=current_month,
@@ -735,7 +736,13 @@ def budget_page():
         plaid_items=plaid_items,
         plaid_configured=plaid_client.is_configured(),
         plaid_status=plaid_status,
+        budget_page_version=v,
     )
+    resp = make_response(html)
+    # Avoid stale PWA / proxy caches serving old income math or help text
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 
 # \u2500\u2500 API: Budget \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -856,7 +863,10 @@ def api_budget_report():
     if not month:
         from datetime import date as _date
         month = _date.today().strftime("%Y-%m")
-    return jsonify(compute_monthly_report(month))
+    r = make_response(jsonify(compute_monthly_report(month)))
+    r.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    r.headers["Pragma"] = "no-cache"
+    return r
 
 
 @app.route("/api/budget/plan/<month>")
