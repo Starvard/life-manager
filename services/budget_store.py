@@ -336,21 +336,22 @@ def record_import(source_file: str, tx_count: int, fingerprint: str):
 
 # ── Category budgets (simple over/under) ─────────────────────────
 
-def bundled_default_budgets_path() -> str:
-    """Repo-shipped defaults (image filesystem), not the persistent volume."""
-    return os.path.join(config.BASE_DIR, "data", "budget", "budgets.json")
+def _default_budgets_json_path() -> str:
+    """Factory defaults — lives next to this module (always in Docker image).
+
+    Do **not** use ``data/budget/budgets.json`` as the sole source: ``.dockerignore``
+    omits ``data/budget/``, so the image has no file there unless we ship a copy
+    under ``services/``.
+    """
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "budget_default_limits.json")
 
 
 def ensure_default_budget_limits_from_bundle() -> None:
-    """On Fly (LM_DATA_DIR=/data), the volume is seeded only once; later deploys
-    never re-copy new files from the image. If budgets.json on the volume is
-    missing or has no limits, copy the bundled repo defaults so the Budgets tab
-    is pre-filled after deploy.
+    """If budgets.json is missing or has an empty ``limits`` map, copy factory
+    defaults from the app image. Covers: Fly volume only seeded once; Docker
+    image without ``data/budget/``; first run on local ``./data``.
     """
-    repo_data = os.path.join(config.BASE_DIR, "data")
-    if os.path.normpath(config.DATA_DIR) == os.path.normpath(repo_data):
-        return
-    bundled = bundled_default_budgets_path()
+    bundled = _default_budgets_json_path()
     if not os.path.isfile(bundled):
         return
     _ensure_dirs()
