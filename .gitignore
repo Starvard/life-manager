@@ -3,10 +3,8 @@ data/vapid_keys.json
 data/vapid_private.pem
 data/push_subscriptions.json
 
-# Budget / financial data (default category limits committed; other budget JSON stays local)
-data/budget/**
-!data/budget/
-!data/budget/budgets.json
+# Budget / financial data (default limits: services/budget_default_limits.json)
+data/budget/
 # Root-only (do not use bare `budget/` — it also matches `data/budget/`)
 /budget/
 
