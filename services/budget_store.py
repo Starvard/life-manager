@@ -9,7 +9,6 @@ Import meta:   data/budget/import_meta.json
 
 import json
 import os
-import shutil
 import threading
 from collections import defaultdict
 from datetime import datetime
@@ -347,25 +346,68 @@ def _default_budgets_json_path() -> str:
 
 
 def ensure_default_budget_limits_from_bundle() -> None:
-    """If budgets.json is missing or has an empty ``limits`` map, copy factory
-    defaults from the app image. Covers: Fly volume only seeded once; Docker
-    image without ``data/budget/``; first run on local ``./data``.
+    """One-time and versioned merge of factory limits into the persisted file.
+
+    Early logic only filled when ``limits`` was **empty**. Many installs had a
+    partial file (e.g. only ``🏡 Mortgage``) so the rest of the table stayed blank.
+    We merge any factory values **missing** from the user's map for each category
+    in the canonical list, then set ``defaults_filled`` and ``defaults_version``
+    so we do not clobber custom limits. Bump ``defaults_version`` in the JSON
+    file when adding new default rows to ship them to existing users.
     """
+    from services.budget_category_list import BUDGET_CATEGORY_ORDER
+
     bundled = _default_budgets_json_path()
     if not os.path.isfile(bundled):
         return
+    raw = _load_json(bundled)
+    if not isinstance(raw, dict) or not isinstance(raw.get("limits"), dict):
+        return
+    factory = raw["limits"]
+    try:
+        factory_version = int(raw.get("defaults_version", 0))
+    except (TypeError, ValueError):
+        factory_version = 0
+
     _ensure_dirs()
     dest = config.BUDGET_BUDGETS_FILE
     existing = _load_json(dest)
-    limits = (
-        existing.get("limits")
-        if isinstance(existing, dict) and isinstance(existing.get("limits"), dict)
-        else {}
-    )
-    if limits:
-        return
+    if not isinstance(existing, dict):
+        existing = {}
+    limits: dict = {}
+    if isinstance(existing.get("limits"), dict):
+        for k, v in existing["limits"].items():
+            try:
+                limits[str(k)] = float(v)
+            except (TypeError, ValueError):
+                pass
+
     try:
-        shutil.copy2(bundled, dest)
+        stored_version = int(existing.get("defaults_version", 0))
+    except (TypeError, ValueError):
+        stored_version = 0
+
+    if existing.get("defaults_filled") and stored_version >= factory_version:
+        return
+
+    prior_keys = set(limits.keys())
+    merged = dict(limits)
+    for cat in BUDGET_CATEGORY_ORDER:
+        if cat in factory and cat not in merged:
+            try:
+                merged[cat] = float(factory[cat])
+            except (TypeError, ValueError):
+                pass
+
+    if set(merged.keys()) == prior_keys and prior_keys and stored_version >= factory_version:
+        return
+
+    out = dict(existing)
+    out["limits"] = {k: round(merged[k], 2) for k in sorted(merged.keys(), key=str)}
+    out["defaults_filled"] = True
+    out["defaults_version"] = factory_version
+    try:
+        _save_json(dest, out)
     except OSError:
         return
 
@@ -376,7 +418,7 @@ def load_budgets() -> dict:
     _ensure_dirs()
     data = _load_json(config.BUDGET_BUDGETS_FILE)
     if isinstance(data, dict) and isinstance(data.get("limits"), dict):
-        out = {}
+        out: dict = {}
         for k, v in data["limits"].items():
             try:
                 out[str(k)] = float(v)
@@ -397,7 +439,12 @@ def save_budgets(limits: dict) -> None:
         except (TypeError, ValueError):
             continue
         cleaned[str(k).strip()] = round(amt, 2)
-    _save_json(config.BUDGET_BUDGETS_FILE, {"limits": cleaned})
+    path = config.BUDGET_BUDGETS_FILE
+    root = _load_json(path) if os.path.isfile(path) else None
+    if not isinstance(root, dict):
+        root = {}
+    root["limits"] = dict(sorted(cleaned.items(), key=lambda kv: str(kv[0])))
+    _save_json(path, root)
 
 
 def set_category_budget(category: str, amount: float | None) -> dict:
