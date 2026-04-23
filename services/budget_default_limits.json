@@ -1,6 +1,7 @@
 {
   "defaults_version": 1,
   "limits": {
+    "🔥 Dyndrite": 7863.0,
     "🏡 Mortgage": 3000.0,
     "⚡Electricity": 150.0,
     "💦 Water": 100.0,
