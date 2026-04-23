@@ -2,10 +2,40 @@
 {% block title %}Dashboard - Life Manager{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1>Dashboard</h1>
-    <p class="subtitle">Week {{ week_key }}</p>
+<div class="page-header page-header-dashboard">
+    <div class="page-header-row">
+        <div>
+            <h1>Home</h1>
+            <p class="subtitle">Week {{ week_key }} &middot; all Life Manager areas</p>
+        </div>
+        <div class="app-version-block" title="Release label for this server (bump version.txt in main after each deploy you care about)">
+            <span class="app-version-label">Deployed as</span>
+            <code class="app-version-value">{{ app_version }}</code>
+        </div>
+    </div>
 </div>
+
+<nav class="app-grid" aria-label="Jump to a section of the app">
+    {% for sec in dashboard_sections %}
+    <div class="app-tile{% if not sec.href %} app-tile-current{% endif %}" data-nav-tab="{{ sec.key }}">
+        <div class="app-tile-head">
+            <span class="app-tile-name">{{ sec.label }}</span>
+            {% if not sec.href %}
+            <span class="app-tile-pill" aria-hidden="true">You are here</span>
+            {% endif %}
+        </div>
+        <p class="app-tile-desc">{{ sec.description }}</p>
+        <div class="app-tile-actions">
+            {% if sec.href %}
+            <a href="{{ sec.href }}" class="btn btn-sm btn-primary">Open</a>
+            {% endif %}
+            {% if sec.secondary is defined and sec.secondary %}
+            <a href="{{ sec.secondary.href }}" class="btn btn-sm btn-outline">{{ sec.secondary.label }}</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</nav>
 
 {% set ua = request.headers.get('User-Agent', '') or '' %}
 {% set ua_mobile = 'Android' in ua or 'iPhone' in ua or 'iPad' in ua or 'iPod' in ua %}
@@ -308,12 +338,6 @@ document.addEventListener('DOMContentLoaded', function() {
         <button type="button" class="btn-push btn-push-secondary" id="push-disable-btn" hidden>Disable</button>
     </div>
     <p class="push-reminders-status" id="push-status" aria-live="polite"></p>
-</div>
-
-<div class="btn-group" style="margin-bottom: 1.5rem;">
-    <a href="{{ url_for('cards_page', week=week_key) }}" class="btn btn-primary">Open Cards</a>
-    <a href="{{ url_for('baby_page') }}" class="btn btn-secondary" style="background:var(--purple);border:none;">Baby Tracker</a>
-    <a href="{{ url_for('routines_page') }}" class="btn btn-outline">Edit Routines</a>
 </div>
 
 <div class="card">

@@ -77,6 +77,7 @@ from services.fantasy_trade_jobs import refresh_trade_suggestions as fantasy_ref
 from services import recipes_store, recipes_search
 from services import ui_prefs
 from services import game_store
+from services.app_version import get_app_version
 
 # Seed persistent volume on first cloud deploy
 from seed_data import seed as _seed_data
@@ -175,6 +176,12 @@ def inject_nav_visibility():
     }
 
 
+@app.context_processor
+def inject_app_version():
+    v, _src = get_app_version()
+    return {"app_version": v}
+
+
 def _ordered_cards(cards: dict) -> dict:
     """Sort cards dict by area_order from routines.yaml."""
     data = load_routines()
@@ -200,9 +207,81 @@ def dashboard():
         _, _, today_score_pct = weighted_day_score(cards, today_idx)
     day_metrics = week_day_summary(cards)
     score_bests = update_and_return_bests(wk, cards)
+    routine_menu_week = wk
+    if today_idx is not None and today_idx > 0:
+        routine_menu_week = _default_week_key()
+    anchor_day = _anchor_date_iso_for_week(routine_menu_week)
+    hidden_tabs = ui_prefs.get_hidden_nav_tabs()
+    dashboard_sections = [
+        {
+            "key": "home",
+            "label": "Home",
+            "description": "This overview, scores, and push reminders.",
+            "href": None,
+        },
+        {
+            "key": "cards",
+            "label": "Cards",
+            "description": "Interactive routine notecards for the week.",
+            "href": url_for("cards_page", week=routine_menu_week),
+            "secondary": {
+                "label": "Day view",
+                "href": url_for("cards_day_page", date=anchor_day),
+            },
+        },
+        {
+            "key": "baby",
+            "label": "Baby",
+            "description": "Daily baby tracker and history.",
+            "href": url_for("baby_page"),
+        },
+        {
+            "key": "budget",
+            "label": "Budget",
+            "description": "Transactions, categories, and monthly plans.",
+            "href": url_for("budget_page"),
+        },
+        {
+            "key": "fantasy",
+            "label": "Dynasty",
+            "description": "Sleeper dynasty tools and trade ideas.",
+            "href": url_for("fantasy_page"),
+        },
+        {
+            "key": "recipes",
+            "label": "Recipes",
+            "description": "Menu, saved recipes, grocery, and inventory.",
+            "href": url_for("recipes_page"),
+        },
+        {
+            "key": "research",
+            "label": "Research",
+            "description": "Reference pages and quick calculators.",
+            "href": url_for("research_page"),
+        },
+        {
+            "key": "game",
+            "label": "Cat Dash",
+            "description": "Quick distraction game and scores.",
+            "href": url_for("game_page"),
+        },
+        {
+            "key": "edit",
+            "label": "Edit",
+            "description": "Routines, areas, tasks, and push times.",
+            "href": url_for("routines_page"),
+        },
+    ]
+    dashboard_sections = [
+        s
+        for s in dashboard_sections
+        if s["key"] == "home" or s["key"] not in hidden_tabs
+    ]
     return render_template(
         "dashboard.html",
         week_key=wk,
+        routine_menu_week=routine_menu_week,
+        dashboard_sections=dashboard_sections,
         cards=cards,
         weeks=weeks,
         baby_days=baby_days,
@@ -1599,7 +1678,14 @@ def _start_background_schedulers():
 
 @app.route("/healthz")
 def health_check():
-    return jsonify({"status": "ok"})
+    v, v_src = get_app_version()
+    return jsonify(
+        {
+            "status": "ok",
+            "app_version": v,
+            "version_source": v_src,
+        }
+    )
 
 
 # \u2500\u2500 Startup \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
