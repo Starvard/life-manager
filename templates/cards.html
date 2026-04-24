@@ -128,4 +128,5 @@
     No routine cards yet. <a href="{{ url_for('routines_page') }}">Configure routines</a> first.
 </div>
 {% endif %}
+<script src="{{ url_for('static', filename='js/dynamic-routine-list.js') }}?v={{ cache_bust }}"></script>
 {% endblock %}
