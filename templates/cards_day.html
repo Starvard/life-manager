@@ -115,4 +115,5 @@ function dayNav(offset) {
     location.href = "?date=" + iso;
 }
 </script>
+<script src="{{ url_for('static', filename='js/dynamic-routine-list.js') }}?v={{ cache_bust }}"></script>
 {% endblock %}
