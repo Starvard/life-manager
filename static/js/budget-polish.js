@@ -1,5 +1,13 @@
-// Budget page polish layer: dashboard summary + calmer budget severity.
+// Budget page polish layer: consolidated KPIs + calmer budget severity.
 (function () {
+  const INCOME_HINTS = ['dyndrite', 'income', 'jenna sales', 'from savings'];
+  const CARD_HINT = 'credit card';
+  const STATIC_CASH_HINTS = [
+    'mortgage', 'electricity', 'water', 'natural gas', 'internet', 'phone',
+    'youtube', 'netflix', 'google one', 'chat gpt', 'swim', 'reoccuring', 'recurring',
+    'med', 'dog', 'massage'
+  ];
+
   function money(n) {
     const v = Number(n || 0);
     const abs = Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -14,7 +22,8 @@
 
   function val(obj, path, fallback) {
     try {
-      return path.split('.').reduce((a, k) => (a == null ? undefined : a[k]), obj) ?? fallback;
+      const got = path.split('.').reduce((a, k) => (a == null ? undefined : a[k]), obj);
+      return got == null ? fallback : got;
     } catch (_) {
       return fallback;
     }
@@ -26,7 +35,66 @@
     try { return window.Alpine.$data(root); } catch (_) { return null; }
   }
 
-  function card(label, value, sub, tone) {
+  function lower(s) { return String(s || '').toLowerCase(); }
+  function isIncomeCat(cat) { const c = lower(cat); return INCOME_HINTS.some((h) => c.includes(h)); }
+  function isCardCat(cat) { return lower(cat).includes(CARD_HINT); }
+  function isStaticCashCat(cat) { const c = lower(cat); return STATIC_CASH_HINTS.some((h) => c.includes(h)); }
+
+  function limits(data) { return data && data.budgetLimits && typeof data.budgetLimits === 'object' ? data.budgetLimits : {}; }
+
+  function sumLimits(data, pred) {
+    return Object.entries(limits(data)).reduce((sum, pair) => {
+      const cat = pair[0];
+      const raw = Number(pair[1] || 0);
+      if (!(raw > 0) || !pred(cat)) return sum;
+      return sum + raw;
+    }, 0);
+  }
+
+  function projectedIncome(data) {
+    const fromLimits = sumLimits(data, isIncomeCat);
+    const fromReport = Number(val(data.report, 'projected.income', 0) || 0);
+    return fromLimits > 0 ? fromLimits : fromReport;
+  }
+
+  function projectedSpend(data) {
+    const fromLimits = sumLimits(data, (cat) => !isIncomeCat(cat) && !isCardCat(cat));
+    const fromReport = Number(val(data.report, 'projected.expenses', 0) || 0);
+    return fromLimits > 0 ? fromLimits : fromReport;
+  }
+
+  function actualForCategory(data, pred) {
+    const rows = Array.isArray(data.report && data.report.category_status) ? data.report.category_status : [];
+    return rows.reduce((sum, row) => {
+      if (!pred(row.category)) return sum;
+      return sum + Number(row.spent || 0);
+    }, 0);
+  }
+
+  function metricCard(label, projectedLabel, projectedValue, actualLabel, actualValue, sub, tone, actualClass) {
+    const el = document.createElement('div');
+    el.className = 'budget-polish-card budget-polish-kpi ' + (tone || '');
+    el.innerHTML = [
+      '<p class="budget-polish-label"></p>',
+      '<div class="budget-polish-pair">',
+      '  <div><span class="budget-polish-mini"></span><strong class="budget-polish-value"></strong></div>',
+      '  <div><span class="budget-polish-mini"></span><strong class="budget-polish-value"></strong></div>',
+      '</div>',
+      '<p class="budget-polish-sub"></p>'
+    ].join('');
+    el.querySelector('.budget-polish-label').textContent = label;
+    const minis = el.querySelectorAll('.budget-polish-mini');
+    const vals = el.querySelectorAll('.budget-polish-value');
+    minis[0].textContent = projectedLabel;
+    minis[1].textContent = actualLabel;
+    vals[0].textContent = projectedValue;
+    vals[1].textContent = actualValue;
+    if (actualClass) vals[1].classList.add(actualClass);
+    el.querySelector('.budget-polish-sub').textContent = sub || '';
+    return el;
+  }
+
+  function singleCard(label, value, sub, tone) {
     const el = document.createElement('div');
     el.className = 'budget-polish-card ' + (tone || '');
     el.innerHTML = '<p class="budget-polish-label"></p><p class="budget-polish-value"></p><p class="budget-polish-sub"></p>';
@@ -42,34 +110,37 @@
     const anchor = document.querySelector('.budget-at-a-glance');
     if (!anchor || !data) return;
 
-    const projectedIncome = Number(data.projectedIncome ? data.projectedIncome() : val(data.report, 'projected.income', 0));
-    const actualIncome = Number(data.lifestyleIncome ? data.lifestyleIncome() : val(data.report, 'income_salary_actual', 0));
-    const projectedSpend = Number(data.projectedSpend ? data.projectedSpend() : val(data.report, 'projected.expenses', 0));
-    const actualSpend = Number(data.lifestyleSpentAbs ? data.lifestyleSpentAbs() : Math.abs(val(data.report, 'lifestyle_expenses', 0)));
-    const projectedSavings = projectedIncome - projectedSpend;
-    const actualSavings = actualIncome - actualSpend;
+    const pIncome = projectedIncome(data);
+    const aIncome = Number(data.lifestyleIncome ? data.lifestyleIncome() : val(data.report, 'income_salary_actual', 0));
+    const pSpend = projectedSpend(data);
+    const aSpend = Number(data.lifestyleSpentAbs ? data.lifestyleSpentAbs() : Math.abs(val(data.report, 'lifestyle_expenses', 0)));
+    const pSavings = pIncome - pSpend;
+    const aSavings = aIncome - aSpend;
     const lastIncome = Number(data.priorMonthSalaryIncome ? data.priorMonthSalaryIncome() : val(data.report, 'card_compare.prior_salary_income', 0));
     const cardPayoffs = Number(data.cardPayoffTotal ? data.cardPayoffTotal() : val(data.report, 'card_payoff_total', 0));
-    const cardPct = data.cardPayoffVsPriorSalary ? data.cardPayoffVsPriorSalary() : val(data.report, 'card_compare.card_payoff_vs_salary_pct', null);
+    const staticCashBudget = sumLimits(data, (cat) => isStaticCashCat(cat) && !isCardCat(cat) && !isIncomeCat(cat));
+    const staticCashActual = actualForCategory(data, (cat) => isStaticCashCat(cat) && !isCardCat(cat) && !isIncomeCat(cat));
+    const cashPressureProjected = cardPayoffs + staticCashBudget;
+    const cashPressureActual = cardPayoffs + staticCashActual;
+    const cashPressureBase = lastIncome > 0 ? lastIncome : pIncome;
+    const cashPressurePct = cashPressureBase > 0 ? Math.round((cashPressureActual / cashPressureBase) * 100) : null;
 
     const wrap = document.createElement('div');
     wrap.className = 'budget-polish-dashboard card budget-polish-hero';
     const header = document.createElement('div');
     header.className = 'budget-polish-header';
-    header.innerHTML = '<div><p class="budget-polish-eyebrow">Monthly budget</p><h2 class="budget-polish-title">Projected vs actual</h2></div><p class="budget-polish-note">Income, spending, and savings use the same Budget rows. Credit card payoffs are shown separately because this month usually clears last month’s card spending.</p>';
+    header.innerHTML = '<div><p class="budget-polish-eyebrow">Monthly budget</p><h2 class="budget-polish-title">Family cash plan</h2></div><p class="budget-polish-note">The top row is now KPI-style: income, spending, and savings each show projected vs actual. The cash-pressure card compares last month’s income against this month’s card payoffs plus non-card recurring cash bills.</p>';
+
     const grid = document.createElement('div');
-    grid.className = 'budget-polish-grid';
-    grid.appendChild(card('Projected income', money(projectedIncome), 'Income targets from Budgets', 'soft-green'));
-    grid.appendChild(card('Actual income', money(actualIncome), 'Received this month', 'soft-green'));
-    grid.appendChild(card('Projected spending', money(projectedSpend), 'Budgeted category spend', 'soft-blue'));
-    grid.appendChild(card('Actual spending', money(actualSpend), 'Purchases / lifestyle outflow', 'soft-blue'));
-    grid.appendChild(card('Projected savings', signedMoney(projectedSavings), 'Projected income minus projected spend', 'soft-purple'));
-    grid.appendChild(card('Actual savings', signedMoney(actualSavings), 'Actual income minus actual spend', actualSavings >= 0 ? 'soft-purple' : 'soft-amber'));
-    grid.appendChild(card('Last month income', money(lastIncome), 'Context for card payoff timing', 'soft-green'));
-    grid.appendChild(card('This month card payments', money(cardPayoffs), cardPct == null ? 'Paying down prior card spend' : (Math.round(cardPct) + '% of last month income'), 'soft-amber'));
+    grid.className = 'budget-polish-grid budget-polish-grid-compact';
+    grid.appendChild(metricCard('Income', 'Projected', money(pIncome), 'Actual', money(aIncome), 'Money expected vs received this month', 'soft-green'));
+    grid.appendChild(metricCard('Spending', 'Projected', money(pSpend), 'Actual', money(aSpend), 'Budget limits vs purchases / cash outflow', 'soft-blue'));
+    grid.appendChild(metricCard('Savings', 'Projected', signedMoney(pSavings), 'Actual', signedMoney(aSavings), 'Income minus spending', aSavings >= 0 ? 'soft-purple' : 'soft-amber', aSavings >= 0 ? 'pos' : 'neg'));
+    grid.appendChild(metricCard('Cash pressure', 'Last income', money(lastIncome), 'Due this month', money(cashPressureActual), cashPressurePct == null ? 'Card payoffs + recurring cash bills' : ('Card payoffs + recurring cash bills · ' + cashPressurePct + '% of last month income'), cashPressurePct != null && cashPressurePct > 100 ? 'soft-amber' : 'soft-purple'));
+
     const actions = document.createElement('div');
     actions.className = 'budget-polish-actions';
-    actions.innerHTML = '<span class="budget-polish-chip">Green = comfortable</span><span class="budget-polish-chip">Purple = slightly over / close</span><span class="budget-polish-chip">Warm colors = worth attention</span>';
+    actions.innerHTML = '<span class="budget-polish-chip">Static cash estimate: ' + money(staticCashBudget) + ' budgeted / ' + money(staticCashActual) + ' actual</span><span class="budget-polish-chip">Card payoffs: ' + money(cardPayoffs) + '</span>';
     wrap.appendChild(header);
     wrap.appendChild(grid);
     wrap.appendChild(actions);
