@@ -8,8 +8,10 @@
 </div>
 
 <div class="view-toggle">
-    <a href="{{ url_for('cards_page', week=week_key) }}" class="view-toggle-btn active">Week</a>
+    <a href="{{ url_for('cards_page', week=week_key) }}" class="view-toggle-btn active">Today</a>
     <a href="{{ url_for('cards_day_page', date=cards_day_date) }}" class="view-toggle-btn">Day</a>
+    <a href="{{ url_for('routines_page') }}" class="view-toggle-btn">Edit</a>
+    <a href="{{ url_for('cards_page', week=week_key, legacy=1) }}" class="view-toggle-btn">Legacy</a>
 </div>
 
 <div class="picker">

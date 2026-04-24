@@ -12,12 +12,13 @@
       .dyn-routine-hero { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; padding:1rem; margin-bottom:.8rem; }
       .dyn-routine-hero h2 { margin:.1rem 0 .25rem; font-size:1.25rem; }
       .dyn-eyebrow { margin:0; text-transform:uppercase; letter-spacing:.08em; font-size:.72rem; color:var(--text-muted); font-weight:800; }
-      .dyn-sub { margin:0; color:var(--text-muted); line-height:1.35; max-width:40rem; }
+      .dyn-sub { margin:0; color:var(--text-muted); line-height:1.35; max-width:42rem; }
       .dyn-summary { display:flex; gap:.5rem; flex-wrap:wrap; margin:.65rem 0 1rem; }
       .dyn-summary span { border:1px solid rgba(148,163,184,.2); border-radius:999px; padding:.35rem .65rem; background:rgba(255,255,255,.04); font-size:.82rem; color:var(--text-muted); }
       .dyn-list { display:grid; gap:.85rem; }
       .dyn-section { padding:.9rem; }
-      .dyn-section h3 { margin:0 0 .65rem; font-size:1rem; }
+      .dyn-section h3 { margin:0 0 .65rem; font-size:1rem; display:flex; justify-content:space-between; gap:.75rem; }
+      .dyn-section h3 small { font-weight:500; color:var(--text-muted); }
       .dyn-task { width:100%; display:flex; align-items:center; gap:.7rem; border:1px solid rgba(148,163,184,.18); border-radius:.9rem; padding:.7rem .75rem; margin:.45rem 0; background:rgba(255,255,255,.035); color:inherit; text-align:left; cursor:pointer; }
       .dyn-task.overdue { border-color:rgba(251,146,60,.42); background:rgba(251,146,60,.08); }
       .dyn-task.due { border-color:rgba(250,204,21,.28); background:rgba(250,204,21,.05); }
@@ -40,6 +41,10 @@
     if (f <= 0) return 9999;
     if (f >= 7) return 1;
     return Math.max(1, Math.round(7 / f));
+  }
+  function scheduledCount(task, di) {
+    const n = Number((task.scheduled || [])[di] || 0);
+    return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
   }
   function selectedDate() {
     const inp = document.querySelector('.picker-date');
@@ -90,17 +95,66 @@
     if (delta < 7) return parseDate(dueIso).toLocaleDateString(undefined, { weekday: 'short' });
     return dueIso;
   }
+  function ordinal(n) {
+    return ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth'][n - 1] || ('#' + n);
+  }
+  function bucketFor(name, instance, total, interval, status) {
+    const n = String(name || '').toLowerCase();
+    if (status === 'overdue' && interval >= 7) return 'Lower Priority / Due Soon';
+    if (n.includes('water')) {
+      if (instance <= 1) return 'Morning / Start Here';
+      if (instance <= 3) return 'Daytime';
+      return 'Evening';
+    }
+    if (n.includes('brush') || n.includes('floss')) return instance <= 1 ? 'Morning / Start Here' : 'Evening';
+    if (n.includes('coffee') || n.includes('breakfast') || n.includes('vitamin') || n.includes('med')) return 'Morning / Start Here';
+    if (n.includes('dinner') || n.includes('evening') || n.includes('trash') || n.includes('dish')) return 'Evening';
+    if (interval <= 2) return 'Morning / Start Here';
+    if (interval <= 4) return 'Daytime';
+    return 'Lower Priority / Due Soon';
+  }
+  function bucketRank(bucket) {
+    return {
+      'Morning / Start Here': 10,
+      'Daytime': 20,
+      'Evening': 30,
+      'Lower Priority / Due Soon': 40,
+      'Done Today': 90,
+      'Coming Up': 95
+    }[bucket] || 50;
+  }
   function collectItems(cards, selIso) {
     const hist = scanCompletions(cards);
     const items = [];
     cards.forEach(({ card, areaKey }) => {
       const weekStart = card.week_start;
+      const selectedDayIdx = dayIdxFor(selIso, weekStart);
       (card.tasks || []).forEach((task, taskIndex) => {
         const key = taskKey(areaKey, task.name);
+        const rowToday = (task.days || [])[selectedDayIdx] || [];
+        const completedTodayCount = rowToday.filter(Boolean).length;
+        const todaySlots = Math.max(scheduledCount(task, selectedDayIdx), rowToday.length > 1 ? rowToday.length : 0);
+        const interval = intervalDays(task.freq);
+        const name = task.name;
+
+        if (todaySlots > 1 || Number(task.freq || 0) >= 7) {
+          const count = Math.max(1, todaySlots || Math.round(Number(task.freq || 7) / 7));
+          for (let instance = 1; instance <= count; instance++) {
+            const done = completedTodayCount >= instance;
+            const bucket = done ? 'Done Today' : bucketFor(name, instance, count, interval, 'due');
+            items.push({
+              card, areaKey, areaName: card.area_name || areaKey, task, taskIndex, name: count > 1 ? (ordinal(instance) + ' ' + name) : name,
+              rawName: name, instance, dotIndex: instance - 1, completedToday: done, due: !done, upcoming: false,
+              nextDue: selIso, interval, status: done ? 'done' : 'due', label: bucket, bucket,
+              sort: bucketRank(bucket) * 100 + instance
+            });
+          }
+          return;
+        }
+
         const completions = (hist[key] || []).filter((d) => d <= selIso);
         const lastDone = completions.length ? completions[completions.length - 1] : null;
         const completedToday = completions.includes(selIso);
-        const interval = intervalDays(task.freq);
         let nextDue = null;
         if (lastDone) nextDue = iso(addDays(parseDate(lastDone), interval));
         const scheduled = [];
@@ -113,34 +167,44 @@
         const due = nextDue <= selIso && !completedToday;
         const upcoming = nextDue > selIso && daysBetween(nextDue, selIso) <= 7;
         if (!due && !upcoming && !completedToday) return;
-        items.push({ card, areaKey, areaName: card.area_name || areaKey, task, taskIndex, name: task.name, completedToday, due, upcoming, nextDue, interval, status: completedToday ? 'done' : (due ? (nextDue < selIso ? 'overdue' : 'due') : 'upcoming'), label: friendlyDue(nextDue, selIso) });
+        const status = completedToday ? 'done' : (due ? (nextDue < selIso ? 'overdue' : 'due') : 'upcoming');
+        const bucket = completedToday ? 'Done Today' : (upcoming ? 'Coming Up' : bucketFor(name, 1, 1, interval, status));
+        items.push({
+          card, areaKey, areaName: card.area_name || areaKey, task, taskIndex, name, rawName: name, instance: 1, dotIndex: 0,
+          completedToday, due, upcoming, nextDue, interval, status, label: friendlyDue(nextDue, selIso), bucket,
+          sort: bucketRank(bucket) * 100 + (status === 'overdue' ? 0 : interval)
+        });
       });
     });
-    items.sort((a, b) => (a.status === 'overdue' ? -1 : 0) - (b.status === 'overdue' ? -1 : 0) || a.nextDue.localeCompare(b.nextDue) || a.areaName.localeCompare(b.areaName) || a.name.localeCompare(b.name));
+    items.sort((a, b) => a.sort - b.sort || a.areaName.localeCompare(b.areaName) || a.name.localeCompare(b.name));
     return items;
   }
-  function grouped(items, pred) {
+  function groupedByBucket(items, pred) {
     const out = [];
     const map = {};
     items.filter(pred).forEach((it) => {
-      if (!map[it.areaKey]) { map[it.areaKey] = { areaName: it.areaName, items: [] }; out.push(map[it.areaKey]); }
-      map[it.areaKey].items.push(it);
+      if (!map[it.bucket]) { map[it.bucket] = { bucket: it.bucket, items: [] }; out.push(map[it.bucket]); }
+      map[it.bucket].items.push(it);
     });
+    out.sort((a, b) => bucketRank(a.bucket) - bucketRank(b.bucket));
     return out;
   }
   function esc(s) { return String(s || '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   async function toggleItem(it, selIso) {
     const day = dayIdxFor(selIso, it.card.week_start);
-    const row = it.task.days[day] || [false];
-    let dot = row.findIndex(Boolean);
-    if (dot < 0) dot = 0;
+    const dot = Math.max(0, it.dotIndex || 0);
     if (!it.task.days[day]) it.task.days[day] = [false];
+    while (it.task.days[day].length <= dot) it.task.days[day].push(false);
     it.task.days[day][dot] = !it.task.days[day][dot];
     await fetch('/api/routine-cards/' + it.card.week_key + '/' + it.areaKey + '/toggle', {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ task: it.taskIndex, day, dot, list: 'tasks' })
     });
     render();
+  }
+  function taskHtml(it, readonly) {
+    const small = it.completedToday ? it.areaName : (it.label + (it.interval && it.interval < 30 ? ' · every ' + it.interval + 'd' : '') + ' · ' + it.areaName);
+    return '<' + (readonly ? 'div' : 'button') + ' class="dyn-task ' + esc(it.status) + (readonly ? ' readonly' : '') + '" ' + (readonly ? '' : 'data-key="' + esc(it.areaKey + '|' + it.rawName + '|' + it.instance) + '"') + '><span class="dyn-check">' + (it.completedToday ? '✓' : (readonly ? '·' : '○')) + '</span><span><strong>' + esc(it.name) + '</strong><small>' + esc(small) + '</small></span></' + (readonly ? 'div' : 'button') + '>';
   }
   function render() {
     if (!location.pathname.startsWith('/cards')) return;
@@ -157,26 +221,27 @@
       if (header && header.parentNode) header.parentNode.insertBefore(mount, header.nextSibling);
     }
     document.body.classList.add('dynamic-routines-active');
-    const dueGroups = grouped(items, (x) => x.due);
+    const activeGroups = groupedByBucket(items, (x) => x.due && !x.completedToday);
     const done = items.filter((x) => x.completedToday);
     const upcoming = items.filter((x) => x.upcoming).slice(0, 12);
-    let html = '<div class="dyn-routine-hero card"><div><p class="dyn-eyebrow">Dynamic routines</p><h2>Today / selected day</h2><p class="dyn-sub">Completing a task records the actual day done and hides stale future slots until the interval says it is due again.</p></div><a class="btn btn-sm btn-secondary" href="?legacy=1">Legacy cards</a></div>';
-    html += '<div class="dyn-summary"><span>' + dueGroups.reduce((n,g)=>n+g.items.length,0) + ' due</span><span>' + done.length + ' done</span><span>' + upcoming.length + ' upcoming</span></div>';
+    const activeCount = activeGroups.reduce((n, g) => n + g.items.length, 0);
+    let html = '<div class="dyn-routine-hero card"><div><p class="dyn-eyebrow">Today Stack</p><h2>Do this in order</h2><p class="dyn-sub">Frequent habits are split into separate actions, while lower-frequency chores stay lower unless they become overdue.</p></div><a class="btn btn-sm btn-secondary" href="?legacy=1">Legacy cards</a></div>';
+    html += '<div class="dyn-summary"><span>' + activeCount + ' active</span><span>' + done.length + ' done</span><span>' + upcoming.length + ' upcoming</span></div>';
     html += '<div class="dyn-list">';
-    if (!dueGroups.length) html += '<div class="card dyn-empty">Nothing due right now.</div>';
-    dueGroups.forEach((g) => {
-      html += '<section class="card dyn-section"><h3>' + esc(g.areaName) + '</h3>';
-      g.items.forEach((it) => { html += '<button class="dyn-task ' + esc(it.status) + '" data-key="' + esc(it.areaKey + '|' + it.name) + '"><span class="dyn-check">○</span><span><strong>' + esc(it.name) + '</strong><small>' + esc(it.label) + (it.interval ? ' · every ' + esc(it.interval) + 'd' : '') + '</small></span></button>'; });
+    if (!activeGroups.length) html += '<div class="card dyn-empty">Nothing active right now.</div>';
+    activeGroups.forEach((g) => {
+      html += '<section class="card dyn-section"><h3><span>' + esc(g.bucket) + '</span><small>' + g.items.length + '</small></h3>';
+      g.items.forEach((it) => { html += taskHtml(it, false); });
       html += '</section>';
     });
     if (done.length) {
-      html += '<section class="card dyn-section dyn-done"><h3>Done</h3>';
-      done.forEach((it) => { html += '<button class="dyn-task done" data-key="' + esc(it.areaKey + '|' + it.name) + '"><span class="dyn-check">✓</span><span><strong>' + esc(it.name) + '</strong><small>' + esc(it.areaName) + '</small></span></button>'; });
+      html += '<section class="card dyn-section dyn-done"><h3><span>Done Today</span><small>' + done.length + '</small></h3>';
+      done.forEach((it) => { html += taskHtml(it, false); });
       html += '</section>';
     }
     if (upcoming.length) {
-      html += '<section class="card dyn-section dyn-upcoming"><h3>Coming up</h3>';
-      upcoming.forEach((it) => { html += '<div class="dyn-task readonly"><span class="dyn-check">·</span><span><strong>' + esc(it.name) + '</strong><small>' + esc(it.areaName) + ' · ' + esc(it.label) + '</small></span></div>'; });
+      html += '<section class="card dyn-section dyn-upcoming"><h3><span>Coming Up</span><small>' + upcoming.length + '</small></h3>';
+      upcoming.forEach((it) => { html += taskHtml(it, true); });
       html += '</section>';
     }
     html += '</div>';
@@ -184,7 +249,7 @@
     mount.querySelectorAll('.dyn-task[data-key]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const key = btn.getAttribute('data-key');
-        const it = items.find((x) => (x.areaKey + '|' + x.name) === key);
+        const it = items.find((x) => (x.areaKey + '|' + x.rawName + '|' + x.instance) === key);
         if (it) toggleItem(it, sel);
       });
     });
