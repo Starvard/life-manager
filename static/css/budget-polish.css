@@ -1,0 +1,46 @@
+/* Budget page polish layer: calmer dashboard cards and gentler budget severity. */
+body.budget-polish-active .budget-at-a-glance { display: none; }
+
+.budget-polish-dashboard { margin: 1rem 0 1.15rem; }
+.budget-polish-hero {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: radial-gradient(circle at top left, rgba(196,181,253,.16), transparent 34%), radial-gradient(circle at top right, rgba(167,243,208,.16), transparent 30%), rgba(255,255,255,.035);
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.14);
+}
+.budget-polish-header { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin-bottom:.9rem; }
+.budget-polish-eyebrow { margin:0 0 .25rem; font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:rgba(148,163,184,.95); font-weight:700; }
+.budget-polish-title { margin:0; font-size:1.15rem; line-height:1.2; }
+.budget-polish-note { max-width:28rem; margin:0; font-size:.78rem; line-height:1.45; color:rgba(148,163,184,.95); }
+.budget-polish-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.7rem; }
+.budget-polish-card { border:1px solid rgba(148,163,184,.16); border-radius:1rem; padding:.85rem; background:rgba(15,23,42,.2); }
+.budget-polish-card.soft-green { background:linear-gradient(135deg, rgba(187,247,208,.14), rgba(15,23,42,.16)); }
+.budget-polish-card.soft-blue { background:linear-gradient(135deg, rgba(191,219,254,.14), rgba(15,23,42,.16)); }
+.budget-polish-card.soft-purple { background:linear-gradient(135deg, rgba(221,214,254,.16), rgba(15,23,42,.16)); }
+.budget-polish-card.soft-amber { background:linear-gradient(135deg, rgba(253,230,138,.12), rgba(15,23,42,.16)); }
+.budget-polish-label { margin:0 0 .35rem; font-size:.72rem; color:rgba(203,213,225,.82); font-weight:650; }
+.budget-polish-value { margin:0; font-size:1.35rem; line-height:1.1; font-weight:800; color:rgba(248,250,252,.96); }
+.budget-polish-sub { margin:.35rem 0 0; font-size:.72rem; color:rgba(148,163,184,.92); line-height:1.35; }
+.budget-polish-actions { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.9rem; }
+.budget-polish-chip { border:1px solid rgba(148,163,184,.18); border-radius:999px; padding:.35rem .6rem; background:rgba(15,23,42,.18); color:rgba(226,232,240,.9); font-size:.74rem; }
+
+.budget-polish-active .budget-status-bar { background:rgba(148,163,184,.16); }
+.budget-polish-active .budget-status-bar-fill,
+.budget-polish-active .budget-cashflow-bar.pos { background:linear-gradient(90deg,#86efac,#a7f3d0); }
+.budget-polish-active .budget-status-bar-fill.warn,
+.budget-polish-active .budget-status-bar-fill.severity-near { background:linear-gradient(90deg,#bfdbfe,#ddd6fe); }
+.budget-polish-active .budget-status-bar-fill.over,
+.budget-polish-active .budget-status-bar-fill.severity-slight { background:linear-gradient(90deg,#c4b5fd,#ddd6fe); }
+.budget-polish-active .budget-status-bar-fill.severity-warn { background:linear-gradient(90deg,#fcd34d,#fda4af); }
+.budget-polish-active .budget-status-bar-fill.severity-danger,
+.budget-polish-active .budget-cashflow-bar.neg { background:linear-gradient(90deg,#fca5a5,#fb7185); }
+.budget-polish-active .budget-status-row { border-color:rgba(148,163,184,.14); background:rgba(255,255,255,.025); }
+.budget-polish-active .budget-status-row.over { border-color:rgba(196,181,253,.38); background:rgba(196,181,253,.07); }
+.budget-polish-active .budget-status-row.severity-warn { border-color:rgba(253,186,116,.34); background:rgba(251,191,36,.07); }
+.budget-polish-active .budget-status-row.severity-danger { border-color:rgba(252,165,165,.42); background:rgba(244,63,94,.08); }
+.budget-polish-active .budget-status-over,
+.budget-polish-active .budget-aag-budget-foot.over { color:#c4b5fd; }
+.budget-polish-active .budget-status-row.severity-warn .budget-status-over { color:#fbbf24; }
+.budget-polish-active .budget-status-row.severity-danger .budget-status-over { color:#fca5a5; }
+
+@media (max-width:820px){ .budget-polish-header{display:block}.budget-polish-note{margin-top:.45rem}.budget-polish-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (max-width:520px){ .budget-polish-grid{grid-template-columns:1fr} }
