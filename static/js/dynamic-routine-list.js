@@ -1,5 +1,7 @@
 (function () {
   if (new URLSearchParams(location.search).get('legacy') === '1') return;
+  const BUCKETS = ['Morning / Start Here', 'Daytime', 'Evening', 'Lower Priority / Due Soon'];
+  const OVERRIDE_PREFIX = 'lm:routine-bucket:';
   function injectStyles() {
     if (document.getElementById('dynamic-routine-styles')) return;
     const style = document.createElement('style');
@@ -13,13 +15,16 @@
       .dyn-routine-hero h2 { margin:.1rem 0 .25rem; font-size:1.25rem; }
       .dyn-eyebrow { margin:0; text-transform:uppercase; letter-spacing:.08em; font-size:.72rem; color:var(--text-muted); font-weight:800; }
       .dyn-sub { margin:0; color:var(--text-muted); line-height:1.35; max-width:42rem; }
+      .dyn-hero-actions { display:flex; flex-direction:column; align-items:flex-end; gap:.45rem; min-width:max-content; }
+      .dyn-recent { display:flex; flex-wrap:wrap; gap:.4rem; margin:.35rem 0 1rem; }
+      .dyn-recent a { border:1px solid rgba(148,163,184,.2); border-radius:999px; padding:.35rem .6rem; background:rgba(255,255,255,.035); color:inherit; text-decoration:none; font-size:.82rem; }
       .dyn-summary { display:flex; gap:.5rem; flex-wrap:wrap; margin:.65rem 0 1rem; }
       .dyn-summary span { border:1px solid rgba(148,163,184,.2); border-radius:999px; padding:.35rem .65rem; background:rgba(255,255,255,.04); font-size:.82rem; color:var(--text-muted); }
       .dyn-list { display:grid; gap:.85rem; }
       .dyn-section { padding:.9rem; }
       .dyn-section h3 { margin:0 0 .65rem; font-size:1rem; display:flex; justify-content:space-between; gap:.75rem; }
       .dyn-section h3 small { font-weight:500; color:var(--text-muted); }
-      .dyn-task { width:100%; display:flex; align-items:center; gap:.7rem; border:1px solid rgba(148,163,184,.18); border-radius:.9rem; padding:.7rem .75rem; margin:.45rem 0; background:rgba(255,255,255,.035); color:inherit; text-align:left; cursor:pointer; }
+      .dyn-task { width:100%; display:flex; align-items:center; gap:.7rem; border:1px solid rgba(148,163,184,.18); border-radius:.9rem; padding:.7rem .75rem; margin:.45rem 0; background:rgba(255,255,255,.035); color:inherit; text-align:left; cursor:pointer; touch-action:manipulation; }
       .dyn-task.overdue { border-color:rgba(251,146,60,.42); background:rgba(251,146,60,.08); }
       .dyn-task.due { border-color:rgba(250,204,21,.28); background:rgba(250,204,21,.05); }
       .dyn-task.done { border-color:rgba(134,239,172,.32); background:rgba(134,239,172,.07); }
@@ -28,7 +33,7 @@
       .dyn-task small { display:block; color:var(--text-muted); margin-top:.15rem; }
       .dyn-check { display:grid; place-items:center; flex:0 0 1.6rem; width:1.6rem; height:1.6rem; border-radius:999px; background:rgba(255,255,255,.06); font-weight:800; }
       .dyn-empty { padding:1rem; color:var(--text-muted); }
-      @media (max-width:640px){ .dyn-routine-hero{display:block}.dyn-routine-hero .btn{margin-top:.75rem}.dyn-task{padding:.8rem} }
+      @media (max-width:640px){ .dyn-routine-hero{display:block}.dyn-hero-actions{align-items:flex-start;margin-top:.75rem}.dyn-task{padding:.8rem} }
     `;
     document.head.appendChild(style);
   }
@@ -56,6 +61,16 @@
     return Math.max(0, Math.min(6, daysBetween(dateStr, weekStart)));
   }
   function taskKey(areaKey, taskName) { return areaKey + '::' + taskName; }
+  function overrideKey(areaKey, taskName, instance) { return OVERRIDE_PREFIX + taskKey(areaKey, taskName) + '::' + instance; }
+  function getOverride(areaKey, taskName, instance) {
+    try { return localStorage.getItem(overrideKey(areaKey, taskName, instance)); } catch (_) { return null; }
+  }
+  function setOverride(areaKey, taskName, instance, bucket) {
+    try {
+      const key = overrideKey(areaKey, taskName, instance);
+      if (!bucket) localStorage.removeItem(key); else localStorage.setItem(key, bucket);
+    } catch (_) {}
+  }
   function getAlpineCards() {
     const cards = [];
     if (!window.Alpine) return cards;
@@ -98,7 +113,7 @@
   function ordinal(n) {
     return ['First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth'][n - 1] || ('#' + n);
   }
-  function bucketFor(name, instance, total, interval, status) {
+  function inferredBucket(name, instance, total, interval, status) {
     const n = String(name || '').toLowerCase();
     if (status === 'overdue' && interval >= 7) return 'Lower Priority / Due Soon';
     if (n.includes('water')) {
@@ -112,6 +127,9 @@
     if (interval <= 2) return 'Morning / Start Here';
     if (interval <= 4) return 'Daytime';
     return 'Lower Priority / Due Soon';
+  }
+  function bucketFor(areaKey, name, instance, total, interval, status) {
+    return getOverride(areaKey, name, instance) || inferredBucket(name, instance, total, interval, status);
   }
   function bucketRank(bucket) {
     return {
@@ -141,7 +159,7 @@
           const count = Math.max(1, todaySlots || Math.round(Number(task.freq || 7) / 7));
           for (let instance = 1; instance <= count; instance++) {
             const done = completedTodayCount >= instance;
-            const bucket = done ? 'Done Today' : bucketFor(name, instance, count, interval, 'due');
+            const bucket = done ? 'Done Today' : bucketFor(areaKey, name, instance, count, interval, 'due');
             items.push({
               card, areaKey, areaName: card.area_name || areaKey, task, taskIndex, name: count > 1 ? (ordinal(instance) + ' ' + name) : name,
               rawName: name, instance, dotIndex: instance - 1, completedToday: done, due: !done, upcoming: false,
@@ -168,7 +186,7 @@
         const upcoming = nextDue > selIso && daysBetween(nextDue, selIso) <= 7;
         if (!due && !upcoming && !completedToday) return;
         const status = completedToday ? 'done' : (due ? (nextDue < selIso ? 'overdue' : 'due') : 'upcoming');
-        const bucket = completedToday ? 'Done Today' : (upcoming ? 'Coming Up' : bucketFor(name, 1, 1, interval, status));
+        const bucket = completedToday ? 'Done Today' : (upcoming ? 'Coming Up' : bucketFor(areaKey, name, 1, 1, interval, status));
         items.push({
           card, areaKey, areaName: card.area_name || areaKey, task, taskIndex, name, rawName: name, instance: 1, dotIndex: 0,
           completedToday, due, upcoming, nextDue, interval, status, label: friendlyDue(nextDue, selIso), bucket,
@@ -202,9 +220,36 @@
     });
     render();
   }
+  function editTiming(it) {
+    const current = getOverride(it.areaKey, it.rawName, it.instance) || it.bucket;
+    const promptText = 'Move "' + it.name + '" to:\n1 Morning / Start Here\n2 Daytime\n3 Evening\n4 Lower Priority / Due Soon\n0 Reset automatic\n\nCurrent: ' + current;
+    const answer = window.prompt(promptText, '');
+    if (answer === null) return;
+    const trimmed = String(answer).trim().toLowerCase();
+    let bucket = null;
+    if (trimmed === '1' || trimmed.includes('morning')) bucket = BUCKETS[0];
+    else if (trimmed === '2' || trimmed.includes('day')) bucket = BUCKETS[1];
+    else if (trimmed === '3' || trimmed.includes('evening')) bucket = BUCKETS[2];
+    else if (trimmed === '4' || trimmed.includes('lower') || trimmed.includes('soon')) bucket = BUCKETS[3];
+    else if (trimmed === '0' || trimmed.includes('reset') || trimmed === '') bucket = null;
+    else return;
+    setOverride(it.areaKey, it.rawName, it.instance, bucket);
+    render();
+  }
   function taskHtml(it, readonly) {
-    const small = it.completedToday ? it.areaName : (it.label + (it.interval && it.interval < 30 ? ' · every ' + it.interval + 'd' : '') + ' · ' + it.areaName);
+    const moved = getOverride(it.areaKey, it.rawName, it.instance) ? ' · custom timing' : '';
+    const small = it.completedToday ? it.areaName : (it.label + moved + (it.interval && it.interval < 30 ? ' · every ' + it.interval + 'd' : '') + ' · ' + it.areaName);
     return '<' + (readonly ? 'div' : 'button') + ' class="dyn-task ' + esc(it.status) + (readonly ? ' readonly' : '') + '" ' + (readonly ? '' : 'data-key="' + esc(it.areaKey + '|' + it.rawName + '|' + it.instance) + '"') + '><span class="dyn-check">' + (it.completedToday ? '✓' : (readonly ? '·' : '○')) + '</span><span><strong>' + esc(it.name) + '</strong><small>' + esc(small) + '</small></span></' + (readonly ? 'div' : 'button') + '>';
+  }
+  function recentLinks(sel) {
+    const base = parseDate(sel);
+    const links = [];
+    links.push('<a href="/cards">Today</a>');
+    for (let i = 1; i <= 7; i++) {
+      const d = iso(addDays(base, -i));
+      links.push('<a href="/cards/day?date=' + d + '">' + (i === 1 ? 'Yesterday' : i + ' days ago') + '</a>');
+    }
+    return '<div class="dyn-recent">' + links.join('') + '</div>';
   }
   function render() {
     if (!location.pathname.startsWith('/cards')) return;
@@ -225,7 +270,8 @@
     const done = items.filter((x) => x.completedToday);
     const upcoming = items.filter((x) => x.upcoming).slice(0, 12);
     const activeCount = activeGroups.reduce((n, g) => n + g.items.length, 0);
-    let html = '<div class="dyn-routine-hero card"><div><p class="dyn-eyebrow">Today Stack</p><h2>Do this in order</h2><p class="dyn-sub">Frequent habits are split into separate actions, while lower-frequency chores stay lower unless they become overdue.</p></div><a class="btn btn-sm btn-secondary" href="?legacy=1">Legacy cards</a></div>';
+    let html = '<div class="dyn-routine-hero card"><div><p class="dyn-eyebrow">Today Stack</p><h2>Do this in order</h2><p class="dyn-sub">Use Recent to fix the last week. Long-press any active item to move its timing section.</p></div><div class="dyn-hero-actions"></div></div>';
+    html += recentLinks(sel);
     html += '<div class="dyn-summary"><span>' + activeCount + ' active</span><span>' + done.length + ' done</span><span>' + upcoming.length + ' upcoming</span></div>';
     html += '<div class="dyn-list">';
     if (!activeGroups.length) html += '<div class="card dyn-empty">Nothing active right now.</div>';
@@ -247,9 +293,30 @@
     html += '</div>';
     mount.innerHTML = html;
     mount.querySelectorAll('.dyn-task[data-key]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const key = btn.getAttribute('data-key');
-        const it = items.find((x) => (x.areaKey + '|' + x.rawName + '|' + x.instance) === key);
+      let longPressTimer = null;
+      let longPressed = false;
+      const key = btn.getAttribute('data-key');
+      const itemForKey = () => items.find((x) => (x.areaKey + '|' + x.rawName + '|' + x.instance) === key);
+      btn.addEventListener('pointerdown', () => {
+        longPressed = false;
+        clearTimeout(longPressTimer);
+        longPressTimer = setTimeout(() => {
+          const it = itemForKey();
+          if (it) {
+            longPressed = true;
+            editTiming(it);
+          }
+        }, 650);
+      });
+      ['pointerup', 'pointercancel', 'pointerleave'].forEach((evt) => btn.addEventListener(evt, () => clearTimeout(longPressTimer)));
+      btn.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const it = itemForKey();
+        if (it) editTiming(it);
+      });
+      btn.addEventListener('click', (e) => {
+        if (longPressed) { e.preventDefault(); longPressed = false; return; }
+        const it = itemForKey();
         if (it) toggleItem(it, sel);
       });
     });
