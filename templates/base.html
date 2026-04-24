@@ -12,6 +12,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ cache_bust }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/budget-polish.css') }}?v={{ cache_bust }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
@@ -109,5 +110,6 @@
     </div>
 
     <script src="{{ url_for('static', filename='js/app.js') }}?v={{ cache_bust }}"></script>
+    <script src="{{ url_for('static', filename='js/budget-polish.js') }}?v={{ cache_bust }}"></script>
 </body>
 </html>
