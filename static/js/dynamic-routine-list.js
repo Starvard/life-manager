@@ -1,4 +1,35 @@
 (function () {
+  function injectStyles() {
+    if (document.getElementById('dynamic-routine-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'dynamic-routine-styles';
+    style.textContent = `
+      body.dynamic-routines-active .notecard,
+      body.dynamic-routines-active .area-tabs,
+      body.dynamic-routines-active .cards-today-score { display: none !important; }
+      #dynamic-routine-app { margin: 1rem 0 1.5rem; }
+      .dyn-routine-hero { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; padding:1rem; margin-bottom:.8rem; }
+      .dyn-routine-hero h2 { margin:.1rem 0 .25rem; font-size:1.25rem; }
+      .dyn-eyebrow { margin:0; text-transform:uppercase; letter-spacing:.08em; font-size:.72rem; color:var(--text-muted); font-weight:800; }
+      .dyn-sub { margin:0; color:var(--text-muted); line-height:1.35; max-width:40rem; }
+      .dyn-summary { display:flex; gap:.5rem; flex-wrap:wrap; margin:.65rem 0 1rem; }
+      .dyn-summary span { border:1px solid rgba(148,163,184,.2); border-radius:999px; padding:.35rem .65rem; background:rgba(255,255,255,.04); font-size:.82rem; color:var(--text-muted); }
+      .dyn-list { display:grid; gap:.85rem; }
+      .dyn-section { padding:.9rem; }
+      .dyn-section h3 { margin:0 0 .65rem; font-size:1rem; }
+      .dyn-task { width:100%; display:flex; align-items:center; gap:.7rem; border:1px solid rgba(148,163,184,.18); border-radius:.9rem; padding:.7rem .75rem; margin:.45rem 0; background:rgba(255,255,255,.035); color:inherit; text-align:left; cursor:pointer; }
+      .dyn-task.overdue { border-color:rgba(251,146,60,.42); background:rgba(251,146,60,.08); }
+      .dyn-task.due { border-color:rgba(250,204,21,.28); background:rgba(250,204,21,.05); }
+      .dyn-task.done { border-color:rgba(134,239,172,.32); background:rgba(134,239,172,.07); }
+      .dyn-task.readonly { cursor:default; opacity:.85; }
+      .dyn-task strong { display:block; font-size:.95rem; }
+      .dyn-task small { display:block; color:var(--text-muted); margin-top:.15rem; }
+      .dyn-check { display:grid; place-items:center; flex:0 0 1.6rem; width:1.6rem; height:1.6rem; border-radius:999px; background:rgba(255,255,255,.06); font-weight:800; }
+      .dyn-empty { padding:1rem; color:var(--text-muted); }
+      @media (max-width:640px){ .dyn-routine-hero{display:block}.dyn-routine-hero .btn{margin-top:.75rem}.dyn-task{padding:.8rem} }
+    `;
+    document.head.appendChild(style);
+  }
   function parseDate(s) { return new Date(String(s || '').slice(0, 10) + 'T00:00:00'); }
   function iso(d) { return d.toISOString().slice(0, 10); }
   function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
@@ -81,7 +112,7 @@
         const due = nextDue <= selIso && !completedToday;
         const upcoming = nextDue > selIso && daysBetween(nextDue, selIso) <= 7;
         if (!due && !upcoming && !completedToday) return;
-        items.push({ data, card, areaKey, areaName: card.area_name || areaKey, task, taskIndex, name: task.name, completedToday, due, upcoming, nextDue, status: completedToday ? 'done' : (due ? (nextDue < selIso ? 'overdue' : 'due') : 'upcoming'), label: friendlyDue(nextDue, selIso) });
+        items.push({ data, card, areaKey, areaName: card.area_name || areaKey, task, taskIndex, name: task.name, completedToday, due, upcoming, nextDue, interval, status: completedToday ? 'done' : (due ? (nextDue < selIso ? 'overdue' : 'due') : 'upcoming'), label: friendlyDue(nextDue, selIso) });
       });
     });
     items.sort((a, b) => (a.status === 'overdue' ? -1 : 0) - (b.status === 'overdue' ? -1 : 0) || a.nextDue.localeCompare(b.nextDue) || a.areaName.localeCompare(b.areaName) || a.name.localeCompare(b.name));
@@ -112,6 +143,7 @@
   }
   function render() {
     if (!location.pathname.startsWith('/cards')) return;
+    injectStyles();
     const cards = getAlpineCards();
     if (!cards.length) return;
     const sel = selectedDate();
@@ -133,7 +165,7 @@
     if (!dueGroups.length) html += '<div class="card dyn-empty">Nothing due right now.</div>';
     dueGroups.forEach((g) => {
       html += '<section class="card dyn-section"><h3>' + esc(g.areaName) + '</h3>';
-      g.items.forEach((it) => { html += '<button class="dyn-task ' + esc(it.status) + '" data-key="' + esc(it.areaKey + '|' + it.name) + '"><span class="dyn-check">○</span><span><strong>' + esc(it.name) + '</strong><small>' + esc(it.label) + (it.task.interval_days ? ' · every ' + esc(it.task.interval_days) + 'd' : '') + '</small></span></button>'; });
+      g.items.forEach((it) => { html += '<button class="dyn-task ' + esc(it.status) + '" data-key="' + esc(it.areaKey + '|' + it.name) + '"><span class="dyn-check">○</span><span><strong>' + esc(it.name) + '</strong><small>' + esc(it.label) + (it.interval ? ' · every ' + esc(it.interval) + 'd' : '') + '</small></span></button>'; });
       html += '</section>';
     });
     if (done.length) {
