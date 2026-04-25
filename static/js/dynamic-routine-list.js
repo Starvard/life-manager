@@ -37,7 +37,16 @@
       .dyn-task small { display:block; color:var(--text-muted); margin-top:.15rem; }
       .dyn-check { display:grid; place-items:center; flex:0 0 1.6rem; width:1.6rem; height:1.6rem; border-radius:999px; background:rgba(255,255,255,.06); font-weight:800; }
       .dyn-empty { padding:1rem; color:var(--text-muted); }
-      @media (max-width:640px){ .dyn-routine-hero{display:block}.dyn-hero-actions{align-items:flex-start;margin-top:.75rem}.dyn-task{padding:.8rem} }
+      .dyn-sheet-backdrop { position:fixed; inset:0; z-index:9998; background:rgba(0,0,0,.42); display:flex; align-items:flex-end; justify-content:center; padding:1rem; }
+      .dyn-sheet { width:min(520px, 100%); border:1px solid rgba(148,163,184,.22); border-radius:1.25rem; background:rgb(15,23,42); box-shadow:0 24px 80px rgba(0,0,0,.45); padding:1rem; }
+      .dyn-sheet h3 { margin:0; font-size:1.05rem; }
+      .dyn-sheet p { margin:.25rem 0 .8rem; color:var(--text-muted); font-size:.86rem; line-height:1.35; }
+      .dyn-sheet-actions { display:grid; gap:.5rem; }
+      .dyn-sheet-btn { width:100%; border:1px solid rgba(148,163,184,.22); border-radius:.9rem; padding:.8rem .85rem; background:rgba(255,255,255,.045); color:inherit; text-align:left; font-weight:700; }
+      .dyn-sheet-btn small { display:block; margin-top:.16rem; color:var(--text-muted); font-weight:500; }
+      .dyn-sheet-btn.wont { border-color:rgba(251,146,60,.36); background:rgba(251,146,60,.08); }
+      .dyn-sheet-btn.cancel { text-align:center; background:transparent; color:var(--text-muted); }
+      @media (max-width:640px){ .dyn-routine-hero{display:block}.dyn-hero-actions{align-items:flex-start;margin-top:.75rem}.dyn-task{padding:.8rem}.dyn-sheet-backdrop{padding:.6rem}.dyn-sheet{border-radius:1.1rem} }
     `;
     document.head.appendChild(style);
   }
@@ -175,23 +184,43 @@
     await fetch('/api/routine-cards/' + it.card.week_key + '/' + it.areaKey + '/toggle', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task: it.taskIndex, day, dot, list: 'tasks' }) });
     render();
   }
-  function editTiming(it, selIso) {
-    const current = it.wontDo ? WONT_BUCKET : (getOverride(it.areaKey, it.rawName, it.instance) || it.bucket);
-    const promptText = 'Move "' + it.name + '" to:\n1 Morning / Start Here\n2 Daytime\n3 Evening\n4 Lower Priority / Due Soon\n5 Won\'t Do today\n0 Reset automatic\n\nCurrent: ' + current;
-    const answer = window.prompt(promptText, '');
-    if (answer === null) return;
-    const trimmed = String(answer).trim().toLowerCase();
-    let bucket = null, wont = false, reset = false;
-    if (trimmed === '1' || trimmed.includes('morning')) bucket = BUCKETS[0];
-    else if (trimmed === '2' || trimmed.includes('day')) bucket = BUCKETS[1];
-    else if (trimmed === '3' || trimmed.includes('evening')) bucket = BUCKETS[2];
-    else if (trimmed === '4' || trimmed.includes('lower') || trimmed.includes('soon')) bucket = BUCKETS[3];
-    else if (trimmed === '5' || trimmed.includes('wont') || trimmed.includes("won't") || trimmed.includes('skip')) wont = true;
-    else if (trimmed === '0' || trimmed.includes('reset') || trimmed === '') reset = true;
-    else return;
-    if (wont) { setWontDo(it, selIso, true); }
-    else { setWontDo(it, selIso, false); setOverride(it.areaKey, it.rawName, it.instance, reset ? null : bucket); }
+  function applyAction(it, selIso, action) {
+    if (!it || !action) return;
+    if (action === 'wont') {
+      setWontDo(it, selIso, true);
+    } else if (action === 'reset') {
+      setWontDo(it, selIso, false);
+      setOverride(it.areaKey, it.rawName, it.instance, null);
+    } else if (BUCKETS.includes(action)) {
+      setWontDo(it, selIso, false);
+      setOverride(it.areaKey, it.rawName, it.instance, action);
+    }
     render();
+  }
+  function closeActionSheet() {
+    const old = document.querySelector('.dyn-sheet-backdrop');
+    if (old) old.remove();
+  }
+  function editTiming(it, selIso) {
+    closeActionSheet();
+    const current = it.wontDo ? WONT_BUCKET : (getOverride(it.areaKey, it.rawName, it.instance) || it.bucket);
+    const wrap = document.createElement('div');
+    wrap.className = 'dyn-sheet-backdrop';
+    wrap.innerHTML = '<div class="dyn-sheet" role="dialog" aria-modal="true"><h3>Move “' + esc(it.name) + '”</h3><p>Current: ' + esc(current) + '</p><div class="dyn-sheet-actions">' +
+      BUCKETS.map((b) => '<button type="button" class="dyn-sheet-btn" data-action="' + esc(b) + '">' + esc(b) + '<small>Move this item to this section</small></button>').join('') +
+      '<button type="button" class="dyn-sheet-btn wont" data-action="wont">Won\'t Do Today<small>Move to the bottom without marking done</small></button>' +
+      '<button type="button" class="dyn-sheet-btn" data-action="reset">Reset Automatic<small>Clear custom timing and won\'t-do state</small></button>' +
+      '<button type="button" class="dyn-sheet-btn cancel" data-action="cancel">Cancel</button>' +
+      '</div></div>';
+    wrap.addEventListener('click', (e) => {
+      if (e.target === wrap) { closeActionSheet(); return; }
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const action = btn.getAttribute('data-action');
+      closeActionSheet();
+      if (action !== 'cancel') applyAction(it, selIso, action);
+    });
+    document.body.appendChild(wrap);
   }
   function taskHtml(it, readonly) {
     const moved = getOverride(it.areaKey, it.rawName, it.instance) ? ' · custom timing' : '';
