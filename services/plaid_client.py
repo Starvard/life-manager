@@ -293,8 +293,26 @@ def _plaid_tx_to_record(t: dict, account_lookup: dict[str, dict]) -> dict:
     }
 
 
+def _reset_item_cursors(items: list[dict]) -> None:
+    """Force the next Plaid sync call to return the full initial history again."""
+    with _items_lock:
+        data = _load_items_file()
+        wanted = {it.get("item_id") for it in items}
+        for sit in data.get("items", []):
+            if sit.get("item_id") in wanted:
+                sit["cursor"] = None
+                sit["last_sync"] = None
+        _save_items_file(data)
+
+
 def sync_all_items() -> dict:
-    """Run /transactions/sync for every connected Item. Returns a summary."""
+    """Run /transactions/sync for every connected Item. Returns a summary.
+
+    This intentionally rebuilds Plaid-sourced rows from scratch each sync. That
+    is slower than pure cursor-based incremental sync, but it is much safer for
+    this app after users remove/relink banks because Plaid transaction IDs can
+    change and create months of duplicates. Manual/CSV transactions are kept.
+    """
     from services.budget_dedupe import merge_new_transactions
     from services.budget_store import load_transactions, save_transactions
 
@@ -313,15 +331,18 @@ def sync_all_items() -> dict:
     if not items:
         return {"ok": False, "error": "No banks connected yet."}
 
+    # Clean Plaid rebuild: clear cursors so Plaid returns the initial full
+    # history for the newly linked Items, then replace source=plaid rows only.
+    _reset_item_cursors(items)
+
     client = _get_client()
     all_new_records: list[dict] = []
-    removed_tx_ids: list[str] = []
     per_item_summary: list[dict] = []
     errors: list[str] = []
 
     for it in items:
         access_token = it.get("access_token")
-        cursor = it.get("cursor")
+        cursor = None
         institution = it.get("institution_name") or "Bank"
         account_lookup = {
             a.get("account_id"): {
@@ -338,7 +359,7 @@ def sync_all_items() -> dict:
         has_more = True
         loop_guard = 0
         try:
-            while has_more and loop_guard < 20:
+            while has_more and loop_guard < 50:
                 loop_guard += 1
                 req_kwargs = {"access_token": access_token}
                 if cursor:
@@ -369,7 +390,7 @@ def sync_all_items() -> dict:
             )
             continue
 
-        # Persist cursor / last_sync
+        # Persist fresh cursor / last_sync only after this item succeeds.
         with _items_lock:
             fresh = _load_items_file()
             for sit in fresh.get("items", []):
@@ -385,7 +406,6 @@ def sync_all_items() -> dict:
 
         all_new_records.extend(added_records)
         all_new_records.extend(modified_records)
-        removed_tx_ids.extend([tid for tid in removed_ids if tid])
         per_item_summary.append(
             {
                 "institution_name": institution,
@@ -396,35 +416,17 @@ def sync_all_items() -> dict:
             }
         )
 
-    # Apply to transactions store
     existing = load_transactions()
-    if removed_tx_ids:
-        existing = [tx for tx in existing if tx.get("transaction_id") not in set(removed_tx_ids)]
+    non_plaid_existing = [tx for tx in existing if tx.get("source") != "plaid"]
+    removed_plaid_count = len(existing) - len(non_plaid_existing)
 
-    # For modified records we want to overwrite the existing row
-    incoming_by_tx = {r.get("transaction_id"): r for r in all_new_records if r.get("transaction_id")}
-    if incoming_by_tx:
-        updated_existing: list[dict] = []
-        for tx in existing:
-            tid = tx.get("transaction_id")
-            if tid and tid in incoming_by_tx:
-                merged_row = dict(incoming_by_tx.pop(tid))
-                # Preserve user overrides / dupe dismissals
-                if tx.get("category_override"):
-                    merged_row["category_override"] = tx["category_override"]
-                merged_row["is_duplicate"] = tx.get("is_duplicate", False)
-                updated_existing.append(merged_row)
-            else:
-                updated_existing.append(tx)
-        existing = updated_existing
-        remaining_new = list(incoming_by_tx.values())
+    if all_new_records:
+        merged = merge_new_transactions(non_plaid_existing, all_new_records)
     else:
-        remaining_new = all_new_records
-
-    if remaining_new:
-        merged = merge_new_transactions(existing, remaining_new)
-    else:
+        # If Plaid had an outage or all Items failed, preserve the existing file
+        # rather than wiping history to zero.
         merged = existing
+
     save_transactions(merged)
 
     return {
@@ -433,6 +435,7 @@ def sync_all_items() -> dict:
         "added": sum(s.get("added", 0) for s in per_item_summary),
         "modified": sum(s.get("modified", 0) for s in per_item_summary),
         "removed": sum(s.get("removed", 0) for s in per_item_summary),
+        "rebuilt_plaid_rows_removed": removed_plaid_count,
         "total": len(merged),
         "errors": errors,
     }
