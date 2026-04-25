@@ -34,6 +34,11 @@ from services import plaid_credentials
 
 _items_lock = threading.Lock()
 
+# Plaid's max Transactions history window is 730 days. This only affects newly
+# linked Items; existing Items that were initialized with a shorter history
+# window must be removed and re-linked if older transactions are needed.
+PLAID_TRANSACTION_DAYS_REQUESTED = 730
+
 
 # ── Credential / client bootstrap ─────────────────────────────────
 
@@ -121,6 +126,22 @@ def remove_item(item_id: str) -> bool:
 
 # ── Link token / public token exchange ────────────────────────────
 
+def _transactions_link_config() -> Any:
+    """Return the Transactions Link config for the installed plaid-python version."""
+    try:
+        from plaid.model.link_token_create_request_transactions import (
+            LinkTokenCreateRequestTransactions,
+        )
+
+        return LinkTokenCreateRequestTransactions(
+            days_requested=PLAID_TRANSACTION_DAYS_REQUESTED
+        )
+    except Exception:
+        # Older generated plaid-python builds may not expose this model class yet,
+        # but LinkTokenCreateRequest still serializes nested dicts correctly.
+        return {"days_requested": PLAID_TRANSACTION_DAYS_REQUESTED}
+
+
 def create_link_token(user_id: str = "life-manager-user") -> dict:
     """Return {link_token, expiration} or {error}."""
     if not is_configured():
@@ -142,6 +163,7 @@ def create_link_token(user_id: str = "life-manager-user") -> dict:
             country_codes=[CountryCode("US")],
             language="en",
             user=LinkTokenCreateRequestUser(client_user_id=user_id),
+            transactions=_transactions_link_config(),
         )
         if creds.get("redirect_uri"):
             req_kwargs["redirect_uri"] = creds["redirect_uri"]
@@ -150,6 +172,7 @@ def create_link_token(user_id: str = "life-manager-user") -> dict:
             "link_token": response["link_token"],
             "expiration": str(response.get("expiration") or ""),
             "env": creds["env"],
+            "days_requested": PLAID_TRANSACTION_DAYS_REQUESTED,
         }
     except Exception as e:  # pragma: no cover - surface nicely in UI
         return {"error": f"Plaid link_token_create failed: {e}"}
