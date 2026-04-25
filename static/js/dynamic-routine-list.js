@@ -1,5 +1,6 @@
 (function () {
   if (new URLSearchParams(location.search).get('legacy') === '1') return;
+  const TZ = 'America/New_York';
   const BUCKETS = ['Morning / Start Here', 'Daytime', 'Evening', 'Lower Priority / Due Soon'];
   const WONT_BUCKET = "Won't Do";
   const OVERRIDE_PREFIX = 'lm:routine-bucket:';
@@ -12,10 +13,12 @@
     style.textContent = `
       body.dynamic-routines-active .notecard,
       body.dynamic-routines-active .area-tabs,
-      body.dynamic-routines-active .cards-today-score { display: none !important; }
+      body.dynamic-routines-active .cards-today-score,
+      body.dynamic-routines-active .picker { display: none !important; }
       #dynamic-routine-app { margin: 1rem 0 1.5rem; }
       .dyn-routine-hero { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; padding:1rem; margin-bottom:.8rem; }
       .dyn-routine-hero h2 { margin:.1rem 0 .25rem; font-size:1.25rem; }
+      .dyn-date { margin:0 0 .1rem; font-size:.95rem; color:var(--text-muted); font-weight:700; }
       .dyn-eyebrow { margin:0; text-transform:uppercase; letter-spacing:.08em; font-size:.72rem; color:var(--text-muted); font-weight:800; }
       .dyn-sub { margin:0; color:var(--text-muted); line-height:1.35; max-width:42rem; }
       .dyn-hero-actions { display:flex; flex-direction:column; align-items:flex-end; gap:.45rem; min-width:max-content; }
@@ -51,13 +54,20 @@
     document.head.appendChild(style);
   }
 
+  function easternParts(d) {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d);
+    const got = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+    return { year: got.year, month: got.month, day: got.day };
+  }
+  function easternTodayIso() { const p = easternParts(new Date()); return p.year + '-' + p.month + '-' + p.day; }
   function parseDate(s) { return new Date(String(s || '').slice(0, 10) + 'T00:00:00'); }
-  function iso(d) { return d.toISOString().slice(0, 10); }
+  function iso(d) { const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const day = String(d.getDate()).padStart(2, '0'); return y + '-' + m + '-' + day; }
   function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
   function daysBetween(a, b) { return Math.round((parseDate(a) - parseDate(b)) / 86400000); }
+  function labelDate(s) { return parseDate(s).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' }); }
   function intervalDays(freq) { const f = Number(freq || 0); if (f <= 0) return 9999; if (f >= 7) return 1; return Math.max(1, Math.round(7 / f)); }
   function scheduledCount(task, di) { const n = Number((task.scheduled || [])[di] || 0); return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0; }
-  function selectedDate() { const inp = document.querySelector('.picker-date'); if (inp && inp.value) return inp.value; return iso(new Date()); }
+  function selectedDate() { const inp = document.querySelector('.picker-date'); if (inp && inp.value) return inp.value; return easternTodayIso(); }
   function dayIdxFor(dateStr, weekStart) { return Math.max(0, Math.min(6, daysBetween(dateStr, weekStart))); }
   function taskKey(areaKey, taskName) { return areaKey + '::' + taskName; }
   function overrideKey(areaKey, taskName, instance) { return OVERRIDE_PREFIX + taskKey(areaKey, taskName) + '::' + instance; }
@@ -186,21 +196,12 @@
   }
   function applyAction(it, selIso, action) {
     if (!it || !action) return;
-    if (action === 'wont') {
-      setWontDo(it, selIso, true);
-    } else if (action === 'reset') {
-      setWontDo(it, selIso, false);
-      setOverride(it.areaKey, it.rawName, it.instance, null);
-    } else if (BUCKETS.includes(action)) {
-      setWontDo(it, selIso, false);
-      setOverride(it.areaKey, it.rawName, it.instance, action);
-    }
+    if (action === 'wont') { setWontDo(it, selIso, true); }
+    else if (action === 'reset') { setWontDo(it, selIso, false); setOverride(it.areaKey, it.rawName, it.instance, null); }
+    else if (BUCKETS.includes(action)) { setWontDo(it, selIso, false); setOverride(it.areaKey, it.rawName, it.instance, action); }
     render();
   }
-  function closeActionSheet() {
-    const old = document.querySelector('.dyn-sheet-backdrop');
-    if (old) old.remove();
-  }
+  function closeActionSheet() { const old = document.querySelector('.dyn-sheet-backdrop'); if (old) old.remove(); }
   function editTiming(it, selIso) {
     closeActionSheet();
     const current = it.wontDo ? WONT_BUCKET : (getOverride(it.areaKey, it.rawName, it.instance) || it.bucket);
@@ -248,7 +249,9 @@
     const done = items.filter((x) => x.completedToday);
     const upcoming = items.filter((x) => x.upcoming).slice(0, 12);
     const activeCount = activeGroups.reduce((n, g) => n + g.items.length, 0);
-    let html = '<div class="dyn-routine-hero card"><div><p class="dyn-eyebrow">Today Stack</p><h2>Do this in order</h2><p class="dyn-sub">Use Recent to fix the last week. Long-press an item to move it or mark it won\'t do for today.</p></div><div class="dyn-hero-actions"></div></div>';
+    const todayIso = easternTodayIso();
+    const isToday = sel === todayIso;
+    let html = '<div class="dyn-routine-hero card"><div><p class="dyn-eyebrow">Today Stack · Eastern Time</p><p class="dyn-date">' + esc(labelDate(sel)) + (isToday ? ' · Today' : '') + '</p><h2>Do this in order</h2><p class="dyn-sub">Use Recent to fix the last week. Long-press an item to move it or mark it won\'t do for today.</p></div><div class="dyn-hero-actions"></div></div>';
     html += recentLinks(sel);
     html += '<div class="dyn-summary"><span>' + activeCount + ' active</span><span>' + done.length + ' done</span><span>' + wontGroups.reduce((n,g)=>n+g.items.length,0) + ' won\'t do</span><span>' + upcoming.length + ' upcoming</span></div>';
     html += '<div class="dyn-list">';
@@ -269,7 +272,7 @@
       btn.addEventListener('click', (e) => { if (longPressed) { e.preventDefault(); longPressed = false; return; } const it = itemForKey(); if (it) toggleItem(it, sel); });
     });
   }
-  document.addEventListener('alpine:initialized', () => setTimeout(render, 50));
-  window.addEventListener('load', () => setTimeout(render, 150));
+  document.addEventListener('alpine:initialized', () => setTimeout(render, 0));
+  window.addEventListener('load', () => setTimeout(render, 0));
   document.addEventListener('click', () => setTimeout(render, 50));
 })();
