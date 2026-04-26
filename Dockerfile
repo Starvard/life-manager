@@ -41,4 +41,4 @@ CMD ["gunicorn", \
      "--max-requests", "500", \
      "--max-requests-jitter", "75", \
      "--timeout", "120", \
-     "app:app"]
+     "cleaning_app:app"]
