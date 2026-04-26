@@ -33,7 +33,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
                     <span>Baby</span>
                 </a>
-                <a href="{{ url_for('cleaning.cleaning_page') }}" data-nav-tab="cleaning" class="{% if request.endpoint == 'cleaning.cleaning_page' %}active{% endif %}{% if 'cleaning' in hidden_nav_tabs %} nav-link-hidden{% endif %}">
+                <a href="/cleaning" data-nav-tab="cleaning" class="{% if request.endpoint == 'cleaning.cleaning_page' %}active{% endif %}{% if 'cleaning' in hidden_nav_tabs %} nav-link-hidden{% endif %}">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M9 21v-7h6v7"/><path d="M8 10h8"/></svg>
                     <span>Cleaning</span>
                 </a>
@@ -86,7 +86,7 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
                 Baby
             </a>
-            <a href="{{ url_for('cleaning.cleaning_page') }}" data-nav-tab="cleaning" class="{% if request.endpoint == 'cleaning.cleaning_page' %}active{% endif %}{% if 'cleaning' in hidden_nav_tabs %} nav-link-hidden{% endif %}">
+            <a href="/cleaning" data-nav-tab="cleaning" class="{% if request.endpoint == 'cleaning.cleaning_page' %}active{% endif %}{% if 'cleaning' in hidden_nav_tabs %} nav-link-hidden{% endif %}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M9 21v-7h6v7"/><path d="M8 10h8"/></svg>
                 Cleaning
             </a>
