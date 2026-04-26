@@ -31,6 +31,7 @@
 }
 .cleaning-progress-fill {
     height: 100%;
+    width: {{ cleaning.percent }}%;
     border-radius: inherit;
     background: white;
     transition: width .2s ease;
@@ -112,87 +113,172 @@
     cursor:pointer;
     margin-top:.65rem;
 }
+.cleaning-hidden-done .cleaning-task.done { display: none; }
+.cleaning-error {
+    color: #fecaca;
+    font-size: .85rem;
+    margin-top: .75rem;
+    display: none;
+}
 @media (max-width: 520px) {
     .cleaning-hero { border-radius: 18px; padding: 1rem; }
     .cleaning-room-grid { grid-template-columns: 1fr; }
 }
 </style>
 
-<div class="cleaning-page" x-data="cleaningChecklist({{ cleaning|tojson }})">
+<div class="cleaning-page" id="cleaning-page">
     <section class="cleaning-hero">
         <h1>Cleaning</h1>
         <p>Simple room-by-room reset checklist. Bedroom 3 is the former office.</p>
 
         <div class="cleaning-progress-row">
             <div class="cleaning-progress" aria-label="Cleaning progress">
-                <div class="cleaning-progress-fill" :style="`width: ${state.percent}%`"></div>
+                <div class="cleaning-progress-fill" id="cleaning-progress-fill"></div>
             </div>
-            <strong x-text="`${state.done}/${state.total} done`"></strong>
-            <span x-text="`${state.remaining} left`"></span>
+            <strong id="cleaning-done-text">{{ cleaning.done }}/{{ cleaning.total }} done</strong>
+            <span id="cleaning-left-text">{{ cleaning.remaining }} left</span>
         </div>
 
         <div class="cleaning-actions">
-            <button class="cleaning-btn secondary" type="button" @click="collapseDone = !collapseDone">
-                <span x-text="collapseDone ? 'Show completed' : 'Hide completed'"></span>
-            </button>
-            <button class="cleaning-btn" type="button" @click="resetAll()">Reset all</button>
+            <button class="cleaning-btn secondary" type="button" id="cleaning-toggle-done">Hide completed</button>
+            <button class="cleaning-btn" type="button" id="cleaning-reset-all">Reset all</button>
         </div>
+        <div class="cleaning-error" id="cleaning-error">Could not save that change. Try refreshing.</div>
     </section>
 
     <section class="cleaning-room-grid">
-        <template x-for="room in state.rooms" :key="room.id">
-            <article class="cleaning-room">
+        {% for room in cleaning.rooms %}
+            <article class="cleaning-room" data-room-id="{{ room.id }}">
                 <div class="cleaning-room-header">
                     <div>
-                        <h2 x-text="room.name"></h2>
-                        <p class="cleaning-note" x-show="room.note" x-text="room.note"></p>
+                        <h2>{{ room.name }}</h2>
+                        {% if room.note %}<p class="cleaning-note">{{ room.note }}</p>{% endif %}
                     </div>
-                    <div class="cleaning-room-count" x-text="`${room.done}/${room.total}`"></div>
+                    <div class="cleaning-room-count" data-room-count>{{ room.done }}/{{ room.total }}</div>
                 </div>
 
-                <template x-for="task in room.tasks" :key="task.id">
-                    <label class="cleaning-task" :class="{ done: task.done }" x-show="!collapseDone || !task.done">
-                        <input type="checkbox" :checked="task.done" @change="toggle(task.id, $event.target.checked)">
-                        <span x-text="task.name"></span>
+                {% for task in room.tasks %}
+                    <label class="cleaning-task{% if task.done %} done{% endif %}" data-task-row data-task-id="{{ task.id }}">
+                        <input type="checkbox" data-cleaning-check data-task-id="{{ task.id }}" {% if task.done %}checked{% endif %}>
+                        <span>{{ task.name }}</span>
                     </label>
-                </template>
+                {% endfor %}
 
-                <button class="cleaning-room-reset" type="button" @click="clearRoom(room.id)" x-show="room.done > 0">
-                    Clear this room
-                </button>
+                {% if room.done > 0 %}
+                    <button class="cleaning-room-reset" type="button" data-clear-room data-room-id="{{ room.id }}">
+                        Clear this room
+                    </button>
+                {% else %}
+                    <button class="cleaning-room-reset" type="button" data-clear-room data-room-id="{{ room.id }}" style="display:none;">
+                        Clear this room
+                    </button>
+                {% endif %}
             </article>
-        </template>
+        {% endfor %}
     </section>
 </div>
 
 <script>
-function cleaningChecklist(initialState) {
-    return {
-        state: initialState,
-        collapseDone: false,
+(function () {
+    const page = document.getElementById('cleaning-page');
+    const error = document.getElementById('cleaning-error');
+    const progressFill = document.getElementById('cleaning-progress-fill');
+    const doneText = document.getElementById('cleaning-done-text');
+    const leftText = document.getElementById('cleaning-left-text');
+    const toggleDoneBtn = document.getElementById('cleaning-toggle-done');
+    let hideCompleted = false;
 
-        async toggle(taskId, done) {
-            const res = await fetch('/api/cleaning/toggle', {
-                method: 'PATCH',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({task_id: taskId, done})
+    function showError() {
+        if (error) error.style.display = 'block';
+    }
+
+    function hideError() {
+        if (error) error.style.display = 'none';
+    }
+
+    function applyState(state) {
+        if (!state || !state.rooms) return;
+        if (progressFill) progressFill.style.width = `${state.percent || 0}%`;
+        if (doneText) doneText.textContent = `${state.done}/${state.total} done`;
+        if (leftText) leftText.textContent = `${state.remaining} left`;
+
+        state.rooms.forEach((room) => {
+            const card = document.querySelector(`[data-room-id="${room.id}"]`);
+            if (!card) return;
+            const count = card.querySelector('[data-room-count]');
+            if (count) count.textContent = `${room.done}/${room.total}`;
+            const clearBtn = card.querySelector('[data-clear-room]');
+            if (clearBtn) clearBtn.style.display = room.done > 0 ? '' : 'none';
+
+            room.tasks.forEach((task) => {
+                const row = document.querySelector(`[data-task-row][data-task-id="${CSS.escape(task.id)}"]`);
+                const check = document.querySelector(`[data-cleaning-check][data-task-id="${CSS.escape(task.id)}"]`);
+                if (row) row.classList.toggle('done', Boolean(task.done));
+                if (check) check.checked = Boolean(task.done);
             });
-            const data = await res.json();
-            if (data.ok) this.state = data;
-        },
+        });
+    }
 
-        async clearRoom(roomId) {
-            const res = await fetch(`/api/cleaning/room/${roomId}/clear`, {method: 'POST'});
-            const data = await res.json();
-            if (data.ok) this.state = data;
-        },
+    async function patchTask(taskId, done) {
+        hideError();
+        const res = await fetch('/api/cleaning/toggle', {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({task_id: taskId, done})
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error('save failed');
+        applyState(data);
+    }
 
-        async resetAll() {
+    document.querySelectorAll('[data-cleaning-check]').forEach((check) => {
+        check.addEventListener('change', async (event) => {
+            const input = event.currentTarget;
+            const taskId = input.dataset.taskId;
+            const original = !input.checked;
+            input.closest('[data-task-row]')?.classList.toggle('done', input.checked);
+            try {
+                await patchTask(taskId, input.checked);
+            } catch (err) {
+                input.checked = original;
+                input.closest('[data-task-row]')?.classList.toggle('done', original);
+                showError();
+            }
+        });
+    });
+
+    document.querySelectorAll('[data-clear-room]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            hideError();
+            const roomId = button.dataset.roomId;
+            try {
+                const res = await fetch(`/api/cleaning/room/${roomId}/clear`, {method: 'POST'});
+                const data = await res.json();
+                if (!res.ok || !data.ok) throw new Error('clear failed');
+                applyState(data);
+            } catch (err) {
+                showError();
+            }
+        });
+    });
+
+    document.getElementById('cleaning-reset-all')?.addEventListener('click', async () => {
+        hideError();
+        try {
             const res = await fetch('/api/cleaning/reset', {method: 'POST'});
             const data = await res.json();
-            if (data.ok) this.state = data;
+            if (!res.ok || !data.ok) throw new Error('reset failed');
+            applyState(data);
+        } catch (err) {
+            showError();
         }
-    }
-}
+    });
+
+    toggleDoneBtn?.addEventListener('click', () => {
+        hideCompleted = !hideCompleted;
+        page.classList.toggle('cleaning-hidden-done', hideCompleted);
+        toggleDoneBtn.textContent = hideCompleted ? 'Show completed' : 'Hide completed';
+    });
+})();
 </script>
 {% endblock %}
