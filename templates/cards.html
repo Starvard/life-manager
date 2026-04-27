@@ -7,17 +7,17 @@
     .notecard,
     .area-tabs,
     .cards-today-score,
-    .picker { display: none !important; }
+    .picker,
+    .view-toggle { display: none !important; }
 </style>
 {% endif %}
 <div class="page-header">
     <h1>Routine Cards</h1>
-    <p class="subtitle">Tap dots to mark complete</p>
+    <p class="subtitle">Tap routines to complete them. Long-press to move timing.</p>
 </div>
 
 <div class="view-toggle">
     <a href="{{ url_for('cards_page', week=week_key) }}" class="view-toggle-btn active">Today</a>
-    <a href="{{ url_for('cards_day_page', date=cards_day_date) }}" class="view-toggle-btn">Day</a>
 </div>
 
 <div class="picker">
@@ -138,4 +138,5 @@
 {% endif %}
 <script src="{{ url_for('static', filename='js/dynamic-routine-list.js') }}?v={{ cache_bust }}"></script>
 <script src="{{ url_for('static', filename='js/routine-overdue-box.js') }}?v={{ cache_bust }}"></script>
+<script src="{{ url_for('static', filename='js/routine-upcoming-actions.js') }}?v={{ cache_bust }}"></script>
 {% endblock %}
