@@ -1,8 +1,7 @@
 {% extends "base.html" %}
-{% block title %}{{ day_label }} - Life Manager{% endblock %}
+{% block title %}Routines - Life Manager{% endblock %}
 
 {% block content %}
-{% if not request.args.get('legacy') %}
 <style>
     .notecard,
     .area-tabs,
@@ -10,10 +9,9 @@
     .picker,
     .view-toggle { display: none !important; }
 </style>
-{% endif %}
 <div class="page-header">
-    <h1>Routine Cards</h1>
-    <p class="subtitle">Tap routines to complete them. Long-press to move timing.</p>
+    <h1>Routines</h1>
+    <p class="subtitle">Tap routines to complete the selected day. Long-press to move timing or mark won&rsquo;t-do.</p>
 </div>
 
 <div class="view-toggle">
@@ -111,7 +109,7 @@
 
 {% if not cards %}
 <div class="card" style="text-align:center; padding:2rem; color:var(--text-muted);">
-    No routine cards yet. <a href="{{ url_for('routines_page') }}">Configure routines</a> first.
+    No routine cards yet. <a href="{{ url_for('routines_page') }}">Manage routines</a> first.
 </div>
 {% endif %}
 
@@ -124,7 +122,4 @@ function dayNav(offset) {
 }
 </script>
 <script src="{{ url_for('static', filename='js/dynamic-routine-list.js') }}?v={{ cache_bust }}"></script>
-<script src="{{ url_for('static', filename='js/routine-overdue-box.js') }}?v={{ cache_bust }}"></script>
-<script src="{{ url_for('static', filename='js/routine-upcoming-actions.js') }}?v={{ cache_bust }}"></script>
-<script src="{{ url_for('static', filename='js/routine-schedule-fixes.js') }}?v={{ cache_bust }}"></script>
 {% endblock %}
