@@ -10,10 +10,10 @@ import config
 
 _lock = threading.Lock()
 
-# Keys must match data-nav-tab on links in base.html (except "edit" is the Routines page).
 NAV_TAB_KEYS: tuple[str, ...] = (
     "home",
     "cards",
+    "calendar",
     "baby",
     "cleaning",
     "budget",
@@ -21,24 +21,23 @@ NAV_TAB_KEYS: tuple[str, ...] = (
     "recipes",
     "research",
     "game",
-    "edit",
 )
 
 NAV_TAB_LABELS: dict[str, str] = {
     "home": "Home",
-    "cards": "Cards",
+    "cards": "Routines",
+    "calendar": "Calendar",
     "baby": "Baby",
     "cleaning": "Cleaning",
     "budget": "Budget",
     "fantasy": "Fantasy",
     "recipes": "Recipes",
     "research": "Research",
-    "game": "Pup Patrol Cat Dash",
-    "edit": "Edit (routines)",
+    "game": "Cat Dash",
 }
 
 DEFAULT_STATE: dict = {
-    "version": 1,
+    "version": 2,
     "hidden": [],
 }
 
@@ -94,9 +93,7 @@ def get_hidden_nav_tabs() -> list[str]:
 
 
 def set_hidden_nav_tabs(hidden: list[str]) -> list[str]:
-    """Replace hidden tab list. Unknown keys are dropped. Returns normalized list."""
     norm = _normalize_hidden(hidden)
-    # Keep at least one tab visible so the app stays reachable (Edit restores visibility).
     if len(norm) >= len(NAV_TAB_KEYS):
         norm = norm[: len(NAV_TAB_KEYS) - 1]
     with _lock:
