@@ -13,7 +13,6 @@ _lock = threading.Lock()
 NAV_TAB_KEYS: tuple[str, ...] = (
     "home",
     "cards",
-    "calendar",
     "baby",
     "cleaning",
     "budget",
@@ -26,7 +25,6 @@ NAV_TAB_KEYS: tuple[str, ...] = (
 NAV_TAB_LABELS: dict[str, str] = {
     "home": "Home",
     "cards": "Routines",
-    "calendar": "Calendar",
     "baby": "Baby",
     "cleaning": "Cleaning",
     "budget": "Budget",
@@ -37,7 +35,7 @@ NAV_TAB_LABELS: dict[str, str] = {
 }
 
 DEFAULT_STATE: dict = {
-    "version": 2,
+    "version": 3,
     "hidden": [],
 }
 
