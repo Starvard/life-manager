@@ -16,6 +16,9 @@
       body.dynamic-routines-active .picker,
       body.dynamic-routines-active .view-toggle { display: none !important; }
       #dynamic-routine-app { margin: 1rem 0 1.5rem; }
+      .routine-subtabs { display:flex; gap:.4rem; flex-wrap:wrap; margin:.25rem 0 .85rem; }
+      .routine-subtabs a { border:1px solid var(--border); border-radius:999px; padding:.42rem .7rem; color:var(--text-muted); text-decoration:none; background:rgba(255,255,255,.035); font-size:.78rem; font-weight:700; }
+      .routine-subtabs a.active { color:white; border-color:rgba(99,179,255,.34); background:rgba(99,179,255,.16); }
       .dyn-routine-hero { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; padding:1rem; margin-bottom:.8rem; }
       .dyn-routine-hero h2 { margin:.1rem 0 .25rem; font-size:1.25rem; }
       .dyn-date { margin:0 0 .1rem; font-size:.95rem; color:var(--text-muted); font-weight:700; }
@@ -288,7 +291,8 @@
     const activeCount = activeGroups.reduce((n, g) => n + g.items.length, 0);
     const todayIso = easternTodayIso();
     const isToday = sel === todayIso;
-    let html = '<div class="dyn-routine-hero card"><div><p class="dyn-eyebrow">Routines · Eastern Time</p><p class="dyn-date">' + esc(labelDate(sel, true)) + (isToday ? ' · Today' : '') + '</p><h2>Do this in order</h2><p class="dyn-sub">Tap to complete the selected day. Long-press for timing, reset, or won\'t-do. Completing late moves the next due date forward from the day you actually did it.</p></div><div class="dyn-hero-actions"><a class="btn btn-secondary btn-sm" href="/routines">Manage routines</a></div></div>';
+    let html = '<nav class="routine-subtabs" aria-label="Routine views"><a class="active" href="/cards">Today Stack</a><a href="/routines?view=calendar">Calendar</a><a href="/routines">Manage</a></nav>';
+    html += '<div class="dyn-routine-hero card"><div><p class="dyn-eyebrow">Routines · Eastern Time</p><p class="dyn-date">' + esc(labelDate(sel, true)) + (isToday ? ' · Today' : '') + '</p><h2>Do this in order</h2><p class="dyn-sub">Tap to complete the selected day. Long-press for timing, reset, or won\'t-do. Completing late moves the next due date forward from the day you actually did it.</p></div><div class="dyn-hero-actions"><a class="btn btn-secondary btn-sm" href="/routines?view=calendar">Calendar</a><a class="btn btn-secondary btn-sm" href="/routines">Manage routines</a></div></div>';
     html += recentLinks(sel);
     html += '<div class="dyn-summary"><span>' + activeCount + ' active</span><span>' + done.length + ' done</span><span>' + wontGroups.reduce((n,g)=>n+g.items.length,0) + ' won\'t do</span><span>' + upcoming.length + ' upcoming</span></div>';
     html += '<div class="dyn-list">';
