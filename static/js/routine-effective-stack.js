@@ -39,6 +39,19 @@
   function isDaily(freq) { return Number(freq || 0) >= 7; }
   function keyOf(areaKey, name) { return areaKey + '::' + name; }
 
+  function dailyBucket(name, dot, total) {
+    const n = String(name || '').toLowerCase();
+    if (n.includes('brush') || n.includes('floss')) return dot === 0 ? 'Morning' : 'Evening';
+    if (n.includes('water')) {
+      if (dot === 0) return 'Morning';
+      if (dot >= Math.max(1, total - 2)) return 'Evening';
+      return 'Midday';
+    }
+    if (n.includes('coffee') || n.includes('breakfast') || n.includes('vitamin') || n.includes('med') || n.includes('morning')) return 'Morning';
+    if (n.includes('dinner') || n.includes('evening') || n.includes('bed') || n.includes('trash') || n.includes('dish')) return 'Evening';
+    return 'Midday';
+  }
+
   function injectStyles() {
     if (document.getElementById('routine-effective-stack-styles')) return;
     const style = document.createElement('style');
@@ -57,28 +70,35 @@
       .eff-hero h2 { margin:.1rem 0 .25rem; font-size:1.25rem; }
       .eff-eyebrow { margin:0; text-transform:uppercase; letter-spacing:.08em; font-size:.72rem; color:var(--text-muted); font-weight:800; }
       .eff-date { margin:0 0 .1rem; color:var(--text-muted); font-weight:700; }
-      .eff-sub { margin:0; color:var(--text-muted); line-height:1.35; max-width:44rem; }
+      .eff-sub { margin:0; color:var(--text-muted); line-height:1.35; max-width:48rem; }
       .eff-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.45rem; }
       .eff-summary { display:flex; gap:.5rem; flex-wrap:wrap; margin:.65rem 0 1rem; }
       .eff-summary span { border:1px solid rgba(148,163,184,.2); border-radius:999px; padding:.35rem .65rem; background:rgba(255,255,255,.04); font-size:.82rem; color:var(--text-muted); }
-      .eff-list { display:grid; gap:.85rem; }
+      .eff-columns { display:grid; grid-template-columns:minmax(280px, .95fr) minmax(320px, 1.35fr); gap:.9rem; align-items:start; }
+      .eff-column { display:grid; gap:.85rem; }
+      .eff-column-title { padding:.9rem 1rem; }
+      .eff-column-title h3 { margin:0 0 .2rem; font-size:1rem; }
+      .eff-column-title p { margin:0; color:var(--text-muted); font-size:.78rem; line-height:1.35; }
       .eff-section { padding:.9rem; }
       .eff-section h3 { margin:0 0 .65rem; display:flex; justify-content:space-between; gap:.75rem; font-size:1rem; }
       .eff-section h3 small { color:var(--text-muted); font-weight:500; }
       .eff-task { width:100%; display:flex; align-items:center; gap:.7rem; border:1px solid rgba(148,163,184,.18); border-left-width:5px; border-radius:.9rem; padding:.72rem .75rem; margin:.45rem 0; background:rgba(255,255,255,.035); color:inherit; text-align:left; cursor:pointer; }
+      .eff-task:hover { background:rgba(255,255,255,.06); }
       .eff-task.overdue { border-color:rgba(248,113,113,.48); border-left-color:rgba(248,113,113,1); background:rgba(248,113,113,.11); }
       .eff-task.due { border-left-color:rgba(250,204,21,.95); background:rgba(250,204,21,.07); }
       .eff-task.daily { border-left-color:rgba(99,179,255,.8); }
-      .eff-task.upcoming { border-left-color:rgba(148,163,184,.65); opacity:.9; }
+      .eff-task.upcoming { border-left-color:rgba(148,163,184,.65); opacity:.94; }
       .eff-task.done { border-left-color:rgba(134,239,172,.9); background:rgba(134,239,172,.07); }
+      .eff-task.done strong { text-decoration:line-through; opacity:.72; }
       .eff-task strong { display:block; font-size:.95rem; }
       .eff-task small { display:block; color:var(--text-muted); margin-top:.15rem; }
       .eff-check { display:grid; place-items:center; flex:0 0 1.6rem; width:1.6rem; height:1.6rem; border-radius:999px; background:rgba(255,255,255,.06); font-weight:900; }
       .eff-task.overdue .eff-check { background:rgba(248,113,113,.2); color:#fecaca; }
+      .eff-task.done .eff-check { background:rgba(134,239,172,.16); color:#bbf7d0; }
       .eff-empty { padding:1rem; color:var(--text-muted); }
       .eff-recent { display:flex; flex-wrap:wrap; gap:.4rem; margin:.35rem 0 1rem; }
       .eff-recent a { border:1px solid rgba(148,163,184,.2); border-radius:999px; padding:.35rem .6rem; background:rgba(255,255,255,.035); color:inherit; text-decoration:none; font-size:.82rem; }
-      @media(max-width:640px){.eff-hero{display:block}.eff-actions{justify-content:flex-start;margin-top:.75rem}.eff-task{padding:.82rem .78rem}}
+      @media(max-width:840px){.eff-columns{grid-template-columns:1fr}.eff-hero{display:block}.eff-actions{justify-content:flex-start;margin-top:.75rem}.eff-task{padding:.82rem .78rem}}
     `;
     document.head.appendChild(style);
   }
@@ -183,12 +203,14 @@
     const count = Math.max(scheduled, row.length > 1 ? row.length : 0);
     const out = [];
     for (let dot = 0; dot < count; dot++) {
-      out.push({ item, dot, status: row[dot] ? 'done' : 'daily', label: row[dot] ? 'Done today' : 'Due today' });
+      const done = !!row[dot];
+      const bucket = dailyBucket(item.name, dot, count);
+      out.push({ item, dot, bucket, status: done ? 'done' : 'daily', label: done ? 'Done today' : 'Due today' });
     }
     return out;
   }
 
-  async function complete(item, selIso, dotHint) {
+  async function saveDot(item, selIso, dotHint) {
     const di = dayIndex(selIso, item.card.week_start);
     if (!item.task.days[di]) item.task.days[di] = [false];
     let dot = Number.isInteger(dotHint) ? dotHint : item.task.days[di].findIndex((v) => !v);
@@ -202,14 +224,30 @@
       body: JSON.stringify({ task: item.taskIndex, day: di, dot, value: next, list: 'tasks' }),
     });
     CACHE.clear();
-    setTimeout(() => location.reload(), 80);
+    return next;
+  }
+
+  function updateDailyButton(btn, row, done) {
+    row.status = done ? 'done' : 'daily';
+    row.label = done ? 'Done today' : 'Due today';
+    btn.classList.toggle('done', done);
+    btn.classList.toggle('daily', !done);
+    const check = btn.querySelector('.eff-check');
+    const small = btn.querySelector('small');
+    if (check) check.textContent = done ? '✓' : '○';
+    if (small) small.textContent = row.label + ' · ' + row.areaName;
+    const summaryDone = document.querySelector('[data-daily-done-count]');
+    const allDaily = document.querySelectorAll('[data-row-kind="daily"]');
+    const doneDaily = document.querySelectorAll('[data-row-kind="daily"].done');
+    if (summaryDone) summaryDone.textContent = doneDaily.length + '/' + allDaily.length + ' daily done';
   }
 
   function taskButton(row, idx) {
     const status = row.status;
     const icon = status === 'done' ? '✓' : status === 'overdue' ? '!' : '○';
     const label = row.label || '';
-    return '<button type="button" class="eff-task ' + esc(status) + '" data-eff-idx="' + idx + '"><span class="eff-check">' + icon + '</span><span><strong>' + esc(row.name) + '</strong><small>' + esc(label + ' · ' + row.areaName) + '</small></span></button>';
+    const kind = row.isDaily ? 'daily' : 'flex';
+    return '<button type="button" class="eff-task ' + esc(status) + '" data-eff-idx="' + idx + '" data-row-kind="' + kind + '"><span class="eff-check">' + icon + '</span><span><strong>' + esc(row.name) + '</strong><small>' + esc(label + ' · ' + row.areaName) + '</small></span></button>';
   }
 
   function recentLinks(sel) {
@@ -222,6 +260,14 @@
     return '<div class="eff-recent">' + links.join('') + '</div>';
   }
 
+  function sectionHtml(title, list, rowRefs) {
+    if (!list.length) return '';
+    let html = '<section class="card eff-section"><h3><span>' + esc(title) + '</span><small>' + list.length + '</small></h3>';
+    list.forEach((r) => { rowRefs.push(r); html += taskButton(r, rowRefs.length - 1); });
+    html += '</section>';
+    return html;
+  }
+
   async function render() {
     injectStyles();
     document.body.classList.add('dynamic-routines-active');
@@ -229,10 +275,12 @@
     if (!cards.length) return;
     const selIso = selectedIso();
     const hist = await loadHistory(selIso);
-    const rows = [];
+    const dailyRows = [];
+    const flexRows = [];
+
     catalogFrom(cards).forEach((item) => {
       if (isDaily(item.freq)) {
-        dailyItems(item, selIso).forEach((x) => rows.push({ ...x, name: item.name, areaName: item.areaName, sort: x.status === 'done' ? 90 : 20 }));
+        dailyItems(item, selIso).forEach((x) => dailyRows.push({ ...x, isDaily: true, name: item.name, areaName: item.areaName, sort: x.status === 'done' ? 90 : 20 }));
         return;
       }
       const st = stateForFlexible(item, hist, selIso);
@@ -243,9 +291,11 @@
       else if (st.kind === 'overdue') { label = st.overdueDays + ' day' + (st.overdueDays === 1 ? '' : 's') + ' overdue · due ' + dateLabel(st.dueIso, false); sort = 1; }
       else if (st.kind === 'due') { label = 'Due today'; sort = 10; }
       else if (st.kind === 'upcoming') { label = 'Due ' + dateLabel(st.dueIso, false) + ' · tap if done today'; sort = 70; }
-      rows.push({ item, name: item.name, areaName: item.areaName, status: st.kind, label, sort, dueIso: st.dueIso });
+      flexRows.push({ item, isDaily: false, name: item.name, areaName: item.areaName, status: st.kind, label, sort, dueIso: st.dueIso });
     });
-    rows.sort((a, b) => a.sort - b.sort || a.areaName.localeCompare(b.areaName) || a.name.localeCompare(b.name));
+
+    dailyRows.sort((a, b) => ['Morning', 'Midday', 'Evening'].indexOf(a.bucket) - ['Morning', 'Midday', 'Evening'].indexOf(b.bucket) || a.sort - b.sort || a.name.localeCompare(b.name));
+    flexRows.sort((a, b) => a.sort - b.sort || a.areaName.localeCompare(b.areaName) || a.name.localeCompare(b.name));
 
     let mount = document.getElementById('dynamic-routine-app');
     if (!mount) {
@@ -256,37 +306,46 @@
     }
 
     const today = selIso === todayIso();
-    const overdue = rows.filter((r) => r.status === 'overdue');
-    const active = rows.filter((r) => ['due', 'daily'].includes(r.status));
-    const upcoming = rows.filter((r) => r.status === 'upcoming');
-    const done = rows.filter((r) => r.status === 'done');
+    const overdue = flexRows.filter((r) => r.status === 'overdue');
+    const due = flexRows.filter((r) => r.status === 'due');
+    const upcoming = flexRows.filter((r) => r.status === 'upcoming');
+    const flexDone = flexRows.filter((r) => r.status === 'done');
+    const dailyDoneCount = dailyRows.filter((r) => r.status === 'done').length;
+
     let html = '<nav class="routine-subtabs" aria-label="Routine views"><a class="active" href="/cards">Today Stack</a><a href="/routines?view=calendar">Calendar</a><a href="/routines">Manage</a></nav>';
-    html += '<section class="card eff-hero"><div><p class="eff-eyebrow">Routines · effective due logic</p><p class="eff-date">' + esc(dateLabel(selIso, true)) + (today ? ' · Today' : '') + '</p><h2>Do this in order</h2><p class="eff-sub">Flexible routines use one rule: last completed date + interval = next due date. Early or late completion resets the clock from the day you actually did it.</p></div><div class="eff-actions"><a class="btn btn-secondary btn-sm" href="/routines?view=calendar">Calendar</a><a class="btn btn-secondary btn-sm" href="/routines">Manage</a></div></section>';
+    html += '<section class="card eff-hero"><div><p class="eff-eyebrow">Routines · split view</p><p class="eff-date">' + esc(dateLabel(selIso, true)) + (today ? ' · Today' : '') + '</p><h2>Daily on the left, recurring on the right</h2><p class="eff-sub">Daily habits check off instantly without refreshing. Flexible routines recalculate from actual completion date, so those can refresh after you mark one done.</p></div><div class="eff-actions"><a class="btn btn-secondary btn-sm" href="/routines?view=calendar">Calendar</a><a class="btn btn-secondary btn-sm" href="/routines">Manage</a></div></section>';
     html += recentLinks(selIso);
-    html += '<div class="eff-summary"><span>' + overdue.length + ' overdue</span><span>' + active.length + ' due today</span><span>' + upcoming.length + ' coming up</span><span>' + done.length + ' done</span></div>';
-    html += '<div class="eff-list">';
-    const sections = [
-      ['Overdue', overdue],
-      ['Due Today', active],
-      ['Coming Up', upcoming],
-      ['Done Today', done],
-    ];
-    let idx = 0;
+    html += '<div class="eff-summary"><span data-daily-done-count>' + dailyDoneCount + '/' + dailyRows.length + ' daily done</span><span>' + overdue.length + ' overdue</span><span>' + due.length + ' due today</span><span>' + upcoming.length + ' coming up</span></div>';
+
     const rowRefs = [];
-    sections.forEach(([title, list]) => {
-      if (!list.length) return;
-      html += '<section class="card eff-section"><h3><span>' + esc(title) + '</span><small>' + list.length + '</small></h3>';
-      list.forEach((r) => { rowRefs.push(r); html += taskButton(r, idx++); });
-      html += '</section>';
+    html += '<div class="eff-columns">';
+    html += '<div class="eff-column eff-daily-column"><section class="card eff-column-title"><h3>Daily checklist</h3><p>No refresh. Organized by rough time of day.</p></section>';
+    ['Morning', 'Midday', 'Evening'].forEach((bucket) => {
+      html += sectionHtml(bucket, dailyRows.filter((r) => r.bucket === bucket), rowRefs);
     });
-    if (!rowRefs.length) html += '<div class="card eff-empty">Nothing active right now.</div>';
+    if (!dailyRows.length) html += '<div class="card eff-empty">No daily tasks for this day.</div>';
     html += '</div>';
+
+    html += '<div class="eff-column eff-flex-column"><section class="card eff-column-title"><h3>Recurring due dates</h3><p>These use last completion + interval. Marking one done refreshes this side so the new due date is correct.</p></section>';
+    html += sectionHtml('Overdue', overdue, rowRefs);
+    html += sectionHtml('Due Today', due, rowRefs);
+    html += sectionHtml('Coming Up', upcoming, rowRefs);
+    html += sectionHtml('Done Today', flexDone, rowRefs);
+    if (!flexRows.length) html += '<div class="card eff-empty">No recurring due-date tasks active right now.</div>';
+    html += '</div></div>';
+
     mount.innerHTML = html;
     mount.querySelectorAll('[data-eff-idx]').forEach((btn) => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', async () => {
         const r = rowRefs[Number(btn.getAttribute('data-eff-idx'))];
         if (!r || !r.item) return;
-        complete(r.item, selIso, r.dot);
+        if (r.isDaily) {
+          const done = await saveDot(r.item, selIso, r.dot);
+          updateDailyButton(btn, r, done);
+        } else {
+          await saveDot(r.item, selIso, r.dot);
+          setTimeout(() => location.reload(), 80);
+        }
       });
     });
   }
