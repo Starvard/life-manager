@@ -4,6 +4,7 @@
   const MS_DAY = 86400000;
   const TZ = 'America/New_York';
   const CACHE = new Map();
+  const SECTION_KEY = 'lm:routine-section:';
 
   function parseIso(s) { return new Date(String(s || '').slice(0, 10) + 'T00:00:00'); }
   function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -36,10 +37,17 @@
     if (f >= 7) return 1;
     return Math.max(1, Math.round(7 / f));
   }
+  function freqFromEveryDays(days) {
+    const d = Number(days || 0);
+    if (!Number.isFinite(d) || d <= 0) return 1;
+    return Number((7 / d).toFixed(3));
+  }
   function isDaily(freq) { return Number(freq || 0) >= 7; }
   function keyOf(areaKey, name) { return areaKey + '::' + name; }
 
-  function dailyBucket(name, dot, total) {
+  function dailyBucket(name, dot, total, areaKey) {
+    const sectionOverride = localStorage.getItem(SECTION_KEY + areaKey + '::' + name);
+    if (sectionOverride) return sectionOverride;
     const n = String(name || '').toLowerCase();
     if (n.includes('brush') || n.includes('floss')) return dot === 0 ? 'Morning' : 'Evening';
     if (n.includes('water')) {
@@ -98,6 +106,17 @@
       .eff-empty { padding:1rem; color:var(--text-muted); }
       .eff-recent { display:flex; flex-wrap:wrap; gap:.4rem; margin:.35rem 0 1rem; }
       .eff-recent a { border:1px solid rgba(148,163,184,.2); border-radius:999px; padding:.35rem .6rem; background:rgba(255,255,255,.035); color:inherit; text-decoration:none; font-size:.82rem; }
+      .eff-add-card { padding:.75rem; display:flex; gap:.5rem; flex-wrap:wrap; }
+      .eff-hint { color:var(--text-muted); font-size:.72rem; margin:.35rem 0 0; }
+      .lm-sheet-backdrop { position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,.48); display:flex; align-items:flex-end; justify-content:center; padding:.75rem; }
+      .lm-edit-sheet { width:min(480px,100%); border:1px solid rgba(148,163,184,.25); border-radius:1.05rem; background:rgb(15,23,42); box-shadow:0 28px 90px rgba(0,0,0,.48); padding:.95rem; }
+      .lm-edit-sheet h3 { margin:0 0 .25rem; font-size:1rem; }
+      .lm-edit-sheet p { margin:0 0 .75rem; color:var(--text-muted); font-size:.8rem; line-height:1.35; }
+      .lm-edit-grid { display:grid; gap:.55rem; }
+      .lm-edit-grid label { display:grid; gap:.22rem; font-size:.76rem; color:var(--text-muted); font-weight:700; }
+      .lm-edit-grid input,.lm-edit-grid select { width:100%; border:1px solid var(--border); border-radius:.65rem; padding:.62rem .65rem; background:rgba(255,255,255,.055); color:var(--text); }
+      .lm-edit-actions { display:flex; gap:.45rem; justify-content:space-between; margin-top:.85rem; }
+      .lm-edit-actions .right { margin-left:auto; display:flex; gap:.45rem; }
       @media(max-width:840px){.eff-columns{grid-template-columns:1fr}.eff-hero{display:block}.eff-actions{justify-content:flex-start;margin-top:.75rem}.eff-task{padding:.82rem .78rem}}
     `;
     document.head.appendChild(style);
@@ -204,7 +223,7 @@
     const out = [];
     for (let dot = 0; dot < count; dot++) {
       const done = !!row[dot];
-      const bucket = dailyBucket(item.name, dot, count);
+      const bucket = dailyBucket(item.name, dot, count, item.areaKey);
       out.push({ item, dot, bucket, status: done ? 'done' : 'daily', label: done ? 'Done today' : 'Due today' });
     }
     return out;
@@ -225,6 +244,188 @@
     });
     CACHE.clear();
     return next;
+  }
+
+  function updateDailyButton(btn, row, done) {
+    row.status = done ? 'done' : 'daily';
+    row.label = done ? 'Done today' : 'Due today';
+    btn.classList.toggle('done', done);
+    btn.classList.toggle('daily', !done);
+    const check = btn.querySelector('.eff-check');
+    const small = btn.querySelector('small');
+    if (check) check.textContent = done ? '✓' : '○';
+    if (small) small.textContent = row.label + ' · ' + row.areaName;
+    const summaryDone = document.querySelector('[data-daily-done-count]');
+    const allDaily = document.querySelectorAll('[data-row-kind="daily"]');
+    const doneDaily = document.querySelectorAll('[data-row-kind="daily"].done');
+    if (summaryDone) summaryDone.textContent = doneDaily.length + '/' + allDaily.length + ' daily done';
+  }
+
+  async function getManageFormDoc() {
+    const html = await fetch('/routines', { cache: 'no-store' }).then((r) => r.text());
+    return new DOMParser().parseFromString(html, 'text/html');
+  }
+
+  function freqInputValue(freq, everyDays) {
+    if (everyDays) return String(freqFromEveryDays(everyDays));
+    const f = Number(freq || 0);
+    return Number.isFinite(f) && f > 0 ? String(f) : '1';
+  }
+
+  async function submitManageForm(doc) {
+    const form = doc.querySelector('form[action$="/routines/save"]') || doc.querySelector('form');
+    if (!form) throw new Error('Could not find routine save form.');
+    const res = await fetch('/routines/save', { method: 'POST', body: new FormData(form), redirect: 'follow' });
+    if (!res.ok) throw new Error('Routine save failed.');
+  }
+
+  async function saveRoutineEdit(row, vals) {
+    const doc = await getManageFormDoc();
+    const area = row.item.areaKey;
+    const idx = row.item.taskIndex;
+    const nameEl = doc.querySelector('[name="task_name_' + CSS.escape(area) + '_' + idx + '"]');
+    const freqEl = doc.querySelector('[name="task_freq_' + CSS.escape(area) + '_' + idx + '"]');
+    const fpyEl = doc.querySelector('[name="task_fpy_' + CSS.escape(area) + '_' + idx + '"]');
+    const delEl = doc.querySelector('[name="task_delete_' + CSS.escape(area) + '_' + idx + '"]');
+    if (!nameEl) throw new Error('Could not find task in manage form.');
+    if (vals.deleteTask) {
+      if (delEl) delEl.checked = true;
+    } else {
+      nameEl.value = vals.name || row.name;
+      if (fpyEl) fpyEl.value = '';
+      if (freqEl) freqEl.value = freqInputValue(vals.freq, vals.everyDays);
+      if (vals.section && isDaily(freqEl ? Number(freqEl.value) : row.item.freq)) {
+        localStorage.setItem(SECTION_KEY + area + '::' + nameEl.value, vals.section);
+      }
+    }
+    await submitManageForm(doc);
+  }
+
+  async function addRoutineTask(vals) {
+    const doc = await getManageFormDoc();
+    const area = vals.areaKey;
+    const nameEl = doc.querySelector('[name="new_task_name_' + CSS.escape(area) + '"]');
+    const freqEl = doc.querySelector('[name="new_task_freq_' + CSS.escape(area) + '"]');
+    const fpyEl = doc.querySelector('[name="new_task_fpy_' + CSS.escape(area) + '"]');
+    if (!nameEl || !freqEl) throw new Error('Could not find add-task fields.');
+    nameEl.value = vals.name || 'New task';
+    if (fpyEl) fpyEl.value = '';
+    freqEl.value = freqInputValue(vals.freq, vals.everyDays);
+    if (vals.section && Number(freqEl.value) >= 7) {
+      localStorage.setItem(SECTION_KEY + area + '::' + nameEl.value, vals.section);
+    }
+    await submitManageForm(doc);
+  }
+
+  function closeSheet() { document.querySelector('.lm-sheet-backdrop')?.remove(); }
+
+  function areaOptions(cards, selected) {
+    const seen = new Set();
+    return cards.map((c) => ({ key: c.area_key || '', name: c.area_name || c.area_key || '' }))
+      .filter((a) => a.key && !seen.has(a.key) && seen.add(a.key))
+      .map((a) => '<option value="' + esc(a.key) + '"' + (a.key === selected ? ' selected' : '') + '>' + esc(a.name) + '</option>').join('');
+  }
+
+  function openAddSheet(cards) {
+    closeSheet();
+    const firstArea = (cards[0] && cards[0].area_key) || '';
+    const wrap = document.createElement('div');
+    wrap.className = 'lm-sheet-backdrop';
+    wrap.innerHTML = '<div class="lm-edit-sheet" role="dialog" aria-modal="true"><h3>Add routine task</h3><p>Add it here instead of going to the old Manage page.</p><div class="lm-edit-grid">' +
+      '<label>Area<select id="lm-add-area">' + areaOptions(cards, firstArea) + '</select></label>' +
+      '<label>Name<input id="lm-add-name" type="text" placeholder="Freeze milk"></label>' +
+      '<label>Type<select id="lm-add-type"><option value="daily">Daily</option><option value="every">Every N days</option><option value="freq">Times per week</option></select></label>' +
+      '<label id="lm-add-days-wrap" style="display:none">Every N days<input id="lm-add-days" type="number" min="1" step="1" value="3"></label>' +
+      '<label id="lm-add-freq-wrap" style="display:none">Frequency per week<input id="lm-add-freq" type="number" min="0" step="0.01" value="1"></label>' +
+      '<label id="lm-add-section-wrap">Daily section<select id="lm-add-section"><option>Morning</option><option selected>Midday</option><option>Evening</option></select></label>' +
+      '</div><div class="lm-edit-actions"><button type="button" class="btn btn-secondary btn-sm" data-action="cancel">Cancel</button><span class="right"><button type="button" class="btn btn-primary btn-sm" data-action="save">Add</button></span></div></div>';
+    const typeChanged = () => {
+      const t = wrap.querySelector('#lm-add-type')?.value || 'daily';
+      wrap.querySelector('#lm-add-days-wrap').style.display = t === 'every' ? '' : 'none';
+      wrap.querySelector('#lm-add-freq-wrap').style.display = t === 'freq' ? '' : 'none';
+      wrap.querySelector('#lm-add-section-wrap').style.display = t === 'daily' ? '' : 'none';
+    };
+    wrap.addEventListener('change', (e) => { if (e.target && e.target.id === 'lm-add-type') typeChanged(); });
+    wrap.addEventListener('click', async (e) => {
+      if (e.target === wrap) closeSheet();
+      const action = e.target.closest('[data-action]')?.getAttribute('data-action');
+      if (!action) return;
+      if (action === 'cancel') { closeSheet(); return; }
+      const type = wrap.querySelector('#lm-add-type').value;
+      const vals = {
+        areaKey: wrap.querySelector('#lm-add-area').value,
+        name: wrap.querySelector('#lm-add-name').value.trim(),
+        freq: type === 'daily' ? 7 : wrap.querySelector('#lm-add-freq').value,
+        everyDays: type === 'every' ? wrap.querySelector('#lm-add-days').value : '',
+        section: type === 'daily' ? wrap.querySelector('#lm-add-section').value : '',
+      };
+      if (!vals.name) return;
+      await addRoutineTask(vals);
+      location.reload();
+    });
+    document.body.appendChild(wrap);
+  }
+
+  function openEditSheet(row) {
+    closeSheet();
+    const item = row.item;
+    const daily = row.isDaily || isDaily(item.freq);
+    const wrap = document.createElement('div');
+    wrap.className = 'lm-sheet-backdrop';
+    const currentSection = localStorage.getItem(SECTION_KEY + item.areaKey + '::' + item.name) || row.bucket || 'Midday';
+    wrap.innerHTML = '<div class="lm-edit-sheet" role="dialog" aria-modal="true"><h3>Edit routine task</h3><p>' + esc(item.areaName + ' · long-press editor') + '</p><div class="lm-edit-grid">' +
+      '<label>Name<input id="lm-edit-name" type="text" value="' + esc(item.name) + '"></label>' +
+      '<label>Type<select id="lm-edit-type"><option value="daily"' + (daily ? ' selected' : '') + '>Daily</option><option value="every"' + (!daily ? ' selected' : '') + '>Every N days</option><option value="freq">Times per week</option></select></label>' +
+      '<label id="lm-edit-days-wrap">Every N days<input id="lm-edit-days" type="number" min="1" step="1" value="' + intervalDays(item.freq) + '"></label>' +
+      '<label id="lm-edit-freq-wrap" style="display:none">Frequency per week<input id="lm-edit-freq" type="number" min="0" step="0.01" value="' + esc(item.freq || 1) + '"></label>' +
+      '<label id="lm-edit-section-wrap">Daily section<select id="lm-edit-section"><option>Morning</option><option>Midday</option><option>Evening</option></select></label>' +
+      '</div><div class="lm-edit-actions"><button type="button" class="btn btn-danger btn-sm" data-action="delete">Delete</button><span class="right"><button type="button" class="btn btn-secondary btn-sm" data-action="cancel">Cancel</button><button type="button" class="btn btn-primary btn-sm" data-action="save">Save</button></span></div></div>';
+    const syncType = () => {
+      const type = wrap.querySelector('#lm-edit-type')?.value || 'daily';
+      wrap.querySelector('#lm-edit-days-wrap').style.display = type === 'every' ? '' : 'none';
+      wrap.querySelector('#lm-edit-freq-wrap').style.display = type === 'freq' ? '' : 'none';
+      wrap.querySelector('#lm-edit-section-wrap').style.display = type === 'daily' ? '' : 'none';
+    };
+    wrap.addEventListener('change', (e) => { if (e.target && e.target.id === 'lm-edit-type') syncType(); });
+    wrap.addEventListener('click', async (e) => {
+      if (e.target === wrap) closeSheet();
+      const action = e.target.closest('[data-action]')?.getAttribute('data-action');
+      if (!action) return;
+      if (action === 'cancel') { closeSheet(); return; }
+      if (action === 'delete' && !confirm('Delete ' + item.name + '?')) return;
+      const type = wrap.querySelector('#lm-edit-type').value;
+      await saveRoutineEdit(row, {
+        deleteTask: action === 'delete',
+        name: wrap.querySelector('#lm-edit-name').value.trim(),
+        freq: type === 'daily' ? 7 : wrap.querySelector('#lm-edit-freq').value,
+        everyDays: type === 'every' ? wrap.querySelector('#lm-edit-days').value : '',
+        section: type === 'daily' ? wrap.querySelector('#lm-edit-section').value : '',
+      });
+      location.reload();
+    });
+    document.body.appendChild(wrap);
+    const section = wrap.querySelector('#lm-edit-section');
+    if (section) section.value = currentSection;
+    syncType();
+  }
+
+  function bindLongPress(btn, row) {
+    let timer = null;
+    let fired = false;
+    btn.addEventListener('pointerdown', () => {
+      fired = false;
+      clearTimeout(timer);
+      timer = setTimeout(() => { fired = true; openEditSheet(row); }, 650);
+    });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => btn.addEventListener(ev, () => clearTimeout(timer)));
+    btn.addEventListener('contextmenu', (e) => { e.preventDefault(); openEditSheet(row); });
+    btn.addEventListener('click', (e) => {
+      if (fired) {
+        e.preventDefault();
+        e.stopPropagation();
+        fired = false;
+      }
+    }, true);
   }
 
   function updateDailyButton(btn, row, done) {
@@ -312,30 +513,36 @@
     const flexDone = flexRows.filter((r) => r.status === 'done');
     const dailyDoneCount = dailyRows.filter((r) => r.status === 'done').length;
 
-    let html = '<nav class="routine-subtabs" aria-label="Routine views"><a class="active" href="/cards">Today Stack</a><a href="/routines?view=calendar">Calendar</a><a href="/routines">Manage</a></nav>';
-    html += '<section class="card eff-hero"><div><p class="eff-eyebrow">Routines · split view</p><p class="eff-date">' + esc(dateLabel(selIso, true)) + (today ? ' · Today' : '') + '</p><h2>Daily on the left, recurring on the right</h2><p class="eff-sub">Daily habits check off instantly without refreshing. Flexible routines recalculate from actual completion date, so those can refresh after you mark one done.</p></div><div class="eff-actions"><a class="btn btn-secondary btn-sm" href="/routines?view=calendar">Calendar</a><a class="btn btn-secondary btn-sm" href="/routines">Manage</a></div></section>';
+    let html = '<nav class="routine-subtabs" aria-label="Routine views"><a class="active" href="/cards">Today Stack</a><a href="/routines?view=calendar">Calendar</a></nav>';
+    html += '<section class="card eff-hero"><div><p class="eff-eyebrow">Routines · inline management</p><p class="eff-date">' + esc(dateLabel(selIso, true)) + (today ? ' · Today' : '') + '</p><h2>Daily on the left, recurring on the right</h2><p class="eff-sub">Tap to complete. Long-press any task to edit its name, frequency, section, or delete it. Add new tasks from the buttons below.</p></div><div class="eff-actions"><a class="btn btn-secondary btn-sm" href="/routines?view=calendar">Calendar</a></div></section>';
     html += recentLinks(selIso);
     html += '<div class="eff-summary"><span data-daily-done-count>' + dailyDoneCount + '/' + dailyRows.length + ' daily done</span><span>' + overdue.length + ' overdue</span><span>' + due.length + ' due today</span><span>' + upcoming.length + ' coming up</span></div>';
 
     const rowRefs = [];
     html += '<div class="eff-columns">';
-    html += '<div class="eff-column eff-daily-column"><section class="card eff-column-title"><h3>Daily checklist</h3><p>No refresh. Organized by rough time of day.</p></section>';
+    html += '<div class="eff-column eff-daily-column"><section class="card eff-column-title"><h3>Daily checklist</h3><p>No refresh. Organized by rough time of day. Long-press to edit.</p></section>';
     ['Morning', 'Midday', 'Evening'].forEach((bucket) => {
       html += sectionHtml(bucket, dailyRows.filter((r) => r.bucket === bucket), rowRefs);
     });
     if (!dailyRows.length) html += '<div class="card eff-empty">No daily tasks for this day.</div>';
+    html += '<section class="card eff-add-card"><button type="button" class="btn btn-primary btn-sm" id="eff-add-daily">Add daily</button><p class="eff-hint">Adds a daily task to your routine list.</p></section>';
     html += '</div>';
 
-    html += '<div class="eff-column eff-flex-column"><section class="card eff-column-title"><h3>Recurring due dates</h3><p>These use last completion + interval. Marking one done refreshes this side so the new due date is correct.</p></section>';
+    html += '<div class="eff-column eff-flex-column"><section class="card eff-column-title"><h3>Recurring due dates</h3><p>These use last completion + interval. Long-press to edit frequency or delete.</p></section>';
     html += sectionHtml('Overdue', overdue, rowRefs);
     html += sectionHtml('Due Today', due, rowRefs);
     html += sectionHtml('Coming Up', upcoming, rowRefs);
     html += sectionHtml('Done Today', flexDone, rowRefs);
     if (!flexRows.length) html += '<div class="card eff-empty">No recurring due-date tasks active right now.</div>';
+    html += '<section class="card eff-add-card"><button type="button" class="btn btn-primary btn-sm" id="eff-add-recurring">Add recurring</button><p class="eff-hint">Example: Freeze milk every 3 days.</p></section>';
     html += '</div></div>';
 
     mount.innerHTML = html;
+    mount.querySelector('#eff-add-daily')?.addEventListener('click', () => openAddSheet(cards));
+    mount.querySelector('#eff-add-recurring')?.addEventListener('click', () => openAddSheet(cards));
     mount.querySelectorAll('[data-eff-idx]').forEach((btn) => {
+      const r = rowRefs[Number(btn.getAttribute('data-eff-idx'))];
+      if (r) bindLongPress(btn, r);
       btn.addEventListener('click', async () => {
         const r = rowRefs[Number(btn.getAttribute('data-eff-idx'))];
         if (!r || !r.item) return;
