@@ -134,6 +134,5 @@
     No routine cards yet. <a href="{{ url_for('routines_page') }}">Manage routines</a> first.
 </div>
 {% endif %}
-<script src="{{ url_for('static', filename='js/dynamic-routine-list.js') }}?v={{ cache_bust }}"></script>
-<script src="{{ url_for('static', filename='js/routine-stack-logic-fix.js') }}?v={{ cache_bust }}"></script>
+<script src="{{ url_for('static', filename='js/routine-effective-stack.js') }}?v={{ cache_bust }}"></script>
 {% endblock %}
