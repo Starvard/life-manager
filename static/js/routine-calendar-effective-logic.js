@@ -7,22 +7,16 @@
   const CACHE = new Map();
 
   function parseIso(s) { return new Date(String(s || '').slice(0, 10) + 'T00:00:00'); }
-  function iso(d) {
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  }
+  function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
-  function mondayFor(d) { const x = new Date(d); const n = (x.getDay() + 6) % 7; x.setDate(x.getDate() - n); return x; }
+  function mondayFor(d) { const x = new Date(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
   function daysBetween(a, b) { return Math.round((parseIso(a) - parseIso(b)) / MS_DAY); }
   function monthKey(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
   function monthLabel(d) { return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }); }
   function dayLabel(d) { return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }); }
   function compactDate(dateIso) { return parseIso(dateIso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }); }
-  function intervalDays(freq) {
-    const f = Number(freq || 0);
-    if (f <= 0) return 9999;
-    if (f >= 7) return 1;
-    return Math.max(1, Math.round(7 / f));
-  }
+  function intervalDays(freq) { const f = Number(freq || 0); if (f <= 0) return 9999; if (f >= 7) return 1; return Math.max(1, Math.round(7 / f)); }
+  function isDaily(freq) { return Number(freq || 0) >= 7; }
   function esc(s) { return String(s || '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function weekKeyFor(d) {
     const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -145,14 +139,14 @@
     return { first, last, start, end };
   }
 
-  function dueState(dayIso, lastBeforeDay, freq) {
+  function stateForDate(dayIso, lastBeforeDay, freq) {
     const nextDue = lastBeforeDay ? iso(addDays(parseIso(lastBeforeDay), intervalDays(freq))) : null;
-    if (nextDue && nextDue > dayIso && freq < 7) {
-      return { suppressed: true, dueIso: nextDue, overdueDays: 0, overdue: false };
+    if (nextDue && nextDue !== dayIso) {
+      return { show: false, dueIso: nextDue, overdueDays: 0, overdue: false };
     }
     const dueIso = nextDue || dayIso;
     const overdueDays = Math.max(0, daysBetween(dayIso, dueIso));
-    return { suppressed: false, dueIso, overdueDays, overdue: overdueDays > 0 };
+    return { show: true, dueIso, overdueDays, overdue: overdueDays > 0 };
   }
 
   function itemsForDay(cardsByWeek, hist, day) {
@@ -165,18 +159,19 @@
 
     Object.entries(cards).forEach(([areaKey, card]) => {
       (card.tasks || []).forEach((task, taskIndex) => {
-        const key = areaKey + '::' + task.name;
         const freq = Number(task.freq || 0);
+        if (isDaily(freq)) return;
+        const key = areaKey + '::' + task.name;
         const dayRow = (task.days || [])[di] || [];
         const doneCount = dayRow.filter(Boolean).length;
         const scheduled = Number((task.scheduled || [])[di] || 0);
         const last = (hist[key] || []).filter((d) => d < dayIso).pop();
-        const ds = dueState(dayIso, last, freq);
+        const ds = stateForDate(dayIso, last, freq);
 
         for (let dot = 0; dot < doneCount; dot++) {
           out.push({ areaKey, areaName: card.area_name || areaKey, taskIndex, name: task.name, dot, done: true, dueIso: dayIso, overdue: false, overdueDays: 0 });
         }
-        if (!ds.suppressed) {
+        if (ds.show) {
           for (let dot = doneCount; dot < scheduled; dot++) {
             out.push({ areaKey, areaName: card.area_name || areaKey, taskIndex, name: task.name, dot, done: false, dueIso: ds.dueIso, overdue: ds.overdue, overdueDays: ds.overdueDays });
           }
@@ -193,9 +188,9 @@
     main.innerHTML = `
       <div class="routine-calendar-shell">
         <nav class="routine-subtabs" aria-label="Routine views"><a href="/cards">Today Stack</a><a href="/routines?view=calendar" class="active">Calendar</a><a href="/routines">Manage</a></nav>
-        <section class="card cal-hero"><div><h1>Routine Calendar</h1><p>Month view of effective due dates. Overdue age is now calculated as days after the task's effective due date, not days after the calendar cell date.</p></div><div class="cal-actions"><a class="btn btn-secondary btn-sm" href="/cards">Today Stack</a><a class="btn btn-secondary btn-sm" href="/routines">Manage</a></div></section>
+        <section class="card cal-hero"><div><h1>Routine Calendar</h1><p>Calendar only shows non-daily routines on their effective due dates. Daily habits stay out of this view.</p></div><div class="cal-actions"><a class="btn btn-secondary btn-sm" href="/cards">Today Stack</a><a class="btn btn-secondary btn-sm" href="/routines">Manage</a></div></section>
         <section class="card cal-toolbar"><div class="cal-nav"><button type="button" class="btn btn-secondary btn-sm" id="cal-prev">← Month</button><button type="button" class="btn btn-secondary btn-sm" id="cal-today">Today</button><button type="button" class="btn btn-secondary btn-sm" id="cal-next">Month →</button></div><h2 id="cal-title"></h2></section>
-        <section class="cal-legend card"><span class="legend-overdue">Overdue</span><span class="legend-due">Due / open</span><span class="legend-done">Done</span><span>Click a day to isolate it</span></section>
+        <section class="cal-legend card"><span class="legend-overdue">Overdue</span><span class="legend-due">Due / open</span><span class="legend-done">Done</span><span>No daily tasks shown</span></section>
         <section id="cal-day-detail" class="card cal-day-detail" hidden></section>
         <div id="cal-mount" class="cal-loading">Loading calendar…</div>
       </div>`;
@@ -210,10 +205,10 @@
     if (!dayIso) { detail.hidden = true; detail.innerHTML = ''; return; }
     const items = sortItems([...(state.dayItems.get(dayIso) || [])]);
     const overdueOpen = items.filter((x) => x.overdue && !x.done).length;
-    let html = '<div class="cal-detail-head"><div><h3>' + esc(dayLabel(parseIso(dayIso))) + '</h3><p>' + items.length + ' item' + (items.length === 1 ? '' : 's') + ' shown';
+    let html = '<div class="cal-detail-head"><div><h3>' + esc(dayLabel(parseIso(dayIso))) + '</h3><p>' + items.length + ' non-daily item' + (items.length === 1 ? '' : 's') + ' shown';
     if (overdueOpen) html += ' · ' + overdueOpen + ' overdue/open first';
     html += '. Complete from the day view, not the calendar.</p></div><a class="btn btn-secondary btn-sm" href="/cards/day?date=' + esc(dayIso) + '">Open day view</a></div>';
-    if (!items.length) html += '<div class="cal-empty">No routine tasks due or completed for this day.</div>';
+    if (!items.length) html += '<div class="cal-empty">No non-daily routine tasks due or completed for this day.</div>';
     else {
       html += '<div class="cal-detail-list">';
       items.forEach((it) => {
@@ -251,7 +246,7 @@
     mount.className = 'cal-loading';
     mount.textContent = 'Loading calendar…';
     const { first, last, start, end } = monthRange(state.current);
-    const historyStart = addDays(start, -12 * 7);
+    const historyStart = addDays(start, -26 * 7);
     const cardsByWeek = await weeksForRange(historyStart, end);
     const hist = {};
     Object.values(cardsByWeek).forEach((areas) => Object.values(areas || {}).forEach((card) => addHistoryFromCard(card, hist)));
