@@ -4,7 +4,7 @@
 {% block content %}
 <div class="page-header">
     <h1>Routine Configuration</h1>
-    <p class="subtitle">Frequency = times per week (7 = daily, 14 = 2x/day, 0.25 = monthly). Weight (try 1–5) scales how much each task affects your dashboard score for completed scheduled dots. Check weekdays to pin a task (e.g. trash every Tuesday).</p>
+    <p class="subtitle">Frequency = times per week. Examples: daily = 7, twice daily = 14, twice/week = 2, every 3 days = 2.33, every 6 months = 0.038. For flexible recurring tasks, the app uses: <strong>last completed date + interval = next due date</strong>.</p>
     <p class="subtitle routines-push-behavior">Push: only when <strong>today</strong> has a <strong>scheduled dot</strong> for that task that is still empty—not for missed dots on earlier weekdays by themselves. Notify is <strong>blank by default</strong>; set a time on any task to opt that task in.</p>
 </div>
 
@@ -61,7 +61,7 @@
             <div class="task-row">
                 <input type="text" name="task_name_{{ area_key }}_{{ loop.index0 }}" value="{{ task.name }}">
                 <input type="number" name="task_freq_{{ area_key }}_{{ loop.index0 }}"
-                       value="{{ task.freq if task.freq is defined else '' }}" step="0.25" min="0" placeholder="freq/wk">
+                       value="{{ task.freq if task.freq is defined else '' }}" step="0.01" min="0" placeholder="freq/wk">
                 <input type="number" name="task_fpy_{{ area_key }}_{{ loop.index0 }}"
                        value="{{ task.freq_per_year if task.freq_per_year is defined else '' }}" step="1" min="0" placeholder="freq/yr">
                 <input type="number" name="task_weight_{{ area_key }}_{{ loop.index0 }}"
@@ -85,7 +85,7 @@
 
             <div class="add-task-row">
                 <input type="text" name="new_task_name_{{ area_key }}" placeholder="Add task...">
-                <input type="number" name="new_task_freq_{{ area_key }}" step="0.25" min="0" placeholder="freq/wk">
+                <input type="number" name="new_task_freq_{{ area_key }}" step="0.01" min="0" placeholder="freq/wk">
                 <input type="number" name="new_task_fpy_{{ area_key }}" step="1" min="0" placeholder="freq/yr">
                 <input type="number" name="new_task_weight_{{ area_key }}" step="0.5" min="0.5" max="10" placeholder="1" title="Weight">
                 <input type="time" name="new_task_notify_time_{{ area_key }}" value="" title="Optional: time to notify when this task has a scheduled dot today. Leave blank to disable.">
@@ -186,6 +186,5 @@ document.getElementById("routines-test-push")?.addEventListener("click", async (
     }
 });
 </script>
-<script src="{{ url_for('static', filename='js/routine-calendar.js') }}?v={{ cache_bust }}"></script>
 <script src="{{ url_for('static', filename='js/routine-calendar-effective-logic.js') }}?v={{ cache_bust }}"></script>
 {% endblock %}
