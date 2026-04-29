@@ -24,9 +24,46 @@
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', polishDashboardTiles);
-  } else {
+  function keepRoutineColumnsSideBySideOnMobile() {
+    if (document.getElementById('routine-mobile-column-override')) return;
+    const style = document.createElement('style');
+    style.id = 'routine-mobile-column-override';
+    style.textContent = `
+      @media (max-width: 840px) {
+        .eff-columns {
+          grid-template-columns: minmax(210px, .95fr) minmax(245px, 1.35fr) !important;
+          overflow-x: auto;
+          overscroll-behavior-x: contain;
+          -webkit-overflow-scrolling: touch;
+          padding-bottom: .6rem;
+          scroll-snap-type: x proximity;
+        }
+        .eff-column {
+          min-width: 210px;
+          scroll-snap-align: start;
+        }
+        .eff-flex-column {
+          min-width: 245px;
+        }
+        .eff-task strong {
+          font-size: .88rem;
+        }
+        .eff-task small {
+          font-size: .72rem;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function run() {
     polishDashboardTiles();
+    keepRoutineColumnsSideBySideOnMobile();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', run);
+  } else {
+    run();
   }
 })();
