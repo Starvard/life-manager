@@ -37,6 +37,25 @@
     {% endfor %}
 </nav>
 
+<div class="card nav-tabs-pref-card" id="home-nav-tabs-visibility">
+    <div class="card-title">Show / hide tabs</div>
+    <p class="subtitle nav-tabs-pref-intro">Choose which tabs appear in the desktop sidebar and phone bottom bar. Home stays visible so you always have a place to bring tabs back.</p>
+    <div class="nav-tabs-pref-grid" id="home-nav-tabs-grid">
+        {% for t in nav_tabs_catalog %}
+        <label class="nav-tab-pref-label">
+            <input type="checkbox" name="home_nav_show_{{ t.key }}" value="1" data-nav-pref-key="{{ t.key }}"{% if t.key not in hidden_nav_tabs %} checked{% endif %}{% if t.key == 'home' %} disabled{% endif %}>
+            <span>{{ t.label }}</span>
+        </label>
+        {% endfor %}
+    </div>
+    <div class="nav-tabs-pref-actions">
+        <button type="button" class="btn btn-primary btn-sm" id="home-nav-tabs-save-btn">Save tabs</button>
+        <button type="button" class="btn btn-outline btn-sm" id="home-nav-tabs-show-all-btn">Show all</button>
+        <button type="button" class="btn btn-outline btn-sm" id="home-nav-tabs-hide-all-btn">Hide all except Home</button>
+        <span class="nav-tabs-save-status" id="home-nav-tabs-save-status" aria-live="polite"></span>
+    </div>
+</div>
+
 {% set ua = request.headers.get('User-Agent', '') or '' %}
 {% set ua_mobile = 'Android' in ua or 'iPhone' in ua or 'iPad' in ua or 'iPod' in ua %}
 {% if browser_on_loopback_host %}
@@ -361,4 +380,58 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 </div>
 {% endif %}
+
+<script>
+(function () {
+    const status = document.getElementById('home-nav-tabs-save-status');
+    const boxes = Array.from(document.querySelectorAll('[data-nav-pref-key]'));
+    const saveBtn = document.getElementById('home-nav-tabs-save-btn');
+    const showAllBtn = document.getElementById('home-nav-tabs-show-all-btn');
+    const hideAllBtn = document.getElementById('home-nav-tabs-hide-all-btn');
+
+    function setStatus(msg) {
+        if (status) status.textContent = msg || '';
+    }
+
+    function visibleKeys() {
+        return boxes.filter((cb) => cb.checked || cb.dataset.navPrefKey === 'home').map((cb) => cb.dataset.navPrefKey);
+    }
+
+    async function save() {
+        const visible = new Set(visibleKeys());
+        const hidden = boxes
+            .map((cb) => cb.dataset.navPrefKey)
+            .filter((key) => key !== 'home' && !visible.has(key));
+        setStatus('Saving…');
+        try {
+            const res = await fetch('/api/ui/nav-tabs', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ hidden: hidden }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                setStatus((data && data.error) || 'Could not save.');
+                return;
+            }
+            setStatus('Saved — refreshing…');
+            location.reload();
+        } catch (err) {
+            setStatus('Network error.');
+        }
+    }
+
+    showAllBtn?.addEventListener('click', function () {
+        boxes.forEach((cb) => { cb.checked = true; });
+        setStatus('Ready to save: all tabs shown.');
+    });
+
+    hideAllBtn?.addEventListener('click', function () {
+        boxes.forEach((cb) => { cb.checked = cb.dataset.navPrefKey === 'home'; });
+        setStatus('Ready to save: only Home shown.');
+    });
+
+    saveBtn?.addEventListener('click', save);
+})();
+</script>
 {% endblock %}
