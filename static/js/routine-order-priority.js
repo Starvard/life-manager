@@ -2,10 +2,20 @@
   if (!location.pathname.startsWith('/cards')) return;
 
   const ORDER_KEY = 'lm:routine-daily-order:';
-  const PRIORITY_KEY = 'lm:routine-priority:';
 
   function esc(s) {
     return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function intervalDays(freq) {
+    const f = Number(freq || 0);
+    if (f <= 0) return 9999;
+    if (f >= 7) return 1;
+    return Math.max(1, Math.round(7 / f));
+  }
+
+  function isDaily(freq) {
+    return Number(freq || 0) >= 7;
   }
 
   function injectStyles() {
@@ -13,26 +23,69 @@
     const style = document.createElement('style');
     style.id = 'routine-order-priority-styles';
     style.textContent = `
-      .eff-flex-column .eff-task[data-priority="1"] { border-left-color: rgba(251,146,60,.62) !important; background: rgba(251,146,60,.045) !important; }
-      .eff-flex-column .eff-task[data-priority="2"] { border-left-color: rgba(249,115,22,.75) !important; background: rgba(249,115,22,.065) !important; }
-      .eff-flex-column .eff-task[data-priority="3"] { border-left-color: rgba(239,68,68,.84) !important; background: rgba(239,68,68,.085) !important; }
-      .eff-flex-column .eff-task[data-priority="4"] { border-left-color: rgba(220,38,38,.95) !important; background: rgba(220,38,38,.115) !important; font-weight: 700; }
-      .eff-flex-column .eff-task[data-priority="5"] { border-left-color: rgba(185,28,28,1) !important; background: rgba(185,28,28,.16) !important; font-weight: 800; box-shadow: inset 0 0 0 1px rgba(248,113,113,.18); }
-      .eff-flex-column .eff-task[data-priority="4"] strong,
-      .eff-flex-column .eff-task[data-priority="5"] strong { color: #fecaca; }
-      .eff-priority-pill { display: inline-block; margin-right: .28rem; border-radius: 999px; padding: .05rem .28rem; font-size: .62rem; font-weight: 900; background: rgba(248,113,113,.16); color: #fecaca; }
+      .eff-flex-column .eff-task[data-overdue-pct] {
+        border-left-color: var(--overdue-rail, rgba(251,146,60,.8)) !important;
+        background: var(--overdue-bg, rgba(251,146,60,.06)) !important;
+        box-shadow: var(--overdue-shadow, none) !important;
+      }
+      .eff-flex-column .eff-task[data-overdue-pct] strong {
+        color: var(--overdue-text, inherit);
+      }
+      .eff-flex-column .eff-task[data-overdue-pct] .eff-check {
+        background: var(--overdue-check-bg, rgba(251,146,60,.16)) !important;
+        color: var(--overdue-check-text, #fed7aa) !important;
+      }
+      .eff-overdue-pill {
+        display: inline-block;
+        margin-right: .28rem;
+        border-radius: 999px;
+        padding: .05rem .32rem;
+        font-size: .62rem;
+        font-weight: 900;
+        background: var(--overdue-pill-bg, rgba(251,146,60,.16));
+        color: var(--overdue-pill-text, #fed7aa);
+      }
       .lm-order-priority-help { margin: -.25rem 0 .25rem !important; color: var(--text-muted); font-size: .7rem !important; }
     `;
     document.head.appendChild(style);
   }
 
+  function alpineCards() {
+    const out = [];
+    if (!window.Alpine) return out;
+    document.querySelectorAll('.notecard[x-data]').forEach((el) => {
+      try {
+        const data = window.Alpine.$data(el);
+        if (data && data.card) out.push(data.card);
+      } catch (_) {}
+    });
+    return out;
+  }
+
+  function catalogFrom(cards) {
+    const out = [];
+    cards.forEach((card) => {
+      const areaKey = card.area_key || '';
+      const areaName = card.area_name || areaKey;
+      (card.tasks || []).forEach((task, taskIndex) => {
+        out.push({ card, areaKey, areaName, task, taskIndex, name: task.name, freq: Number(task.freq || 0) });
+      });
+    });
+    return out;
+  }
+
+  function catalog() {
+    return catalogFrom(alpineCards());
+  }
+
   function getTaskInfoFromButton(btn) {
     const name = (btn.querySelector('strong')?.textContent || '').trim();
     const small = (btn.querySelector('small')?.textContent || '').trim();
-    const bits = small.split(' · ').map((x) => x.trim()).filter(Boolean);
+    const clean = small.replace(/^P\d+\s*/, '').replace(/^\d+% overdue\s*/, '');
+    const bits = clean.split(' · ').map((x) => x.trim()).filter(Boolean);
     const area = bits.length ? bits[bits.length - 1] : 'default';
-    const isDaily = btn.getAttribute('data-row-kind') === 'daily' || !!btn.closest('.eff-daily-column');
-    return { name, area, isDaily };
+    const isDailyTask = btn.getAttribute('data-row-kind') === 'daily' || !!btn.closest('.eff-daily-column');
+    return { name, area, isDaily: isDailyTask };
   }
 
   function key(prefix, info) {
@@ -44,9 +97,112 @@
     return Number.isFinite(n) && n > 0 ? n : 99999;
   }
 
-  function getPriority(info) {
-    const n = Number(localStorage.getItem(key(PRIORITY_KEY, info)) || '');
-    return Number.isFinite(n) && n >= 1 && n <= 5 ? n : 2;
+  function findCatalogItem(info) {
+    const list = catalog();
+    return list.find((it) => it.name === info.name && it.areaName === info.area)
+      || list.find((it) => it.name === info.name)
+      || null;
+  }
+
+  function parseOverdueDays(btn) {
+    if (!btn.classList.contains('overdue')) return 0;
+    const text = btn.querySelector('small')?.textContent || '';
+    const match = text.match(/(\d+(?:\.\d+)?)\s+day(?:s)?\s+overdue/i);
+    return match ? Number(match[1]) : 0;
+  }
+
+  function normalizedOverdue(btn) {
+    const info = getTaskInfoFromButton(btn);
+    const item = findCatalogItem(info);
+    const overdueDays = parseOverdueDays(btn);
+    const interval = item ? intervalDays(item.freq) : 7;
+    const pct = overdueDays > 0 ? (overdueDays / Math.max(1, interval)) * 100 : 0;
+    return { pct, overdueDays, interval };
+  }
+
+  function colorForPct(pct) {
+    // Saturating curve: 0% = orange, ~100% = strong red-orange,
+    // 200%+ = deep red. This keeps yearly tasks from screaming after one day
+    // while short-cadence tasks heat up quickly.
+    const t = Math.max(0, Math.min(1, 1 - Math.exp(-pct / 95)));
+    const hue = Math.round(30 * (1 - t)); // 30 orange -> 0 red
+    const sat = Math.round(86 + 10 * t);
+    const light = Math.round(57 - 16 * t);
+    const bgAlpha = (0.055 + 0.19 * t).toFixed(3);
+    const borderAlpha = (0.62 + 0.38 * t).toFixed(3);
+    const bold = pct >= 100 ? 800 : pct >= 50 ? 700 : 600;
+    return {
+      rail: `hsla(${hue}, ${sat}%, ${light}%, ${borderAlpha})`,
+      bg: `hsla(${hue}, ${sat}%, ${light}%, ${bgAlpha})`,
+      text: pct >= 75 ? '#fecaca' : 'inherit',
+      checkBg: `hsla(${hue}, ${sat}%, ${light}%, ${Math.min(0.34, Number(bgAlpha) + 0.12)})`,
+      checkText: pct >= 75 ? '#fecaca' : '#fed7aa',
+      pillBg: `hsla(${hue}, ${sat}%, ${light}%, ${Math.min(0.32, Number(bgAlpha) + 0.10)})`,
+      pillText: pct >= 75 ? '#fecaca' : '#fed7aa',
+      shadow: pct >= 150 ? 'inset 0 0 0 1px rgba(248,113,113,.22)' : 'none',
+      fontWeight: bold,
+    };
+  }
+
+  function removeOldPriorityPill(btn) {
+    const small = btn.querySelector('small');
+    const old = small?.querySelector('.eff-priority-pill');
+    if (old) old.remove();
+  }
+
+  function applyOverdueOmbre() {
+    document.querySelectorAll('.eff-flex-column .eff-task').forEach((btn) => {
+      removeOldPriorityPill(btn);
+      btn.removeAttribute('data-priority');
+      const small = btn.querySelector('small');
+      const existingPill = small?.querySelector('.eff-overdue-pill');
+      if (existingPill) existingPill.remove();
+
+      const { pct, overdueDays, interval } = normalizedOverdue(btn);
+      btn.setAttribute('data-overdue-pct', String(Math.round(pct)));
+      btn.style.removeProperty('--overdue-rail');
+      btn.style.removeProperty('--overdue-bg');
+      btn.style.removeProperty('--overdue-text');
+      btn.style.removeProperty('--overdue-check-bg');
+      btn.style.removeProperty('--overdue-check-text');
+      btn.style.removeProperty('--overdue-pill-bg');
+      btn.style.removeProperty('--overdue-pill-text');
+      btn.style.removeProperty('--overdue-shadow');
+      btn.style.fontWeight = '';
+
+      if (!btn.classList.contains('overdue') || overdueDays <= 0) {
+        if (btn.classList.contains('due')) {
+          const color = colorForPct(0);
+          btn.style.setProperty('--overdue-rail', color.rail);
+          btn.style.setProperty('--overdue-bg', color.bg);
+          btn.style.setProperty('--overdue-check-bg', color.checkBg);
+          btn.style.setProperty('--overdue-check-text', color.checkText);
+        } else {
+          btn.removeAttribute('data-overdue-pct');
+        }
+        return;
+      }
+
+      const color = colorForPct(pct);
+      btn.style.setProperty('--overdue-rail', color.rail);
+      btn.style.setProperty('--overdue-bg', color.bg);
+      btn.style.setProperty('--overdue-text', color.text);
+      btn.style.setProperty('--overdue-check-bg', color.checkBg);
+      btn.style.setProperty('--overdue-check-text', color.checkText);
+      btn.style.setProperty('--overdue-pill-bg', color.pillBg);
+      btn.style.setProperty('--overdue-pill-text', color.pillText);
+      btn.style.setProperty('--overdue-shadow', color.shadow);
+      btn.style.fontWeight = String(color.fontWeight);
+      btn.dataset.normalizedOverdue = String(pct);
+      btn.dataset.overdueInterval = String(interval);
+
+      if (small) {
+        const pill = document.createElement('span');
+        pill.className = 'eff-overdue-pill';
+        pill.textContent = Math.round(pct) + '% overdue';
+        small.prepend(pill);
+      }
+    });
   }
 
   function sortDailySections() {
@@ -62,25 +218,30 @@
     });
   }
 
-  function applyRecurringPriorityColors() {
-    document.querySelectorAll('.eff-flex-column .eff-task').forEach((btn) => {
-      const info = getTaskInfoFromButton(btn);
-      if (!info.name) return;
-      const priority = getPriority(info);
-      btn.setAttribute('data-priority', String(priority));
-      const small = btn.querySelector('small');
-      if (small && !small.querySelector('.eff-priority-pill')) {
-        small.innerHTML = '<span class="eff-priority-pill">P' + priority + '</span>' + esc(small.textContent || '');
-      } else if (small) {
-        const pill = small.querySelector('.eff-priority-pill');
-        if (pill) pill.textContent = 'P' + priority;
+  function sortRecurringByNormalizedOverdue() {
+    document.querySelectorAll('.eff-flex-column .eff-section').forEach((section) => {
+      const title = (section.querySelector('h3 span')?.textContent || '').trim();
+      const tasks = Array.from(section.querySelectorAll('.eff-task'));
+      if (tasks.length < 2) return;
+      if (title === 'Overdue') {
+        tasks.sort((a, b) => {
+          const ao = normalizedOverdue(a);
+          const bo = normalizedOverdue(b);
+          const an = Number(a.dataset.normalizedOverdue || ao.pct || 0);
+          const bn = Number(b.dataset.normalizedOverdue || bo.pct || 0);
+          return bn - an || bo.overdueDays - ao.overdueDays || getTaskInfoFromButton(a).name.localeCompare(getTaskInfoFromButton(b).name);
+        });
+      } else {
+        return;
       }
+      tasks.forEach((task) => section.appendChild(task));
     });
   }
 
   function applyOrderingAndPriority() {
     sortDailySections();
-    applyRecurringPriorityColors();
+    applyOverdueOmbre();
+    sortRecurringByNormalizedOverdue();
   }
 
   function parseSheetInfo(sheet) {
@@ -113,10 +274,7 @@
         const current = localStorage.getItem(key(ORDER_KEY, info)) || '';
         extra.innerHTML = '<label>Daily order number<input id="lm-daily-order" type="number" min="1" step="1" value="' + esc(current) + '" placeholder="1, 2, 3…"></label><p class="lm-order-priority-help">Lower numbers show first inside Morning / Midday / Evening. Blank falls back to alphabetical.</p>';
       } else {
-        const current = getPriority(info);
-        extra.innerHTML = '<label>Priority / color<select id="lm-recurring-priority"><option value="1">1 — low orange</option><option value="2">2 — orange</option><option value="3">3 — red-orange</option><option value="4">4 — red / bold</option><option value="5">5 — deepest red / boldest</option></select></label><p class="lm-order-priority-help">Priority only controls visual weight for recurring tasks. Higher = redder and bolder.</p>';
-        const select = extra.querySelector('#lm-recurring-priority');
-        if (select) select.value = String(current);
+        extra.innerHTML = '<p class="lm-order-priority-help">Recurring color is automatic now: overdue days ÷ task interval. Short-cadence tasks turn red faster; yearly tasks warm up slowly.</p>';
       }
     };
 
@@ -133,9 +291,6 @@
         const value = (sheet.querySelector('#lm-daily-order')?.value || '').trim();
         if (value) localStorage.setItem(key(ORDER_KEY, info), value);
         else localStorage.removeItem(key(ORDER_KEY, info));
-      } else {
-        const value = sheet.querySelector('#lm-recurring-priority')?.value || '2';
-        localStorage.setItem(key(PRIORITY_KEY, info), value);
       }
       setTimeout(applyOrderingAndPriority, 50);
     }, true);
