@@ -11,7 +11,7 @@
 </style>
 <div class="page-header">
     <h1>Routines</h1>
-    <p class="subtitle">Tap routines to complete the selected day. Long-press to move timing or mark won&rsquo;t-do.</p>
+    <p class="subtitle">Tap routines to complete the selected day. Long-press to edit routine details, daily order, and recurring priority.</p>
 </div>
 
 <div class="view-toggle">
@@ -123,4 +123,5 @@ function dayNav(offset) {
 </script>
 <script src="{{ url_for('static', filename='js/routine-effective-stack.js') }}?v={{ cache_bust }}"></script>
 <script src="{{ url_for('static', filename='js/routine-selected-day-click-fix.js') }}?v={{ cache_bust }}"></script>
+<script src="{{ url_for('static', filename='js/routine-order-priority.js') }}?v={{ cache_bust }}"></script>
 {% endblock %}
