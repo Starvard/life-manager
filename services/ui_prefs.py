@@ -22,6 +22,9 @@ NAV_TAB_KEYS: tuple[str, ...] = (
     "game",
 )
 
+# Home is where hidden tabs can be restored, so it is intentionally not hideable.
+HIDEABLE_NAV_TAB_KEYS: tuple[str, ...] = tuple(k for k in NAV_TAB_KEYS if k != "home")
+
 NAV_TAB_LABELS: dict[str, str] = {
     "home": "Home",
     "cards": "Routines",
@@ -49,7 +52,7 @@ def _normalize_hidden(raw: list | None) -> list[str]:
         if not isinstance(x, str):
             continue
         k = x.strip().lower()
-        if k in NAV_TAB_KEYS and k not in seen:
+        if k in HIDEABLE_NAV_TAB_KEYS and k not in seen:
             seen.add(k)
             out.append(k)
     return out
@@ -92,8 +95,6 @@ def get_hidden_nav_tabs() -> list[str]:
 
 def set_hidden_nav_tabs(hidden: list[str]) -> list[str]:
     norm = _normalize_hidden(hidden)
-    if len(norm) >= len(NAV_TAB_KEYS):
-        norm = norm[: len(NAV_TAB_KEYS) - 1]
     with _lock:
         data = _load()
         data["hidden"] = norm
