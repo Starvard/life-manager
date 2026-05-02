@@ -1,4 +1,4 @@
-baby_name: Robinson
+baby_name: Rowan
 tracks:
   - key: nursing_l
     label: Nursing L
@@ -28,6 +28,10 @@ tracks:
     label: Jenna Sleep
     type: blocks
     hint: shade 30-min blocks
+  - key: fussy_window
+    label: Fussy Window
+    type: blocks
+    hint: shade hard stretches
   - key: tylenol
     label: Tylenol (J)
     type: blocks
@@ -36,6 +40,14 @@ tracks:
     label: Ibuprofen (J)
     type: blocks
     hint: shade when taken
+  - key: new_skills
+    label: New Skills
+    type: notes
+    hint: smiles, coos, hands, rolling, sitting
+  - key: leap_regression_notes
+    label: Leap / Regression Notes
+    type: notes
+    hint: sleep, fussiness, feeding, clinginess
   - key: notes
     label: Notes
     type: notes
