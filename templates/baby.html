@@ -2,21 +2,31 @@
 {% block title %}Baby Tracker - Life Manager{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1>Baby Tracker</h1>
-    <p class="subtitle">{{ card.baby_name }} &mdash; {{ card_date }}</p>
+{% set birth_date = '2026-03-16' %}
+<div class="page-header baby-page-header">
+    <h1>Rowan Tracker</h1>
+    <p class="subtitle">Daily care, first-year leaps/regressions, and progress notes &mdash; born {{ birth_date }}</p>
+</div>
+
+<div class="baby-age-hero" data-birth-date="{{ birth_date }}" data-card-date="{{ card_date }}">
+    <div>
+        <div class="baby-age-label">Selected day age</div>
+        <div class="baby-age-value" id="baby-age-value">Calculating…</div>
+        <div class="baby-age-sub" id="baby-age-sub">Born March 16, 2026</div>
+    </div>
+    <div class="baby-age-chip" id="baby-current-zone">First year</div>
 </div>
 
 <div class="picker">
     <a href="#" class="picker-btn"
-       onclick="event.preventDefault(); var d=new Date('{{ card_date }}'); d.setDate(d.getDate()-1); location.href='?date='+d.toISOString().slice(0,10);">
+       onclick="event.preventDefault(); var d=new Date('{{ card_date }}T12:00:00'); d.setDate(d.getDate()-1); location.href='?date='+d.toISOString().slice(0,10);">
         &larr;
     </a>
     <input type="date" value="{{ card_date }}"
            onchange="location.href='?date='+this.value"
            style="padding:0.4rem; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:0.8rem;">
     <a href="#" class="picker-btn"
-       onclick="event.preventDefault(); var d=new Date('{{ card_date }}'); d.setDate(d.getDate()+1); location.href='?date='+d.toISOString().slice(0,10);">
+       onclick="event.preventDefault(); var d=new Date('{{ card_date }}T12:00:00'); d.setDate(d.getDate()+1); location.href='?date='+d.toISOString().slice(0,10);">
         &rarr;
     </a>
     <a href="#" class="btn btn-sm btn-outline"
@@ -27,7 +37,7 @@
      @mouseup.window="endPaint()" @touchend.window="endPaint()">
 
     <div class="notecard-header baby">
-        <span>Baby {{ card.baby_name }}</span>
+        <span>Daily Tracker</span>
         <span class="week-label"
               x-text="new Date('{{ card_date }}T12:00:00').toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric', year:'numeric'})">
         </span>
@@ -87,6 +97,95 @@
     {% endfor %}
 </div>
 
+<div class="baby-growth-grid">
+    <section class="card baby-card-soft">
+        <div class="card-title">How to use this</div>
+        <p class="baby-copy">Treat leaps/regressions as pattern windows, not diagnoses. Use the daily tracker above to log sleep, feeding, fussiness, and new skills. Then skim the current window below and note what changed.</p>
+        <div class="baby-mini-list">
+            <span>1. Log the day</span>
+            <span>2. Write one progress note</span>
+            <span>3. Watch patterns for 3–7 days</span>
+        </div>
+    </section>
+    <section class="card baby-card-soft">
+        <div class="card-title">This week focus</div>
+        <div id="baby-this-week-focus" class="baby-focus">Loading current window…</div>
+    </section>
+</div>
+
+<section class="card baby-timeline-card">
+    <div class="card-title">First-year leaps, regressions, and milestone watch</div>
+    <p class="baby-copy">The dates below are approximate windows from Rowan’s March 16, 2026 birth date. Every baby varies; the useful part is seeing whether sleep, feeding, fussiness, and skills cluster around the same periods.</p>
+
+    <div class="baby-timeline" id="baby-timeline">
+        <article class="baby-window" data-start="2026-04-13" data-end="2026-04-27">
+            <div class="baby-window-date">Weeks 4–6 · Apr 13–27</div>
+            <h3>Early awareness jump</h3>
+            <p>More alert time, stronger eye contact, start of social smiles, and bigger evening fussiness are common here.</p>
+            <ul><li>Watch: smiles, calming to voices, longer alert windows.</li><li>Note: what settles him fastest.</li></ul>
+        </article>
+        <article class="baby-window" data-start="2026-05-11" data-end="2026-05-25">
+            <div class="baby-window-date">Weeks 8–10 · May 11–25</div>
+            <h3>2-month social/communication burst</h3>
+            <p>Look for more cooing, reacting to sounds, tracking faces/toys, and better head lifting during tummy time.</p>
+            <ul><li>Watch: coos, smiles back, hands opening, tummy-time head lift.</li><li>Note: best awake window length.</li></ul>
+        </article>
+        <article class="baby-window" data-start="2026-06-08" data-end="2026-06-29">
+            <div class="baby-window-date">Weeks 12–15 · Jun 8–29</div>
+            <h3>Hands, voice, and early coordination</h3>
+            <p>He may study his hands, bring hands to mouth, bat at toys, and get more opinionated about boredom or overstimulation.</p>
+            <ul><li>Watch: hands to mouth, toy batting, head turning toward voices.</li><li>Note: new sounds and what makes him laugh/chuckle.</li></ul>
+        </article>
+        <article class="baby-window" data-start="2026-07-06" data-end="2026-08-03">
+            <div class="baby-window-date">Weeks 16–20 · Jul 6–Aug 3</div>
+            <h3>4-month sleep regression zone</h3>
+            <p>Sleep can get choppy as sleep cycles mature and skills accelerate. This is a good place to track naps, wake windows, false starts, and night wakes.</p>
+            <ul><li>Watch: rolling attempts, pushing up on forearms, reaching, cooing back.</li><li>Note: bedtime routine, nap length, wakeups, feeding changes.</li></ul>
+        </article>
+        <article class="baby-window" data-start="2026-08-24" data-end="2026-09-21">
+            <div class="baby-window-date">Weeks 23–27 · Aug 24–Sep 21</div>
+            <h3>6-month skill consolidation</h3>
+            <p>Expect more purposeful reaching, rolling, object exploration, stronger trunk control, and possible feed/sleep shifts.</p>
+            <ul><li>Watch: rolling both ways, supported sitting, reaching/grabbing, babbling.</li><li>Note: solids readiness conversations with pediatrician.</li></ul>
+        </article>
+        <article class="baby-window" data-start="2026-10-05" data-end="2026-11-02">
+            <div class="baby-window-date">Weeks 29–33 · Oct 5–Nov 2</div>
+            <h3>Separation + mobility prep</h3>
+            <p>More object permanence, stronger preference for caregivers, and early crawling/scooting practice can disrupt sleep and mood.</p>
+            <ul><li>Watch: looking for hidden objects, stranger anxiety, pivoting/scooting.</li><li>Note: bedtime protests, clingy windows, comfort strategy.</li></ul>
+        </article>
+        <article class="baby-window" data-start="2026-11-09" data-end="2026-12-14">
+            <div class="baby-window-date">Weeks 34–39 · Nov 9–Dec 14</div>
+            <h3>9-month milestone window</h3>
+            <p>Communication and mobility may jump: sitting, crawling, pulling toward objects, babbling strings, and games like peekaboo.</p>
+            <ul><li>Watch: sitting without support, moving toward toys, responding to name.</li><li>Note: new consonant sounds, gestures, and favorite games.</li></ul>
+        </article>
+        <article class="baby-window" data-start="2027-01-04" data-end="2027-02-01">
+            <div class="baby-window-date">Weeks 42–46 · Jan 4–Feb 1</div>
+            <h3>Pre-walking / big opinions phase</h3>
+            <p>Pulling to stand, cruising attempts, pointing/gesturing, and more obvious preferences can make routines feel wobbly again.</p>
+            <ul><li>Watch: pulling to stand, pincer grasp, gestures, copying sounds.</li><li>Note: frustration triggers and independent play length.</li></ul>
+        </article>
+        <article class="baby-window" data-start="2027-02-15" data-end="2027-03-16">
+            <div class="baby-window-date">Weeks 49–52 · Feb 15–Mar 16</div>
+            <h3>1-year transition</h3>
+            <p>First words, standing/walking attempts, imitation, games, and sleep/nap transitions can all stack up around the first birthday.</p>
+            <ul><li>Watch: waves, claps, first words, standing, cruising/walking attempts.</li><li>Note: nap pattern, meals, big new skills, birthday questions for pediatrician.</li></ul>
+        </article>
+    </div>
+</section>
+
+<section class="card baby-milestone-card">
+    <div class="card-title">Milestone checklist prompts</div>
+    <div class="baby-milestone-grid">
+        <div><strong>2 months</strong><span>Smiles, looks at faces, reacts to sounds, coos, holds head up on tummy.</span></div>
+        <div><strong>4 months</strong><span>Chuckles, coos back, turns to voice, holds head steady, pushes up on elbows.</span></div>
+        <div><strong>6 months</strong><span>Recognizes familiar people, laughs, reaches, rolls, explores objects with mouth/hands.</span></div>
+        <div><strong>9 months</strong><span>Stranger awareness, name response, babbling, sitting, moving toward toys.</span></div>
+        <div><strong>12 months</strong><span>Waves/claps, calls parent names or simple sounds, pulls to stand, cruises or steps.</span></div>
+    </div>
+</section>
+
 {% if days %}
 <div class="card" style="margin-top:1rem;">
     <div class="card-title">Recent Days</div>
@@ -98,4 +197,93 @@
     </div>
 </div>
 {% endif %}
+
+<style>
+.baby-page-header { margin-bottom: 1rem; }
+.baby-age-hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    border: 1px solid rgba(167,139,250,0.2);
+    border-radius: var(--radius);
+    background: linear-gradient(135deg, rgba(167,139,250,0.12), rgba(34,211,238,0.06));
+}
+.baby-age-label { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+.baby-age-value { font-size: 1.45rem; font-weight: 850; color: var(--text-bright); letter-spacing: -0.04em; }
+.baby-age-sub { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem; }
+.baby-age-chip { flex-shrink: 0; border: 1px solid rgba(167,139,250,0.35); color: #d8b4fe; background: rgba(167,139,250,0.12); border-radius: 999px; padding: 0.35rem 0.65rem; font-size: 0.72rem; font-weight: 750; }
+.baby-growth-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; margin-top: 1rem; }
+.baby-card-soft { background: linear-gradient(135deg, rgba(255,255,255,0.035), rgba(167,139,250,0.05)); }
+.baby-copy { color: var(--text-muted); font-size: 0.82rem; line-height: 1.55; margin: 0; }
+.baby-mini-list { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.75rem; }
+.baby-mini-list span { border: 1px solid var(--border); border-radius: 999px; padding: 0.25rem 0.5rem; color: var(--text); font-size: 0.7rem; background: var(--surface-hover); }
+.baby-focus { color: var(--text); font-size: 0.85rem; line-height: 1.5; }
+.baby-timeline { display: grid; gap: 0.75rem; }
+.baby-window { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.85rem; background: rgba(255,255,255,0.025); }
+.baby-window.is-current { border-color: rgba(167,139,250,0.55); background: linear-gradient(135deg, rgba(167,139,250,0.16), rgba(99,179,255,0.06)); box-shadow: 0 0 18px rgba(167,139,250,0.08); }
+.baby-window.is-past { opacity: 0.72; }
+.baby-window-date { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: var(--purple); margin-bottom: 0.25rem; }
+.baby-window h3 { margin: 0 0 0.35rem; font-size: 1rem; color: var(--text-bright); letter-spacing: -0.02em; }
+.baby-window p { margin: 0; color: var(--text-muted); font-size: 0.82rem; line-height: 1.45; }
+.baby-window ul { margin: 0.55rem 0 0 1.1rem; color: var(--text-muted); font-size: 0.78rem; line-height: 1.45; }
+.baby-milestone-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.65rem; }
+.baby-milestone-grid div { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.7rem; background: rgba(255,255,255,0.025); }
+.baby-milestone-grid strong { display: block; color: var(--text-bright); margin-bottom: 0.25rem; font-size: 0.85rem; }
+.baby-milestone-grid span { display: block; color: var(--text-muted); font-size: 0.74rem; line-height: 1.4; }
+@media (max-width: 720px) {
+    .baby-growth-grid { grid-template-columns: 1fr; }
+    .baby-age-hero { align-items: flex-start; flex-direction: column; }
+}
+</style>
+
+<script>
+(function () {
+    const MS_DAY = 86400000;
+    function parseIso(s) { return new Date(String(s) + 'T12:00:00'); }
+    function fmtDate(d) { return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+    const hero = document.querySelector('.baby-age-hero');
+    if (!hero) return;
+    const birth = parseIso(hero.dataset.birthDate);
+    const selected = parseIso(hero.dataset.cardDate);
+    const days = Math.max(0, Math.round((selected - birth) / MS_DAY));
+    const weeks = Math.floor(days / 7);
+    const extraDays = days % 7;
+    const monthsApprox = Math.floor(days / 30.4375);
+    const ageValue = document.getElementById('baby-age-value');
+    const ageSub = document.getElementById('baby-age-sub');
+    if (ageValue) ageValue.textContent = weeks + ' weeks' + (extraDays ? ' + ' + extraDays + ' days' : '');
+    if (ageSub) ageSub.textContent = days + ' days old · about ' + monthsApprox + ' months · born ' + fmtDate(birth);
+
+    const windows = Array.from(document.querySelectorAll('.baby-window'));
+    let current = null;
+    windows.forEach((el) => {
+        const start = parseIso(el.dataset.start);
+        const end = parseIso(el.dataset.end);
+        if (selected >= start && selected <= end) {
+            el.classList.add('is-current');
+            current = el;
+        } else if (selected > end) {
+            el.classList.add('is-past');
+        }
+    });
+    const zone = document.getElementById('baby-current-zone');
+    const focus = document.getElementById('baby-this-week-focus');
+    if (current) {
+        const title = current.querySelector('h3')?.textContent || 'Current window';
+        const date = current.querySelector('.baby-window-date')?.textContent || '';
+        const text = current.querySelector('p')?.textContent || '';
+        if (zone) zone.textContent = title;
+        if (focus) focus.innerHTML = '<strong>' + title + '</strong><br><span>' + date + '</span><br>' + text;
+        current.scrollIntoView({ block: 'nearest' });
+    } else {
+        if (zone) zone.textContent = weeks < 4 ? 'Newborn rhythm' : 'Between windows';
+        if (focus) focus.textContent = weeks < 4
+            ? 'Mostly track feeding, diapers, sleep, weight/growth questions, and what helps him settle. The first leap window starts around week 4.'
+            : 'No major watch window is flagged for this selected date. Keep logging patterns and new skills.';
+    }
+})();
+</script>
 {% endblock %}
