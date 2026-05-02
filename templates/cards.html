@@ -11,7 +11,7 @@
 </style>
 <div class="page-header">
     <h1>Routines</h1>
-    <p class="subtitle">Tap routines to complete them. Long-press to edit routine details, daily order, and recurring priority.</p>
+    <p class="subtitle">Tap routines to complete them. Press and hold longer to edit routine details and daily order.</p>
 </div>
 
 <div class="view-toggle">
@@ -134,6 +134,7 @@
     No routine cards yet. <a href="{{ url_for('routines_page') }}">Manage routines</a> first.
 </div>
 {% endif %}
+<script src="{{ url_for('static', filename='js/routine-long-press-delay.js') }}?v={{ cache_bust }}"></script>
 <script src="{{ url_for('static', filename='js/routine-effective-stack.js') }}?v={{ cache_bust }}"></script>
 <script src="{{ url_for('static', filename='js/routine-selected-day-click-fix.js') }}?v={{ cache_bust }}"></script>
 <script src="{{ url_for('static', filename='js/routine-order-priority.js') }}?v={{ cache_bust }}"></script>
