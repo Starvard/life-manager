@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 import threading
@@ -9,6 +10,7 @@ import threading
 import config
 
 _lock = threading.Lock()
+_cache: tuple[float | None, dict] | None = None
 
 NAV_TAB_KEYS: tuple[str, ...] = (
     "home",
@@ -58,25 +60,43 @@ def _normalize_hidden(raw: list | None) -> list[str]:
     return out
 
 
-def _load() -> dict:
-    path = config.NAV_PREFS_FILE
-    if not os.path.isfile(path):
-        return dict(DEFAULT_STATE)
+def _mtime(path: str) -> float | None:
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        if not isinstance(data, dict):
-            return dict(DEFAULT_STATE)
+        return os.path.getmtime(path)
+    except OSError:
+        return None
+
+
+def _copy_state(data: dict) -> dict:
+    out = copy.deepcopy(data)
+    out["hidden"] = _normalize_hidden(out.get("hidden"))
+    return out
+
+
+def _load() -> dict:
+    global _cache
+    path = config.NAV_PREFS_FILE
+    mtime = _mtime(path)
+    if _cache is not None and _cache[0] == mtime:
+        return _copy_state(_cache[1])
+
+    if not os.path.isfile(path):
         out = dict(DEFAULT_STATE)
-        out.update(data)
-        hidden = out.get("hidden")
-        if isinstance(hidden, list):
-            out["hidden"] = _normalize_hidden(hidden)
-        else:
-            out["hidden"] = []
-        return out
-    except (json.JSONDecodeError, OSError):
-        return dict(DEFAULT_STATE)
+    else:
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if not isinstance(data, dict):
+                out = dict(DEFAULT_STATE)
+            else:
+                out = dict(DEFAULT_STATE)
+                out.update(data)
+        except (json.JSONDecodeError, OSError):
+            out = dict(DEFAULT_STATE)
+
+    out = _copy_state(out)
+    _cache = (mtime, _copy_state(out))
+    return out
 
 
 def _save(data: dict) -> None:
@@ -94,9 +114,11 @@ def get_hidden_nav_tabs() -> list[str]:
 
 
 def set_hidden_nav_tabs(hidden: list[str]) -> list[str]:
+    global _cache
     norm = _normalize_hidden(hidden)
     with _lock:
         data = _load()
         data["hidden"] = norm
         _save(data)
-        return norm
+        _cache = (_mtime(config.NAV_PREFS_FILE), _copy_state(data))
+        return list(norm)

@@ -9,12 +9,25 @@ from __future__ import annotations
 
 import os
 import subprocess
+import threading
 
 _DEFAULT = "dev"
 # Repo root: .../life-manager/services/app_version.py -> parent dir is package root
 _ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir))
 _VERSION_FILE = os.path.join(_ROOT, "version.txt")
 _GIT_DIR = os.path.join(_ROOT, ".git")
+
+_cache_lock = threading.Lock()
+_cached_version: tuple[str, str] | None = None
+_cached_env: str | None = None
+_cached_file_mtime: float | None = None
+
+
+def _version_file_mtime() -> float | None:
+    try:
+        return os.path.getmtime(_VERSION_FILE)
+    except OSError:
+        return None
 
 
 def _git_short_rev() -> str | None:
@@ -38,12 +51,7 @@ def _git_short_rev() -> str | None:
     return None
 
 
-def get_app_version() -> tuple[str, str]:
-    """
-    Return (version_string, source) where source is one of
-    ``env`` | ``file`` | ``git`` | ``default``.
-    """
-    env = (os.environ.get("LM_APP_VERSION", "") or "").strip()
+def _resolve_app_version(env: str) -> tuple[str, str]:
     if env:
         return (env, "env")
     try:
@@ -58,3 +66,24 @@ def get_app_version() -> tuple[str, str]:
     if rev:
         return (rev, "git")
     return (_DEFAULT, "default")
+
+
+def get_app_version() -> tuple[str, str]:
+    """
+    Return (version_string, source) where source is one of
+    ``env`` | ``file`` | ``git`` | ``default``.
+    """
+    global _cached_env, _cached_file_mtime, _cached_version
+    env = (os.environ.get("LM_APP_VERSION", "") or "").strip()
+    mtime = _version_file_mtime()
+    with _cache_lock:
+        if (
+            _cached_version is not None
+            and _cached_env == env
+            and _cached_file_mtime == mtime
+        ):
+            return _cached_version
+        _cached_env = env
+        _cached_file_mtime = mtime
+        _cached_version = _resolve_app_version(env)
+        return _cached_version
