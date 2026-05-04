@@ -4,8 +4,8 @@
   const MS_DAY = 86400000;
   const TZ = 'America/New_York';
   const SECTION_KEY = 'lm:routine-section:';
-  let observerStarted = false;
   let applying = false;
+  let appliedSuccessfully = false;
 
   function parseIso(s) {
     return new Date(String(s || '').slice(0, 10) + 'T00:00:00');
@@ -123,14 +123,15 @@
   function updateSectionCount(section) {
     const count = section.querySelectorAll('.eff-task[data-row-kind="daily"]').length;
     const small = section.querySelector('h3 small');
-    if (small) small.textContent = String(count);
+    if (small && small.textContent !== String(count)) small.textContent = String(count);
   }
 
   function updateDailySummary() {
     const allDaily = document.querySelectorAll('#dynamic-routine-app [data-row-kind="daily"]');
     const doneDaily = document.querySelectorAll('#dynamic-routine-app [data-row-kind="daily"].done');
     const summaryDone = document.querySelector('[data-daily-done-count]');
-    if (summaryDone) summaryDone.textContent = doneDaily.length + '/' + allDaily.length + ' daily done';
+    const text = doneDaily.length + '/' + allDaily.length + ' daily done';
+    if (summaryDone && summaryDone.textContent !== text) summaryDone.textContent = text;
   }
 
   async function saveDot(card, areaKey, task, taskIndex, day, dot, btn, areaName) {
@@ -172,7 +173,7 @@
   }
 
   function ensureDailyRows() {
-    if (applying) return;
+    if (applying || appliedSuccessfully) return;
     const app = document.getElementById('dynamic-routine-app');
     if (!app) return;
     const cards = alpineCards();
@@ -181,6 +182,7 @@
     applying = true;
     const selected = selectedIso();
     const counts = existingDailyCounts();
+    let added = 0;
 
     cards.forEach((card) => {
       const areaKey = card.area_key || '';
@@ -197,31 +199,29 @@
           const bucket = dailyBucket(task.name, dot, needed, areaKey);
           makeButton(card, areaKey, areaName, task, taskIndex, day, dot, bucket);
           counts.set(key, (counts.get(key) || 0) + 1);
+          added += 1;
         }
       });
     });
 
     document.querySelectorAll('#dynamic-routine-app .eff-section').forEach(updateSectionCount);
     updateDailySummary();
+    appliedSuccessfully = true;
     applying = false;
+
+    if (added > 0) {
+      document.dispatchEvent(new CustomEvent('lm:routine-daily-guard-applied', { detail: { added } }));
+    }
   }
 
   function schedule() {
-    setTimeout(ensureDailyRows, 300);
-    setTimeout(ensureDailyRows, 900);
-    setTimeout(ensureDailyRows, 1800);
+    // Do a few bounded passes only. A continuous MutationObserver made the routine
+    // page sluggish because other routine helpers also update this same DOM.
+    [150, 450, 900, 1600, 2600].forEach((ms) => setTimeout(ensureDailyRows, ms));
   }
 
-  function startObserver() {
-    if (observerStarted) return;
-    observerStarted = true;
-    const observer = new MutationObserver(() => window.requestAnimationFrame(ensureDailyRows));
-    observer.observe(document.body, { childList: true, subtree: true });
-    schedule();
-  }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startObserver);
-  else startObserver();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedule);
+  else schedule();
   window.addEventListener('load', schedule);
   document.addEventListener('alpine:initialized', schedule);
 })();
