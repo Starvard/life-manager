@@ -5,7 +5,6 @@
   const TZ = 'America/New_York';
   const SECTION_KEY = 'lm:routine-section:';
   let applying = false;
-  let appliedSuccessfully = false;
 
   function parseIso(s) {
     return new Date(String(s || '').slice(0, 10) + 'T00:00:00');
@@ -173,7 +172,7 @@
   }
 
   function ensureDailyRows() {
-    if (applying || appliedSuccessfully) return;
+    if (applying) return;
     const app = document.getElementById('dynamic-routine-app');
     if (!app) return;
     const cards = alpineCards();
@@ -206,7 +205,6 @@
 
     document.querySelectorAll('#dynamic-routine-app .eff-section').forEach(updateSectionCount);
     updateDailySummary();
-    appliedSuccessfully = true;
     applying = false;
 
     if (added > 0) {
@@ -215,9 +213,9 @@
   }
 
   function schedule() {
-    // Do a few bounded passes only. A continuous MutationObserver made the routine
-    // page sluggish because other routine helpers also update this same DOM.
-    [150, 450, 900, 1600, 2600].forEach((ms) => setTimeout(ensureDailyRows, ms));
+    // Do bounded reconciliation passes only. This is cheap and allows the main
+    // dynamic stack to finish any late render without a heavy MutationObserver.
+    [150, 450, 900, 1600, 2600, 4200, 6500].forEach((ms) => setTimeout(ensureDailyRows, ms));
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedule);
