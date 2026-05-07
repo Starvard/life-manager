@@ -11,7 +11,6 @@
 </style>
 <div class="page-header">
     <h1>Routines</h1>
-    <p class="subtitle">Tap routines to complete them. Press and hold longer to edit routine details and daily order.</p>
 </div>
 
 <div class="view-toggle">
@@ -36,7 +35,7 @@
         <span class="cards-today-score-value">{% if cards_today_score_pct is not none %}{{ cards_today_score_pct }}%{% else %}—{% endif %}</span>
     </div>
     {% if cards_today_score_pct is none %}
-    <p class="cards-today-score-note">Nothing to score today (no planned or extra dots).</p>
+    <p class="cards-today-score-note">Nothing to score today.</p>
     {% endif %}
 </div>
 {% endif %}
@@ -94,7 +93,6 @@
 
     <div class="routine-extra-block">
         <div class="routine-extra-label">This week only</div>
-        <p class="routine-extra-hint">Quick adds when something is not on your main list. Not saved to routines.</p>
         <template x-for="(task, ti) in card.extra_tasks" :key="'x'+ti">
             <div class="routine-row routine-row-extra">
                 <div class="rg-task">
