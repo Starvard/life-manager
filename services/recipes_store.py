@@ -6,11 +6,10 @@ Files (under data/recipes/):
     recipes.json     list[recipe]
     grocery.json     {"items": [item]}
     inventory.json   {"items": [item]}
-    meal_plan.json   {"weeks": {"YYYY-Www": {"breakfast": [entry], "lunch": [...], "dinner": [...]}}}
+    meal_plan.json   {"weeks": {"YYYY-Www": {"breakfast": [entry], "lunch": [...], "snack": [...], "dinner": [...]}}}
 
 The "menu" model deliberately avoids per-day slots: each week has a small
-pool of breakfasts / lunches / dinners that the household picks from. This
-matches the "1-2 breakfasts, 1-2 lunches, 4-6 dinners" workflow.
+pool of breakfasts / lunches / snacks / dinners that the household picks from.
 """
 
 from __future__ import annotations
@@ -29,10 +28,11 @@ GROCERY_FILE = os.path.join(RECIPES_DIR, "grocery.json")
 INVENTORY_FILE = os.path.join(RECIPES_DIR, "inventory.json")
 MEAL_PLAN_FILE = os.path.join(RECIPES_DIR, "meal_plan.json")
 
-MENU_SLOTS = ["breakfast", "lunch", "dinner"]
+MENU_SLOTS = ["breakfast", "lunch", "snack", "dinner"]
 MENU_SLOT_TARGETS = {
-    "breakfast": {"min": 1, "max": 2},
-    "lunch": {"min": 1, "max": 2},
+    "breakfast": {"min": 1, "max": 3},
+    "lunch": {"min": 1, "max": 3},
+    "snack": {"min": 4, "max": 10},
     "dinner": {"min": 4, "max": 6},
 }
 DEFAULT_CATEGORIES = [
@@ -444,6 +444,7 @@ def delete_inventory_item(item_id: str) -> bool:
 #       "2026-W17": {
 #         "breakfast": [entry, ...],
 #         "lunch":     [entry, ...],
+#         "snack":     [entry, ...],
 #         "dinner":    [entry, ...]
 #       }
 #     }
