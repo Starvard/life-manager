@@ -11,7 +11,21 @@
     ['Chuck Roast Bowls', 'dinner', ['chuck roast', 'beef stock', 'salsa', 'cauliflower rice', 'pico', 'avocado', 'sour cream']],
     ['Lemon Garlic Shrimp', 'dinner', ['shrimp', 'zucchini', 'red pepper', 'broccoli', 'garlic', 'lemon', 'basil']],
     ['Chicken Salad Lettuce Cups', 'lunch', ['cooked chicken', 'Greek yogurt', 'celery', 'apple', 'butter lettuce', 'lemon']],
-    ['Protein Waffles', 'breakfast', ['waffle mix or protein waffle batter', 'Greek yogurt', 'berries', 'peanut butter']]
+    ['Protein Waffles', 'breakfast', ['waffle mix or protein waffle batter', 'Greek yogurt', 'berries', 'peanut butter']],
+    ['Cottage Cheese', 'snack', ['cottage cheese', 'cucumber', 'lemon']],
+    ['Apple & Brie', 'snack', ['apples', 'brie', 'whole-grain crackers']],
+    ['Hard-Boiled Eggs', 'snack', ['eggs']],
+    ['Celery & Peanut Butter', 'snack', ['celery', 'peanut butter', 'cinnamon']],
+    ['Cheese & Cucumber Box', 'snack', ['snacking cheese', 'cucumber', 'pickles', 'whole-grain crackers']],
+    ['Greek Yogurt Cup', 'snack', ['Greek yogurt', 'berries', 'chia seeds']],
+    ['Apple Cheddar Bites', 'snack', ['apples', 'cheddar cheese', 'almonds or whole-grain crackers']],
+    ['Turkey Roll-Ups', 'snack', ['deli turkey', 'cheese', 'pickles', 'cucumber']],
+    ['Cottage Cheese Cup', 'snack', ['cottage cheese', 'tomatoes', 'cucumber', 'everything seasoning']],
+    ['Peanut Butter Yogurt Dip', 'snack', ['Greek yogurt', 'peanut butter', 'apples']],
+    ['Edamame', 'snack', ['edamame', 'lime']],
+    ['Frozen Yogurt Berry Bark', 'snack', ['Greek yogurt', 'berries', 'chia seeds', 'toasted nuts']],
+    ['Cucumber Brie Bites', 'snack', ['cucumber', 'brie', 'lemon']],
+    ['Cheese & Crackers', 'snack', ['snacking cheese', 'whole-grain crackers', 'pickles', 'cucumber']]
   ];
 
   const MENU = {
@@ -95,18 +109,41 @@
     return { breakfast: [], lunch: [], snack: [], dinner: [] };
   }
 
+  function hasLinkedEntry(entries, name) {
+    const key = String(name || '').trim().toLowerCase();
+    return (entries || []).some((e) => String(e.name || '').trim().toLowerCase() === key && e.recipe_id);
+  }
+
+  function hasAnyEntry(entries, name) {
+    const key = String(name || '').trim().toLowerCase();
+    return (entries || []).some((e) => String(e.name || '').trim().toLowerCase() === key);
+  }
+
+  function dedupeForUi(entries) {
+    const linkedNames = new Set((entries || []).filter((e) => e.recipe_id).map((e) => String(e.name || '').trim().toLowerCase()));
+    const seen = new Set();
+    return (entries || []).filter((e) => {
+      const key = String(e.name || '').trim().toLowerCase();
+      const sig = key + '::' + (e.recipe_id || 'text');
+      if (!key) return false;
+      if (!e.recipe_id && linkedNames.has(key)) return false;
+      if (seen.has(sig)) return false;
+      seen.add(sig);
+      return true;
+    });
+  }
+
   async function fillMenu(byName) {
     let menu = await currentMenu();
     for (const slot of SLOTS) {
-      const existing = new Set((menu[slot] || []).map((e) => String(e.name || '').trim().toLowerCase()));
       for (const [name, notes] of MENU[slot]) {
-        if (existing.has(name.toLowerCase())) continue;
         const rec = byName.get(name.toLowerCase());
+        const entries = menu[slot] || [];
+        if (rec ? hasLinkedEntry(entries, name) : hasAnyEntry(entries, name)) continue;
         try {
           const res = await fetch('/api/recipes/menu/' + slot, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ week_key: WEEK_KEY, recipe_id: rec ? rec.id : null, name, notes }) });
           const data = await res.json();
           if (data && data.ok && data.menu) menu = data.menu;
-          existing.add(name.toLowerCase());
         } catch (_) {}
       }
     }
@@ -121,7 +158,7 @@
     state.menuTargets = Object.assign({}, state.menuTargets || {}, { snack: { min: 4, max: 10 } });
     state.addMenuRecipe = Object.assign({ snack: '' }, state.addMenuRecipe || {});
     state.addMenuText = Object.assign({ snack: '' }, state.addMenuText || {});
-    state.menu = { week_key: WEEK_KEY, breakfast: menu.breakfast || [], lunch: menu.lunch || [], snack: menu.snack || [], dinner: menu.dinner || [] };
+    state.menu = { week_key: WEEK_KEY, breakfast: dedupeForUi(menu.breakfast || []), lunch: dedupeForUi(menu.lunch || []), snack: dedupeForUi(menu.snack || []), dinner: dedupeForUi(menu.dinner || []) };
     state.currentWeek = WEEK_KEY;
   }
 
