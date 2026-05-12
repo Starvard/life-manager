@@ -4,6 +4,7 @@
   const MS_DAY = 86400000;
   const TZ = 'America/New_York';
   const CACHE = new Map();
+  const HIST_CACHE = new Map();
   const SECTION_KEY = 'lm:routine-section:';
 
   function parseIso(s) { return new Date(String(s || '').slice(0, 10) + 'T00:00:00'); }
@@ -71,9 +72,12 @@
       body.dynamic-routines-active .picker,
       body.dynamic-routines-active .view-toggle { display:none !important; }
       #dynamic-routine-app { margin:1rem 0 1.5rem; }
-      .routine-subtabs { display:flex; gap:.4rem; flex-wrap:wrap; margin:.25rem 0 .85rem; }
-      .routine-subtabs a { border:1px solid var(--border); border-radius:999px; padding:.42rem .7rem; color:var(--text-muted); text-decoration:none; background:rgba(255,255,255,.035); font-size:.78rem; font-weight:700; }
-      .routine-subtabs a.active { color:white; border-color:rgba(99,179,255,.34); background:rgba(99,179,255,.16); }
+      .eff-secondary { margin-top:1.25rem; padding-top:1rem; border-top:1px solid rgba(148,163,184,.12); }
+      .eff-hero-compact { padding:.75rem 1rem; margin-bottom:.35rem; }
+      .eff-hero-compact .eff-date { margin:0 0 .35rem; font-weight:700; color:var(--text-muted); }
+      .eff-sub-tight { margin:0; color:var(--text-muted); line-height:1.35; font-size:.78rem; max-width:42rem; }
+      .eff-secondary .eff-summary { margin:.45rem 0 .55rem; }
+      .eff-secondary .eff-recent { margin:.35rem 0 .55rem; }
       .eff-hero { display:flex; justify-content:space-between; gap:1rem; align-items:flex-start; padding:1rem; margin-bottom:.8rem; }
       .eff-hero h2 { margin:.1rem 0 .25rem; font-size:1.25rem; }
       .eff-eyebrow { margin:0; text-transform:uppercase; letter-spacing:.08em; font-size:.72rem; color:var(--text-muted); font-weight:800; }
@@ -171,19 +175,24 @@
   }
 
   async function loadHistory(selIso) {
-    const sel = parseIso(selIso);
-    const start = addDays(mondayFor(sel), -26 * 7);
-    const end = addDays(mondayFor(sel), 8 * 7);
-    const weeks = new Set();
-    for (let d = new Date(start); d <= end; d = addDays(d, 7)) weeks.add(weekKeyFor(d));
-    const hist = {};
-    await Promise.all(Array.from(weeks).map(async (wk) => {
-      const areas = await fetchWeek(wk);
-      Object.values(areas || {}).forEach((card) => addHistoryFromCard(card, hist));
-    }));
-    alpineCards().forEach((card) => addHistoryFromCard(card, hist));
-    Object.keys(hist).forEach((k) => hist[k] = Array.from(new Set(hist[k])).sort());
-    return hist;
+    if (HIST_CACHE.has(selIso)) return HIST_CACHE.get(selIso);
+    const promise = (async () => {
+      const sel = parseIso(selIso);
+      const start = addDays(mondayFor(sel), -16 * 7);
+      const end = addDays(mondayFor(sel), 4 * 7);
+      const weeks = new Set();
+      for (let d = new Date(start); d <= end; d = addDays(d, 7)) weeks.add(weekKeyFor(d));
+      const hist = {};
+      await Promise.all(Array.from(weeks).map(async (wk) => {
+        const areas = await fetchWeek(wk);
+        Object.values(areas || {}).forEach((card) => addHistoryFromCard(card, hist));
+      }));
+      alpineCards().forEach((card) => addHistoryFromCard(card, hist));
+      Object.keys(hist).forEach((k) => { hist[k] = Array.from(new Set(hist[k])).sort(); });
+      return hist;
+    })();
+    HIST_CACHE.set(selIso, promise);
+    return promise;
   }
 
   function scheduledDates(item) {
@@ -218,8 +227,10 @@
   function dailyItems(item, selIso) {
     const di = dayIndex(selIso, item.card.week_start);
     const row = (item.task.days || [])[di] || [];
-    const scheduled = Number((item.task.scheduled || [])[di] || 0);
-    const count = Math.max(scheduled, row.length > 1 ? row.length : 0);
+    const freqCount = Math.max(1, Math.round(Number(item.task.freq || 7) / 7));
+    const scheduledMax = Math.max(0, ...((item.task.scheduled || []).map((n) => Number(n || 0))));
+    const rowMax = Math.max(0, ...((item.task.days || []).map((drow) => (Array.isArray(drow) ? drow.length : 0))));
+    const count = Math.max(1, freqCount, scheduledMax, rowMax);
     const out = [];
     for (let dot = 0; dot < count; dot++) {
       const done = !!row[dot];
@@ -243,6 +254,7 @@
       body: JSON.stringify({ task: item.taskIndex, day: di, dot, value: next, list: 'tasks' }),
     });
     CACHE.clear();
+    HIST_CACHE.clear();
     return next;
   }
 
@@ -262,7 +274,7 @@
   }
 
   async function getManageFormDoc() {
-    const html = await fetch('/routines', { cache: 'no-store' }).then((r) => r.text());
+    const html = await fetch('/routines/embed', { cache: 'no-store' }).then((r) => r.text());
     return new DOMParser().parseFromString(html, 'text/html');
   }
 
@@ -331,7 +343,7 @@
     const firstArea = (cards[0] && cards[0].area_key) || '';
     const wrap = document.createElement('div');
     wrap.className = 'lm-sheet-backdrop';
-    wrap.innerHTML = '<div class="lm-edit-sheet" role="dialog" aria-modal="true"><h3>Add routine task</h3><p>Add it here instead of going to the old Manage page.</p><div class="lm-edit-grid">' +
+    wrap.innerHTML = '<div class="lm-edit-sheet" role="dialog" aria-modal="true"><h3>Add routine task</h3><p>Adds to your saved routine list (same as long-press edit).</p><div class="lm-edit-grid">' +
       '<label>Area<select id="lm-add-area">' + areaOptions(cards, firstArea) + '</select></label>' +
       '<label>Name<input id="lm-add-name" type="text" placeholder="Freeze milk"></label>' +
       '<label>Type<select id="lm-add-type"><option value="daily">Daily</option><option value="every">Every N days</option><option value="freq">Times per week</option></select></label>' +
@@ -428,21 +440,6 @@
     }, true);
   }
 
-  function updateDailyButton(btn, row, done) {
-    row.status = done ? 'done' : 'daily';
-    row.label = done ? 'Done today' : 'Due today';
-    btn.classList.toggle('done', done);
-    btn.classList.toggle('daily', !done);
-    const check = btn.querySelector('.eff-check');
-    const small = btn.querySelector('small');
-    if (check) check.textContent = done ? '✓' : '○';
-    if (small) small.textContent = row.label + ' · ' + row.areaName;
-    const summaryDone = document.querySelector('[data-daily-done-count]');
-    const allDaily = document.querySelectorAll('[data-row-kind="daily"]');
-    const doneDaily = document.querySelectorAll('[data-row-kind="daily"].done');
-    if (summaryDone) summaryDone.textContent = doneDaily.length + '/' + allDaily.length + ' daily done';
-  }
-
   function taskButton(row, idx) {
     const status = row.status;
     const icon = status === 'done' ? '✓' : status === 'overdue' ? '!' : '○';
@@ -513,14 +510,9 @@
     const flexDone = flexRows.filter((r) => r.status === 'done');
     const dailyDoneCount = dailyRows.filter((r) => r.status === 'done').length;
 
-    let html = '<nav class="routine-subtabs" aria-label="Routine views"><a class="active" href="/cards">Today Stack</a><a href="/routines?view=calendar">Calendar</a></nav>';
-    html += '<section class="card eff-hero"><div><p class="eff-eyebrow">Routines · inline management</p><p class="eff-date">' + esc(dateLabel(selIso, true)) + (today ? ' · Today' : '') + '</p><h2>Daily on the left, recurring on the right</h2><p class="eff-sub">Tap to complete. Long-press any task to edit its name, frequency, section, or delete it. Add new tasks from the buttons below.</p></div><div class="eff-actions"><a class="btn btn-secondary btn-sm" href="/routines?view=calendar">Calendar</a></div></section>';
-    html += recentLinks(selIso);
-    html += '<div class="eff-summary"><span data-daily-done-count>' + dailyDoneCount + '/' + dailyRows.length + ' daily done</span><span>' + overdue.length + ' overdue</span><span>' + due.length + ' due today</span><span>' + upcoming.length + ' coming up</span></div>';
-
     const rowRefs = [];
-    html += '<div class="eff-columns">';
-    html += '<div class="eff-column eff-daily-column"><section class="card eff-column-title"><h3>Daily checklist</h3><p>No refresh. Organized by rough time of day. Long-press to edit.</p></section>';
+    let html = '<div class="eff-columns">';
+    html += '<div class="eff-column eff-daily-column"><section class="card eff-column-title"><h3>Daily checklist</h3><p>Organized by time of day. Long-press to edit.</p></section>';
     ['Morning', 'Midday', 'Evening'].forEach((bucket) => {
       html += sectionHtml(bucket, dailyRows.filter((r) => r.bucket === bucket), rowRefs);
     });
@@ -536,6 +528,12 @@
     if (!flexRows.length) html += '<div class="card eff-empty">No recurring due-date tasks active right now.</div>';
     html += '<section class="card eff-add-card"><button type="button" class="btn btn-primary btn-sm" id="eff-add-recurring">Add recurring</button><p class="eff-hint">Example: Freeze milk every 3 days.</p></section>';
     html += '</div></div>';
+
+    html += '<div class="eff-secondary">';
+    html += '<section class="card eff-hero eff-hero-compact"><p class="eff-date">' + esc(dateLabel(selIso, true)) + (today ? ' · Today' : '') + '</p><p class="eff-sub eff-sub-tight">Tap to complete. Long-press a task to rename, change how often it runs, or remove it.</p></section>';
+    html += recentLinks(selIso);
+    html += '<div class="eff-summary"><span data-daily-done-count>' + dailyDoneCount + '/' + dailyRows.length + ' daily done</span><span>' + overdue.length + ' overdue</span><span>' + due.length + ' due today</span><span>' + upcoming.length + ' coming up</span></div>';
+    html += '</div>';
 
     mount.innerHTML = html;
     mount.querySelector('#eff-add-daily')?.addEventListener('click', () => openAddSheet(cards));
@@ -556,6 +554,8 @@
       });
     });
   }
+
+  window.__lmBindRoutineEditButton = bindLongPress;
 
   function schedule() { setTimeout(render, 180); }
   window.addEventListener('load', schedule);

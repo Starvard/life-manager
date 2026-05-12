@@ -1,37 +1,10 @@
-{% extends "base.html" %}
-{% block title %}Routines - Life Manager{% endblock %}
-
-{% block content %}
-<div class="page-header">
-    <h1>Routine Configuration</h1>
-    <p class="subtitle">Frequency = times per week. Examples: daily = 7, twice daily = 14, twice/week = 2, every 3 days = 2.33, every 6 months = 0.038. For flexible recurring tasks, the app uses: <strong>last completed date + interval = next due date</strong>.</p>
-    <p class="subtitle routines-push-behavior">Push: only when <strong>today</strong> has a <strong>scheduled dot</strong> for that task that is still empty—not for missed dots on earlier weekdays by themselves. Notify is <strong>blank by default</strong>; set a time on any task to opt that task in.</p>
-</div>
-
-<div class="card routines-push-card">
-    <div class="card-title">Push notifications</div>
-    <p class="routines-push-hint">Sends one test to every device that tapped Enable reminders. <strong>Notify</strong> defaults to <strong>blank (no reminder)</strong>; set a time per task to enable reminders for it. Times use <strong>this computer&rsquo;s clock</strong>.</p>
-    <button type="button" class="btn btn-primary" id="routines-test-push">Send test notification</button>
-    <span class="routines-test-push-status" id="routines-test-push-status" aria-live="polite"></span>
-</div>
-
-<div class="card nav-tabs-pref-card" id="nav-tabs-visibility">
-    <div class="card-title">Navigation tabs</div>
-    <p class="subtitle nav-tabs-pref-intro">Hide app sections you don&rsquo;t need from the sidebar (desktop) and the bottom bar (phone). At least one tab always stays visible. Preferences are saved on this server (<code>data/ui_nav.json</code>).</p>
-    <div class="nav-tabs-pref-grid">
-        {% for t in nav_tabs_catalog %}
-        <label class="nav-tab-pref-label">
-            <input type="checkbox" name="nav_hide_{{ t.key }}" value="1"{% if t.key in hidden_nav_tabs %} checked{% endif %}>
-            <span>Hide {{ t.label }}</span>
-        </label>
-        {% endfor %}
-    </div>
-    <div class="nav-tabs-pref-actions">
-        <button type="button" class="btn btn-primary btn-sm" id="nav-tabs-save-btn">Save tab visibility</button>
-        <span class="nav-tabs-save-status" id="nav-tabs-save-status" aria-live="polite"></span>
-    </div>
-</div>
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Routine form</title>
+</head>
+<body>
 <form method="POST" action="{{ url_for('save_routines_form') }}">
     {% for area_key, area in areas.items() %}
     <div class="area-section" id="area-{{ area_key }}">
@@ -118,36 +91,7 @@
         <button type="submit" class="btn btn-primary">Save All Changes</button>
     </div>
 </form>
-
 <script>
-const NAV_TAB_KEYS = {{ nav_tabs_catalog | map(attribute="key") | list | tojson }};
-
-document.getElementById("nav-tabs-save-btn")?.addEventListener("click", async () => {
-    const st = document.getElementById("nav-tabs-save-status");
-    const hidden = [];
-    for (const k of NAV_TAB_KEYS) {
-        const cb = document.querySelector('input[name="nav_hide_' + k + '"]');
-        if (cb && cb.checked) hidden.push(k);
-    }
-    if (st) st.textContent = "Saving…";
-    try {
-        const res = await fetch("/api/ui/nav-tabs", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ hidden }),
-        });
-        const data = await res.json();
-        if (data.ok) {
-            if (st) st.textContent = "Saved — reloading…";
-            location.reload();
-        } else {
-            if (st) st.textContent = data.error || "Could not save.";
-        }
-    } catch (e) {
-        if (st) st.textContent = "Network error.";
-    }
-});
-
 async function reorderArea(key, dir) {
     const res = await fetch("/api/routines/reorder", {
         method: "PATCH",
@@ -156,35 +100,6 @@ async function reorderArea(key, dir) {
     });
     if (res.ok) location.reload();
 }
-
-document.getElementById("routines-test-push")?.addEventListener("click", async () => {
-    const st = document.getElementById("routines-test-push-status");
-    if (!st) return;
-    st.textContent = "Sending…";
-    try {
-        const res = await fetch("/api/push/test", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: "{}",
-        });
-        const data = await res.json();
-        if (data.ok) {
-            const reg = data.registered ?? 0;
-            const ok = data.sent ?? 0;
-            if (reg === 0) {
-                st.textContent = "No subscriptions on this server yet — open the app on your phone (tunnel URL), Home → Enable reminders.";
-            } else if (ok === 0) {
-                st.textContent = reg + " subscription(s) on file, but push failed (network, expired subscription, or VAPID issue). On the phone: Disable reminders, then Enable again.";
-            } else {
-                st.textContent = "Sent to " + ok + " of " + reg + " device(s). Check your phone.";
-            }
-        } else {
-            st.textContent = "Request failed.";
-        }
-    } catch (e) {
-        st.textContent = "Network error.";
-    }
-});
 </script>
-<script src="{{ url_for('static', filename='js/routine-calendar-effective-logic.js') }}?v={{ cache_bust }}"></script>
-{% endblock %}
+</body>
+</html>

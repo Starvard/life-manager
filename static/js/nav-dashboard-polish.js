@@ -43,10 +43,9 @@
       const desc = routinesTile.querySelector('.app-tile-desc');
       const actions = routinesTile.querySelector('.app-tile-actions');
       if (name) name.textContent = 'Routines';
-      if (desc) desc.textContent = 'Today stack, calendar view, and inline routine editing.';
+      if (desc) desc.textContent = 'Today stack with inline long-press editing.';
       if (actions) {
-        actions.innerHTML = '<a href="/cards" class="btn btn-sm btn-primary">Today</a>' +
-          '<a href="/routines?view=calendar" class="btn btn-sm btn-outline">Calendar</a>';
+        actions.innerHTML = '<a href="/cards" class="btn btn-sm btn-primary">Open</a>';
       }
     }
   }
@@ -76,12 +75,10 @@
         .eff-task strong { font-size: .78rem !important; line-height: 1.08; }
         .eff-task small { font-size: .61rem !important; line-height: 1.12; }
         .eff-hero { padding: .7rem !important; }
+        .eff-hero-compact { padding: .62rem .75rem !important; }
         .eff-summary { gap: .32rem !important; }
         .eff-summary span { padding: .26rem .46rem !important; font-size: .72rem !important; }
       }
-      body.routine-edit-compact .routines-push-card,
-      body.routine-edit-compact .nav-tabs-pref-card,
-      body.routine-edit-compact form[action$="/routines/save"] { display:none !important; }
     `;
     document.head.appendChild(style);
   }
@@ -127,8 +124,8 @@
 
   async function loadHistory(selIso) {
     const sel = parseIso(selIso);
-    const start = addDays(mondayFor(sel), -26 * 7);
-    const end = addDays(mondayFor(sel), 8 * 7);
+    const start = addDays(mondayFor(sel), -16 * 7);
+    const end = addDays(mondayFor(sel), 4 * 7);
     const weeks = new Set();
     for (let d = new Date(start); d <= end; d = addDays(d, 7)) weeks.add(weekKeyFor(d));
     const areasByWeek = await Promise.all(Array.from(weeks).map((wk) => fetch('/api/routine-cards/' + encodeURIComponent(wk)).then((r) => r.ok ? r.json() : { areas: {} }).then((d) => d.areas || {}).catch(() => ({}))));
@@ -222,18 +219,6 @@
   function run() {
     polishDashboardTiles();
     injectRoutinePolishStyles();
-    if (location.pathname === '/routines' && !location.search.includes('view=calendar')) {
-      document.body.classList.add('routine-edit-compact');
-      const main = document.querySelector('.main-content');
-      if (main && !document.getElementById('routine-retired-manage')) {
-        const div = document.createElement('div');
-        div.id = 'routine-retired-manage';
-        div.className = 'card';
-        div.style.padding = '1rem';
-        div.innerHTML = '<h2 style="margin-top:0">Routine editing moved</h2><p class="subtitle">Edit routines by long-pressing a task on the Today Stack. Add new tasks from the Add task button there.</p><a class="btn btn-primary" href="/cards">Back to Today Stack</a>';
-        main.prepend(div);
-      }
-    }
     setTimeout(showAllFutureComingUp, 500);
   }
 

@@ -250,6 +250,18 @@
     btn.innerHTML = '<span class="eff-check">' + (done ? '✓' : '○') + '</span><span><strong>' + esc(name) + '</strong><small>' + esc((done ? 'Done today' : 'Due today') + ' · ' + areaName) + '</small></span>';
     btn.addEventListener('click', () => saveDot(card, areaKey, task, taskIndex, day, dot, btn, areaName));
     btn.addEventListener('contextmenu', (e) => e.preventDefault());
+    if (typeof window.__lmBindRoutineEditButton === 'function') {
+      const item = { card, areaKey, areaName, task, taskIndex, name: task.name, freq: Number(task.freq || 0) };
+      window.__lmBindRoutineEditButton(btn, {
+        item,
+        isDaily: true,
+        name,
+        bucket,
+        dot,
+        status: done ? 'done' : 'daily',
+        label: done ? 'Done today' : 'Due today',
+      });
+    }
     const section = ensureSection(bucket);
     if (section) {
       section.appendChild(btn);
