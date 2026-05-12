@@ -190,6 +190,18 @@ def _ordered_cards(cards: dict) -> dict:
     return dict(sorted(cards.items(), key=lambda kv: order_map.get(kv[0], 999)))
 
 
+def _ordered_routine_areas_for_forms() -> dict:
+    """Routine areas in display order for the embedded save form."""
+    data = load_routines()
+    order = data.get("area_order", [])
+    all_areas = data.get("areas", {})
+    ordered_areas = {k: all_areas[k] for k in order if k in all_areas}
+    for k, v in all_areas.items():
+        if k not in ordered_areas:
+            ordered_areas[k] = v
+    return ordered_areas
+
+
 # \u2500\u2500 HTML Pages \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route("/")
@@ -264,12 +276,6 @@ def dashboard():
             "label": "Cat Dash",
             "description": "Quick distraction game and scores.",
             "href": url_for("game_page"),
-        },
-        {
-            "key": "edit",
-            "label": "Edit",
-            "description": "Routines, areas, tasks, and push times.",
-            "href": url_for("routines_page"),
         },
     ]
     dashboard_sections = [
@@ -347,14 +353,14 @@ def baby_page():
 
 @app.route("/routines")
 def routines_page():
-    data = load_routines()
-    order = data.get("area_order", [])
-    all_areas = data.get("areas", {})
-    ordered_areas = {k: all_areas[k] for k in order if k in all_areas}
-    for k, v in all_areas.items():
-        if k not in ordered_areas:
-            ordered_areas[k] = v
-    return render_template("routines.html", areas=ordered_areas)
+    """Legacy URL: full-page routine editor and calendar view were retired."""
+    return redirect(url_for("cards_page", week=_default_week_key()), code=302)
+
+
+@app.route("/routines/embed")
+def routines_embed_page():
+    """Minimal routine form HTML for programmatic saves (long-press editor on /cards)."""
+    return render_template("routines_embed.html", areas=_ordered_routine_areas_for_forms())
 
 
 @app.route("/routines/save", methods=["POST"])
@@ -465,7 +471,7 @@ def save_routines_form():
     save_routines(data)
     regenerate_routine_cards(_default_week_key())
     flash("Routines saved!", "success")
-    return redirect(url_for("routines_page"))
+    return redirect(url_for("cards_page", week=_default_week_key()))
 
 
 @app.route("/routines/delete-area/<area_key>", methods=["POST"])
@@ -477,7 +483,7 @@ def delete_area(area_key):
         order.remove(area_key)
     save_routines(data)
     flash(f"Area '{area_key}' deleted.", "success")
-    return redirect(url_for("routines_page"))
+    return redirect(url_for("cards_page", week=_default_week_key()))
 
 
 @app.route("/api/routines/reorder", methods=["PATCH"])
