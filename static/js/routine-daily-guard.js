@@ -4,6 +4,7 @@
   const MS_DAY = 86400000;
   const TZ = 'America/New_York';
   const SECTION_KEY = 'lm:routine-section:';
+  const DAILY_SECTION_TITLES = new Set(['Morning', 'Midday', 'Evening']);
   let applying = false;
 
   function parseIso(s) {
@@ -91,10 +92,6 @@
     return total > 1 ? String(baseName || '') + ' ' + String(dot + 1) : String(baseName || '');
   }
 
-  function taskKey(areaName, taskName) {
-    return String(areaName || '') + '::' + String(taskName || '');
-  }
-
   function displayNameForBase(name, base, total) {
     if (name === base) return true;
     for (let i = 1; i <= total; i++) {
@@ -104,26 +101,67 @@
   }
 
   function dailyColumn() {
-    return document.querySelector('#dynamic-routine-app .eff-daily-column')
-      || document.querySelector('#dynamic-routine-app .eff-column');
+    const app = document.getElementById('dynamic-routine-app');
+    if (!app) return null;
+
+    const existing = app.querySelector('.eff-daily-column');
+    if (existing) return existing;
+
+    const columns = app.querySelector('.eff-columns');
+    if (columns) {
+      const column = document.createElement('div');
+      column.className = 'eff-column eff-daily-column';
+      const flexColumn = columns.querySelector('.eff-flex-column');
+      columns.insertBefore(column, flexColumn || columns.firstElementChild || null);
+      return column;
+    }
+
+    const list = app.querySelector('.eff-list');
+    if (list) {
+      const column = document.createElement('div');
+      column.className = 'eff-column eff-daily-column';
+      list.insertBefore(column, list.firstElementChild || null);
+      return column;
+    }
+
+    const fallback = app.querySelector('.eff-column');
+    if (fallback) {
+      fallback.classList.add('eff-daily-column');
+      return fallback;
+    }
+
+    const column = document.createElement('div');
+    column.className = 'eff-column eff-daily-column';
+    app.appendChild(column);
+    return column;
+  }
+
+  function sectionTitle(section) {
+    return (section.querySelector('h3 span')?.textContent || '').trim();
+  }
+
+  function cleanupEmptyDailySections() {
+    document.querySelectorAll('#dynamic-routine-app .eff-section').forEach((section) => {
+      const title = sectionTitle(section);
+      if (!DAILY_SECTION_TITLES.has(title)) return;
+      if (!section.querySelector('.eff-task')) section.remove();
+    });
   }
 
   function ensureSection(title) {
     const column = dailyColumn();
     if (!column) return null;
-    let section = Array.from(column.querySelectorAll('.eff-section')).find((sec) => {
-      return (sec.querySelector('h3 span')?.textContent || '').trim() === title;
-    });
+    let section = Array.from(column.querySelectorAll(':scope > .eff-section')).find((sec) => sectionTitle(sec) === title);
     if (section) return section;
     section = document.createElement('section');
     section.className = 'card eff-section';
     section.innerHTML = '<h3><span>' + esc(title) + '</span><small>0</small></h3>';
     const order = ['Morning', 'Midday', 'Evening'];
     const nextTitle = order.slice(order.indexOf(title) + 1).find((name) => {
-      return Array.from(column.querySelectorAll('.eff-section')).some((sec) => (sec.querySelector('h3 span')?.textContent || '').trim() === name);
+      return Array.from(column.querySelectorAll(':scope > .eff-section')).some((sec) => sectionTitle(sec) === name);
     });
     const before = nextTitle
-      ? Array.from(column.querySelectorAll('.eff-section')).find((sec) => (sec.querySelector('h3 span')?.textContent || '').trim() === nextTitle)
+      ? Array.from(column.querySelectorAll(':scope > .eff-section')).find((sec) => sectionTitle(sec) === nextTitle)
       : null;
     column.insertBefore(section, before || null);
     return section;
@@ -233,6 +271,8 @@
     // Rebuild only the configured daily rows. Flexible/recurring rows are left
     // alone so overdue/coming-up logic keeps working.
     removeExistingDailyRows(configured);
+    cleanupEmptyDailySections();
+    dailyColumn();
 
     configured.forEach(({ card, areaKey, areaName, task, taskIndex, total }) => {
       const day = dayIndex(selected, card.week_start);
@@ -242,6 +282,7 @@
       }
     });
 
+    cleanupEmptyDailySections();
     document.querySelectorAll('#dynamic-routine-app .eff-section').forEach(updateSectionCount);
     updateDailySummary();
     applying = false;
@@ -251,7 +292,7 @@
   function schedule() {
     // Bounded reconciliation passes allow the main dynamic stack to finish its
     // late render, then replace only daily rows with a stable named set.
-    [150, 450, 900, 1600, 2600, 4200, 6500].forEach((ms) => setTimeout(ensureDailyRows, ms));
+    [150, 450, 900, 1600, 2600, 4200, 6500, 9000].forEach((ms) => setTimeout(ensureDailyRows, ms));
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedule);
