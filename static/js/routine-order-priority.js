@@ -14,10 +14,6 @@
     return Math.max(1, Math.round(7 / f));
   }
 
-  function isDaily(freq) {
-    return Number(freq || 0) >= 7;
-  }
-
   function injectStyles() {
     if (document.getElementById('routine-order-priority-styles')) return;
     const style = document.createElement('style');
@@ -28,9 +24,7 @@
         background: var(--overdue-bg, rgba(251,146,60,.06)) !important;
         box-shadow: var(--overdue-shadow, none) !important;
       }
-      .eff-flex-column .eff-task[data-overdue-pct] strong {
-        color: var(--overdue-text, inherit);
-      }
+      .eff-flex-column .eff-task[data-overdue-pct] strong { color: var(--overdue-text, inherit); }
       .eff-flex-column .eff-task[data-overdue-pct] .eff-check {
         background: var(--overdue-check-bg, rgba(251,146,60,.16)) !important;
         color: var(--overdue-check-text, #fed7aa) !important;
@@ -74,9 +68,7 @@
     return out;
   }
 
-  function catalog() {
-    return catalogFrom(alpineCards());
-  }
+  function catalog() { return catalogFrom(alpineCards()); }
 
   function getTaskInfoFromButton(btn) {
     const name = (btn.querySelector('strong')?.textContent || '').trim();
@@ -88,19 +80,20 @@
     return { name, area, isDaily: isDailyTask };
   }
 
-  function key(prefix, info) {
-    return prefix + info.area + '::' + info.name;
-  }
+  function key(prefix, info) { return prefix + info.area + '::' + info.name; }
 
-  function getOrder(info) {
+  function getExplicitOrder(info) {
     const n = Number(localStorage.getItem(key(ORDER_KEY, info)) || '');
-    return Number.isFinite(n) && n > 0 ? n : 99999;
+    return Number.isFinite(n) && n > 0 ? n : null;
   }
 
   function findCatalogItem(info) {
+    const nameWithoutTrailingNumber = info.name.replace(/\s+\d+$/, '');
     const list = catalog();
     return list.find((it) => it.name === info.name && it.areaName === info.area)
+      || list.find((it) => it.name === nameWithoutTrailingNumber && it.areaName === info.area)
       || list.find((it) => it.name === info.name)
+      || list.find((it) => it.name === nameWithoutTrailingNumber)
       || null;
   }
 
@@ -121,16 +114,12 @@
   }
 
   function colorForPct(pct) {
-    // Saturating curve: 0% = orange, ~100% = strong red-orange,
-    // 200%+ = deep red. This keeps yearly tasks from screaming after one day
-    // while short-cadence tasks heat up quickly.
     const t = Math.max(0, Math.min(1, 1 - Math.exp(-pct / 95)));
-    const hue = Math.round(30 * (1 - t)); // 30 orange -> 0 red
+    const hue = Math.round(30 * (1 - t));
     const sat = Math.round(86 + 10 * t);
     const light = Math.round(57 - 16 * t);
     const bgAlpha = (0.055 + 0.19 * t).toFixed(3);
     const borderAlpha = (0.62 + 0.38 * t).toFixed(3);
-    const bold = pct >= 100 ? 800 : pct >= 50 ? 700 : 600;
     return {
       rail: `hsla(${hue}, ${sat}%, ${light}%, ${borderAlpha})`,
       bg: `hsla(${hue}, ${sat}%, ${light}%, ${bgAlpha})`,
@@ -140,14 +129,13 @@
       pillBg: `hsla(${hue}, ${sat}%, ${light}%, ${Math.min(0.32, Number(bgAlpha) + 0.10)})`,
       pillText: pct >= 75 ? '#fecaca' : '#fed7aa',
       shadow: pct >= 150 ? 'inset 0 0 0 1px rgba(248,113,113,.22)' : 'none',
-      fontWeight: bold,
+      fontWeight: pct >= 100 ? 800 : pct >= 50 ? 700 : 600,
     };
   }
 
   function removeOldPriorityPill(btn) {
     const small = btn.querySelector('small');
-    const old = small?.querySelector('.eff-priority-pill');
-    if (old) old.remove();
+    small?.querySelector('.eff-priority-pill')?.remove();
   }
 
   function applyOverdueOmbre() {
@@ -155,8 +143,7 @@
       removeOldPriorityPill(btn);
       btn.removeAttribute('data-priority');
       const small = btn.querySelector('small');
-      const existingPill = small?.querySelector('.eff-overdue-pill');
-      if (existingPill) existingPill.remove();
+      small?.querySelector('.eff-overdue-pill')?.remove();
 
       const { pct, overdueDays, interval } = normalizedOverdue(btn);
       btn.setAttribute('data-overdue-pct', String(Math.round(pct)));
@@ -209,12 +196,20 @@
     document.querySelectorAll('.eff-daily-column .eff-section').forEach((section) => {
       const tasks = Array.from(section.querySelectorAll('.eff-task[data-row-kind="daily"]'));
       if (tasks.length < 2) return;
-      tasks.sort((a, b) => {
-        const ai = getTaskInfoFromButton(a);
-        const bi = getTaskInfoFromButton(b);
-        return getOrder(ai) - getOrder(bi) || ai.name.localeCompare(bi.name);
+
+      const rows = tasks.map((btn, index) => ({ btn, index, info: getTaskInfoFromButton(btn) }));
+      const hasManualOrder = rows.some((row) => getExplicitOrder(row.info) !== null);
+      if (!hasManualOrder) return; // Blank order means preserve configured/guard order, not alphabetical.
+
+      rows.sort((a, b) => {
+        const ao = getExplicitOrder(a.info);
+        const bo = getExplicitOrder(b.info);
+        if (ao !== null && bo !== null) return ao - bo || a.index - b.index;
+        if (ao !== null) return -1;
+        if (bo !== null) return 1;
+        return a.index - b.index;
       });
-      tasks.forEach((task) => section.appendChild(task));
+      rows.forEach((row) => section.appendChild(row.btn));
     });
   }
 
@@ -222,18 +217,14 @@
     document.querySelectorAll('.eff-flex-column .eff-section').forEach((section) => {
       const title = (section.querySelector('h3 span')?.textContent || '').trim();
       const tasks = Array.from(section.querySelectorAll('.eff-task'));
-      if (tasks.length < 2) return;
-      if (title === 'Overdue') {
-        tasks.sort((a, b) => {
-          const ao = normalizedOverdue(a);
-          const bo = normalizedOverdue(b);
-          const an = Number(a.dataset.normalizedOverdue || ao.pct || 0);
-          const bn = Number(b.dataset.normalizedOverdue || bo.pct || 0);
-          return bn - an || bo.overdueDays - ao.overdueDays || getTaskInfoFromButton(a).name.localeCompare(getTaskInfoFromButton(b).name);
-        });
-      } else {
-        return;
-      }
+      if (tasks.length < 2 || title !== 'Overdue') return;
+      tasks.sort((a, b) => {
+        const ao = normalizedOverdue(a);
+        const bo = normalizedOverdue(b);
+        const an = Number(a.dataset.normalizedOverdue || ao.pct || 0);
+        const bn = Number(b.dataset.normalizedOverdue || bo.pct || 0);
+        return bn - an || bo.overdueDays - ao.overdueDays || getTaskInfoFromButton(a).name.localeCompare(getTaskInfoFromButton(b).name);
+      });
       tasks.forEach((task) => section.appendChild(task));
     });
   }
@@ -272,9 +263,9 @@
       if (!info.name) return;
       if (info.isDaily) {
         const current = localStorage.getItem(key(ORDER_KEY, info)) || '';
-        extra.innerHTML = '<label>Daily order number<input id="lm-daily-order" type="number" min="1" step="1" value="' + esc(current) + '" placeholder="1, 2, 3…"></label><p class="lm-order-priority-help">Lower numbers show first inside Morning / Midday / Evening. Blank falls back to alphabetical.</p>';
+        extra.innerHTML = '<label>Daily order number<input id="lm-daily-order" type="number" min="1" step="1" value="' + esc(current) + '" placeholder="1, 2, 3…"></label><p class="lm-order-priority-help">Lower numbers show first inside Morning / Midday / Evening. Blank keeps the configured routine order.</p>';
       } else {
-        extra.innerHTML = '<p class="lm-order-priority-help">Recurring color is automatic now: overdue days ÷ task interval. Short-cadence tasks turn red faster; yearly tasks warm up slowly.</p>';
+        extra.innerHTML = '<p class="lm-order-priority-help">Recurring color is automatic: overdue days ÷ task interval. Short-cadence tasks turn red faster; yearly tasks warm up slowly.</p>';
       }
     };
 
@@ -286,12 +277,10 @@
       const action = e.target.closest('[data-action]')?.getAttribute('data-action');
       if (action !== 'save') return;
       const info = parseSheetInfo(sheet);
-      if (!info.name) return;
-      if (info.isDaily) {
-        const value = (sheet.querySelector('#lm-daily-order')?.value || '').trim();
-        if (value) localStorage.setItem(key(ORDER_KEY, info), value);
-        else localStorage.removeItem(key(ORDER_KEY, info));
-      }
+      if (!info.name || !info.isDaily) return;
+      const value = (sheet.querySelector('#lm-daily-order')?.value || '').trim();
+      if (value) localStorage.setItem(key(ORDER_KEY, info), value);
+      else localStorage.removeItem(key(ORDER_KEY, info));
       setTimeout(applyOrderingAndPriority, 50);
     }, true);
   }
