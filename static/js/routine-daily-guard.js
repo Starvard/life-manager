@@ -63,8 +63,8 @@
   }
 
   function dailyBucket(name, dot, total, areaKey) {
-    const override = localStorage.getItem(SECTION_KEY + areaKey + '::' + name);
-    if (override) return override;
+    const sectionOverride = localStorage.getItem(SECTION_KEY + areaKey + '::' + name);
+    if (sectionOverride) return sectionOverride;
     const n = String(name || '').toLowerCase();
     if (n.includes('brush') || n.includes('floss')) return dot === 0 ? 'Morning' : 'Evening';
     if (n.includes('water')) {
@@ -77,20 +77,30 @@
     return 'Midday';
   }
 
+  function dailyCount(task) {
+    // The visible daily stack must not depend on the selected day's saved dot
+    // array. That array only stores completion state. The count comes from the
+    // configured routine and the most complete generated week shape.
+    const freqCount = Math.max(1, Math.round(Number(task.freq || 7) / 7));
+    const scheduledMax = Math.max(0, ...(task.scheduled || []).map((n) => Number(n || 0)));
+    const rowMax = Math.max(0, ...(task.days || []).map((row) => Array.isArray(row) ? row.length : 0));
+    return Math.max(1, freqCount, scheduledMax, rowMax);
+  }
+
+  function displayName(baseName, dot, total) {
+    return total > 1 ? String(baseName || '') + ' ' + String(dot + 1) : String(baseName || '');
+  }
+
   function taskKey(areaName, taskName) {
     return String(areaName || '') + '::' + String(taskName || '');
   }
 
-  function existingDailyCounts() {
-    const counts = new Map();
-    document.querySelectorAll('#dynamic-routine-app [data-row-kind="daily"]').forEach((btn) => {
-      const name = (btn.querySelector('strong')?.textContent || '').trim();
-      const small = (btn.querySelector('small')?.textContent || '').trim();
-      const area = small.split(' · ').pop()?.trim() || '';
-      const key = taskKey(area, name);
-      counts.set(key, (counts.get(key) || 0) + 1);
-    });
-    return counts;
+  function displayNameForBase(name, base, total) {
+    if (name === base) return true;
+    for (let i = 1; i <= total; i++) {
+      if (name === displayName(base, i - 1, total)) return true;
+    }
+    return false;
   }
 
   function dailyColumn() {
@@ -119,8 +129,43 @@
     return section;
   }
 
+  function buttonInfo(btn) {
+    const name = (btn.querySelector('strong')?.textContent || '').trim();
+    const small = (btn.querySelector('small')?.textContent || '').trim();
+    const area = small.split(' · ').pop()?.trim() || '';
+    return { name, area };
+  }
+
+  function configuredDailyTasks(cards) {
+    const rows = [];
+    cards.forEach((card) => {
+      const areaKey = card.area_key || '';
+      const areaName = card.area_name || areaKey;
+      (card.tasks || []).forEach((task, taskIndex) => {
+        if (!isDaily(task.freq)) return;
+        rows.push({ card, areaKey, areaName, task, taskIndex, total: dailyCount(task) });
+      });
+    });
+    return rows;
+  }
+
+  function removeExistingDailyRows(configured) {
+    const byArea = new Map();
+    configured.forEach((row) => {
+      if (!byArea.has(row.areaName)) byArea.set(row.areaName, []);
+      byArea.get(row.areaName).push(row);
+    });
+
+    document.querySelectorAll('#dynamic-routine-app [data-row-kind="daily"]').forEach((btn) => {
+      const info = buttonInfo(btn);
+      const candidates = byArea.get(info.area) || [];
+      const match = candidates.some((row) => displayNameForBase(info.name, row.task.name, row.total));
+      if (match) btn.remove();
+    });
+  }
+
   function updateSectionCount(section) {
-    const count = section.querySelectorAll('.eff-task[data-row-kind="daily"]').length;
+    const count = section.querySelectorAll('.eff-task').length;
     const small = section.querySelector('h3 small');
     if (small && small.textContent !== String(count)) small.textContent = String(count);
   }
@@ -154,14 +199,17 @@
     });
   }
 
-  function makeButton(card, areaKey, areaName, task, taskIndex, day, dot, bucket) {
+  function makeButton(card, areaKey, areaName, task, taskIndex, day, dot, total, bucket) {
     const done = !!((task.days || [])[day] || [])[dot];
+    const name = displayName(task.name, dot, total);
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'eff-task ' + (done ? 'done' : 'daily');
     btn.setAttribute('data-row-kind', 'daily');
     btn.setAttribute('data-daily-guard', '1');
-    btn.innerHTML = '<span class="eff-check">' + (done ? '✓' : '○') + '</span><span><strong>' + esc(task.name) + '</strong><small>' + esc((done ? 'Done today' : 'Due today') + ' · ' + areaName) + '</small></span>';
+    btn.setAttribute('data-daily-base-name', task.name || '');
+    btn.setAttribute('data-daily-dot', String(dot));
+    btn.innerHTML = '<span class="eff-check">' + (done ? '✓' : '○') + '</span><span><strong>' + esc(name) + '</strong><small>' + esc((done ? 'Done today' : 'Due today') + ' · ' + areaName) + '</small></span>';
     btn.addEventListener('click', () => saveDot(card, areaKey, task, taskIndex, day, dot, btn, areaName));
     btn.addEventListener('contextmenu', (e) => e.preventDefault());
     const section = ensureSection(bucket);
@@ -180,41 +228,29 @@
 
     applying = true;
     const selected = selectedIso();
-    const counts = existingDailyCounts();
-    let added = 0;
+    const configured = configuredDailyTasks(cards);
 
-    cards.forEach((card) => {
-      const areaKey = card.area_key || '';
-      const areaName = card.area_name || areaKey;
-      (card.tasks || []).forEach((task, taskIndex) => {
-        if (!isDaily(task.freq)) return;
-        const day = dayIndex(selected, card.week_start);
-        const row = (task.days || [])[day] || [];
-        const scheduled = Number((task.scheduled || [])[day] || 0);
-        const needed = Math.max(1, scheduled, row.length);
-        const key = taskKey(areaName, task.name);
-        const have = counts.get(key) || 0;
-        for (let dot = have; dot < needed; dot++) {
-          const bucket = dailyBucket(task.name, dot, needed, areaKey);
-          makeButton(card, areaKey, areaName, task, taskIndex, day, dot, bucket);
-          counts.set(key, (counts.get(key) || 0) + 1);
-          added += 1;
-        }
-      });
+    // Rebuild only the configured daily rows. Flexible/recurring rows are left
+    // alone so overdue/coming-up logic keeps working.
+    removeExistingDailyRows(configured);
+
+    configured.forEach(({ card, areaKey, areaName, task, taskIndex, total }) => {
+      const day = dayIndex(selected, card.week_start);
+      for (let dot = 0; dot < total; dot++) {
+        const bucket = dailyBucket(task.name, dot, total, areaKey);
+        makeButton(card, areaKey, areaName, task, taskIndex, day, dot, total, bucket);
+      }
     });
 
     document.querySelectorAll('#dynamic-routine-app .eff-section').forEach(updateSectionCount);
     updateDailySummary();
     applying = false;
-
-    if (added > 0) {
-      document.dispatchEvent(new CustomEvent('lm:routine-daily-guard-applied', { detail: { added } }));
-    }
+    document.dispatchEvent(new CustomEvent('lm:routine-daily-guard-applied', { detail: { rebuilt: configured.length } }));
   }
 
   function schedule() {
-    // Do bounded reconciliation passes only. This is cheap and allows the main
-    // dynamic stack to finish any late render without a heavy MutationObserver.
+    // Bounded reconciliation passes allow the main dynamic stack to finish its
+    // late render, then replace only daily rows with a stable named set.
     [150, 450, 900, 1600, 2600, 4200, 6500].forEach((ms) => setTimeout(ensureDailyRows, ms));
   }
 
