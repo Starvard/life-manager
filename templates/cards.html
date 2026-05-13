@@ -2,140 +2,24 @@
 {% block title %}Routines - Life Manager{% endblock %}
 
 {% block content %}
-<style>
-    .notecard,
-    .area-tabs,
-    .cards-today-score,
-    .picker,
-    .view-toggle { display: none !important; }
-</style>
 <div class="page-header">
     <h1>Routines</h1>
 </div>
 
-<div class="view-toggle">
-    <a href="{{ url_for('cards_page', week=week_key) }}" class="view-toggle-btn active">Today</a>
-</div>
-
-<div class="picker">
-    {% if weeks %}
-    <select onchange="location.href='?week='+this.value">
-        {% for w in weeks %}
-        <option value="{{ w }}" {% if w == week_key %}selected{% endif %}>{{ w }}</option>
-        {% endfor %}
-    </select>
-    {% endif %}
-    <span class="picker-label">{{ week_key }}</span>
-</div>
-
-{% if cards_today_in_week %}
-<div class="cards-today-score" role="status">
-    <div class="cards-today-score-inner">
-        <span class="cards-today-score-label">Today ({{ cards_today_label }})</span>
-        <span class="cards-today-score-value">{% if cards_today_score_pct is not none %}{{ cards_today_score_pct }}%{% else %}—{% endif %}</span>
-    </div>
-    {% if cards_today_score_pct is none %}
-    <p class="cards-today-score-note">Nothing to score today.</p>
-    {% endif %}
-</div>
-{% endif %}
-
-{% set area_keys = cards.keys()|list %}
-
-<div class="area-tabs">
-    {% for key in area_keys %}
-    <a href="#card-{{ key }}" class="area-tab">{{ cards[key].area_name }}</a>
-    {% endfor %}
-</div>
-
-{% for key, card in cards.items() %}
-<div id="card-{{ key }}" class="notecard" x-data='routineCard("{{ week_key }}", "{{ key }}", {{ card|tojson }})'>
-
-    <div class="notecard-header routine">
-        <span>{{ card.area_name }}</span>
-        <span class="week-label">
-            Week of {{ card.week_start }}
-            &middot; <span x-text="cardProgress() + '%'"></span>
-        </span>
-    </div>
-
-    <div class="routine-grid-header">
-        <div class="rg-task">Task</div>
-        <div class="rg-day">M</div>
-        <div class="rg-day">T</div>
-        <div class="rg-day">W</div>
-        <div class="rg-day">Th</div>
-        <div class="rg-day">F</div>
-        <div class="rg-day">Sa</div>
-        <div class="rg-day">Su</div>
-    </div>
-
-    <template x-for="(task, ti) in card.tasks" :key="'t'+ti">
-        <div class="routine-row"
-             :class="{
-                'row-muted': task.scheduled && task.scheduled.every(s => s === 0)
-             }">
-            <div class="rg-task">
-                <span x-text="task.name"></span>
-            </div>
-            <template x-for="(day, di) in task.days" :key="di">
-                <div class="rg-day">
-                    <template x-for="(filled, doi) in day" :key="doi">
-                        <div class="dot"
-                             :class="dotClass(task, di, doi)"
-                             @click="toggleDot(ti, di, doi)">
-                        </div>
-                    </template>
-                </div>
-            </template>
-        </div>
-    </template>
-
-    <div class="routine-extra-block">
-        <div class="routine-extra-label">This week only</div>
-        <template x-for="(task, ti) in card.extra_tasks" :key="'x'+ti">
-            <div class="routine-row routine-row-extra">
-                <div class="rg-task">
-                    <span x-text="task.name"></span>
-                    <button type="button" class="btn-remove-extra" title="Remove"
-                            @click="removeExtraRow(ti)">×</button>
-                </div>
-                <template x-for="(day, di) in task.days" :key="di">
-                    <div class="rg-day">
-                        <template x-for="(filled, doi) in day" :key="doi">
-                            <div class="dot"
-                                 :class="dotClass(task, di, doi)"
-                                 @click="toggleDotExtra(ti, di, doi)">
-                            </div>
-                        </template>
-                    </div>
-                </template>
-            </div>
-        </template>
-        <div class="routine-add-extra">
-            <input type="text" x-model="newExtraName" placeholder="One-off task name…"
-                   @keydown.enter.prevent="addExtraRow()">
-            <button type="button" class="btn btn-sm btn-secondary" @click="addExtraRow()">Add</button>
-        </div>
-    </div>
-
-    <textarea class="card-notes"
-              placeholder="Notes..."
-              x-model="card.notes"
-              @blur="saveNotes()"
-              rows="1"></textarea>
-</div>
-{% endfor %}
-
-{% if not cards %}
+{% if cards %}
+<div id="routine-fast-root"></div>
+<script>
+window.LM_ROUTINE_BOOT = {
+  weekKey: {{ week_key|tojson }},
+  selectedDate: {{ cards_day_date|tojson }},
+  todayIso: {{ routine_today_iso|tojson }},
+  cards: {{ cards|tojson }}
+};
+</script>
+<script src="{{ url_for('static', filename='js/routine-fast-stack.js') }}?v={{ cache_bust }}"></script>
+{% else %}
 <div class="card" style="text-align:center; padding:2rem; color:var(--text-muted);">
     No routine cards yet. Add tasks from your routine configuration, then reload.
 </div>
 {% endif %}
-<script src="{{ url_for('static', filename='js/routine-long-press-delay.js') }}?v={{ cache_bust }}"></script>
-<script src="{{ url_for('static', filename='js/routine-effective-stack.js') }}?v={{ cache_bust }}"></script>
-<script src="{{ url_for('static', filename='js/routine-daily-guard.js') }}?v={{ cache_bust }}"></script>
-<script src="{{ url_for('static', filename='js/routine-selected-day-click-fix.js') }}?v={{ cache_bust }}"></script>
-<script src="{{ url_for('static', filename='js/routine-order-priority.js') }}?v={{ cache_bust }}"></script>
-<script src="{{ url_for('static', filename='js/routine-coming-up-all-future.js') }}?v={{ cache_bust }}"></script>
 {% endblock %}
