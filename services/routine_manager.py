@@ -15,6 +15,7 @@ import threading
 import yaml
 
 from config import ROUTINES_BUNDLED_FILE, ROUTINES_FILE
+from services.routine_daily_restore import restore_may10_daily_routines
 
 
 _cache_lock = threading.Lock()
@@ -67,37 +68,41 @@ def _apply_one_time_routine_repairs(data: dict) -> bool:
     not keep coming back if the user later deletes them from the inline editor.
     """
     migrations = data.setdefault("_migrations", [])
-    if RESTORE_HOME_RECURRING_MIGRATION in migrations:
-        return False
-
-    areas = data.setdefault("areas", {})
-    home = areas.setdefault("home", {"name": "Home", "tasks": []})
-    home.setdefault("name", "Home")
-    tasks = home.setdefault("tasks", [])
-    by_name = {str(t.get("name", "")).strip().lower(): t for t in tasks if isinstance(t, dict)}
-
     changed = False
-    for default_task in RESTORED_HOME_RECURRING_TASKS:
-        key = default_task["name"].strip().lower()
-        existing = by_name.get(key)
-        if existing is None:
-            tasks.append(copy.deepcopy(default_task))
-            by_name[key] = tasks[-1]
-            changed = True
-            continue
 
-        # Older versions had some long-interval tasks only as freq_per_year.
-        # The current inline recurring UI works from freq, so add a weekly
-        # equivalent while preserving any existing fields.
-        if "freq" not in existing:
-            existing["freq"] = default_task["freq"]
-            changed = True
-        if "weight" not in existing and "weight" in default_task:
-            existing["weight"] = default_task["weight"]
-            changed = True
+    if RESTORE_HOME_RECURRING_MIGRATION not in migrations:
+        areas = data.setdefault("areas", {})
+        home = areas.setdefault("home", {"name": "Home", "tasks": []})
+        home.setdefault("name", "Home")
+        tasks = home.setdefault("tasks", [])
+        by_name = {str(t.get("name", "")).strip().lower(): t for t in tasks if isinstance(t, dict)}
 
-    migrations.append(RESTORE_HOME_RECURRING_MIGRATION)
-    return True or changed
+        for default_task in RESTORED_HOME_RECURRING_TASKS:
+            key = default_task["name"].strip().lower()
+            existing = by_name.get(key)
+            if existing is None:
+                tasks.append(copy.deepcopy(default_task))
+                by_name[key] = tasks[-1]
+                changed = True
+                continue
+
+            # Older versions had some long-interval tasks only as freq_per_year.
+            # The current inline recurring UI works from freq, so add a weekly
+            # equivalent while preserving any existing fields.
+            if "freq" not in existing:
+                existing["freq"] = default_task["freq"]
+                changed = True
+            if "weight" not in existing and "weight" in default_task:
+                existing["weight"] = default_task["weight"]
+                changed = True
+
+        migrations.append(RESTORE_HOME_RECURRING_MIGRATION)
+        changed = True
+
+    if restore_may10_daily_routines(data):
+        changed = True
+
+    return changed
 
 
 def load_routines():
