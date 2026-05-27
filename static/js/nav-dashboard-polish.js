@@ -1,6 +1,7 @@
 (function () {
   const MS_DAY = 86400000;
   const FUTURE_PATCH_FLAG = 'data-all-future-coming-up-applied';
+  const V2_HREF = '/static/routines-v2.html';
 
   function parseIso(s) { return new Date(String(s || '').slice(0, 10) + 'T00:00:00'); }
   function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -27,6 +28,37 @@
   function isDaily(freq) { return Number(freq || 0) >= 7; }
   function esc(s) { return String(s || '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+  function routineIcon() {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>';
+  }
+
+  function injectRoutinesV2Links() {
+    const isActive = location.pathname === V2_HREF;
+    const sidebar = document.querySelector('.sidebar nav');
+    if (sidebar && !sidebar.querySelector('[data-nav-tab="routines-v2"]')) {
+      const a = document.createElement('a');
+      a.href = V2_HREF;
+      a.setAttribute('data-nav-tab', 'routines-v2');
+      a.className = isActive ? 'active' : '';
+      a.innerHTML = routineIcon() + '<span>Routines v2</span>';
+      const cards = sidebar.querySelector('[data-nav-tab="cards"]');
+      sidebar.insertBefore(a, cards || sidebar.children[1] || null);
+    }
+
+    const bottom = document.querySelector('.bottom-tabs');
+    if (bottom && !bottom.querySelector('[data-nav-tab="routines-v2"]')) {
+      const a = document.createElement('a');
+      a.href = V2_HREF;
+      a.setAttribute('data-nav-tab', 'routines-v2');
+      a.className = isActive ? 'active' : '';
+      a.innerHTML = routineIcon() + 'Routines';
+      const oldCards = bottom.querySelector('[data-nav-tab="cards"]');
+      if (oldCards) oldCards.remove();
+      const baby = bottom.querySelector('[data-nav-tab="baby"]');
+      bottom.insertBefore(a, baby || bottom.children[1] || null);
+    }
+  }
+
   function polishDashboardTiles() {
     const grid = document.querySelector('.app-grid');
     if (!grid) return;
@@ -39,14 +71,14 @@
 
     const routinesTile = grid.querySelector('[data-nav-tab="cards"]');
     if (routinesTile) {
+      routinesTile.setAttribute('data-nav-tab', 'routines-v2');
+      routinesTile.setAttribute('href', V2_HREF);
       const name = routinesTile.querySelector('.app-tile-name');
       const desc = routinesTile.querySelector('.app-tile-desc');
       const actions = routinesTile.querySelector('.app-tile-actions');
       if (name) name.textContent = 'Routines';
-      if (desc) desc.textContent = 'Today stack with inline long-press editing.';
-      if (actions) {
-        actions.innerHTML = '<a href="/cards" class="btn btn-sm btn-primary">Open</a>';
-      }
+      if (desc) desc.textContent = 'Clean v2 routines with real completion history.';
+      if (actions) actions.innerHTML = '<a href="' + V2_HREF + '" class="btn btn-sm btn-primary">Open</a><a href="/cards" class="btn btn-sm btn-secondary">Old</a>';
     }
   }
 
@@ -217,6 +249,7 @@
   }
 
   function run() {
+    injectRoutinesV2Links();
     polishDashboardTiles();
     injectRoutinePolishStyles();
     setTimeout(showAllFutureComingUp, 500);
