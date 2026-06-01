@@ -1,13 +1,61 @@
 """Runtime app extension hooks.
 
 This file is imported automatically by Python at process startup. It registers
-the Cleaning checklist blueprint without rewriting the large Flask app entry
-file.
+optional app extensions without rewriting the large Flask app entry file.
 """
 
 from __future__ import annotations
 
 _registered_app_ids: set[int] = set()
+
+
+def _ordered_routine_areas() -> dict:
+    from services.routine_manager import load_routines
+
+    data = load_routines()
+    order = data.get("area_order", [])
+    all_areas = data.get("areas", {})
+    ordered_areas = {k: all_areas[k] for k in order if k in all_areas}
+    for k, v in all_areas.items():
+        if k not in ordered_areas:
+            ordered_areas[k] = v
+    return ordered_areas
+
+
+def _install_legacy_routines_restore(app):
+    """Restore the full routines editor as the primary /routines page."""
+
+    if getattr(app, "_legacy_routines_restore_installed", False):
+        return
+    app._legacy_routines_restore_installed = True
+
+    from flask import render_template, request
+
+    @app.before_request
+    def _legacy_routines_before_request():
+        if request.path == "/routines" and request.method == "GET":
+            return render_template("routines.html", areas=_ordered_routine_areas())
+
+        if request.path == "/routines/save" and request.method == "POST":
+            view = app.view_functions.get("save_routines_form")
+            if not view:
+                return None
+            response = app.make_response(view())
+            if response.status_code in (301, 302, 303, 307, 308):
+                response.headers["Location"] = "/routines"
+            return response
+
+        if request.path.startswith("/routines/delete-area/") and request.method == "POST":
+            view = app.view_functions.get("delete_area")
+            if not view:
+                return None
+            area_key = (request.view_args or {}).get("area_key") or request.path.rsplit("/", 1)[-1]
+            response = app.make_response(view(area_key))
+            if response.status_code in (301, 302, 303, 307, 308):
+                response.headers["Location"] = "/routines"
+            return response
+
+        return None
 
 
 def _install_cleaning_blueprint(app):
@@ -24,8 +72,6 @@ def _install_cleaning_blueprint(app):
             set_task_done,
         )
     except Exception:
-        # Do not block app startup if this optional module has a typo.
-        # Flask will still boot; the error will surface during development.
         return
 
     bp = Blueprint("cleaning", __name__)
@@ -70,14 +116,15 @@ def _patch_flask():
 
     original_init = flask.Flask.__init__
 
-    if getattr(original_init, "_life_manager_cleaning_patch", False):
+    if getattr(original_init, "_life_manager_extension_patch", False):
         return
 
     def patched_init(self, *args, **kwargs):
         original_init(self, *args, **kwargs)
         _install_cleaning_blueprint(self)
+        _install_legacy_routines_restore(self)
 
-    patched_init._life_manager_cleaning_patch = True
+    patched_init._life_manager_extension_patch = True
     flask.Flask.__init__ = patched_init
 
 
