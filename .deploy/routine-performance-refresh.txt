@@ -1,0 +1,3 @@
+Routine performance fix refresh trigger.
+
+This commit intentionally goes through the PR/merge path so the app refresh/deploy workflow sees the routines performance fix that was already applied to main.
