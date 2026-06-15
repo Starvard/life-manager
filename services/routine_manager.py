@@ -15,7 +15,6 @@ import threading
 import yaml
 
 from config import ROUTINES_BUNDLED_FILE, ROUTINES_FILE
-from services.routine_daily_restore import restore_may10_daily_routines
 
 
 _cache_lock = threading.Lock()
@@ -64,8 +63,8 @@ def _write_to_disk(data: dict) -> None:
 def _apply_one_time_routine_repairs(data: dict) -> bool:
     """Apply small, one-time data repairs to the persistent routine config.
 
-    This is intentionally guarded by a migration marker so restored tasks do
-    not keep coming back if the user later deletes them from the inline editor.
+    This hot path must not rebuild generated routine cards. Larger historical
+    data repairs should be run manually, not during normal page/API requests.
     """
     migrations = data.setdefault("_migrations", [])
     changed = False
@@ -97,9 +96,6 @@ def _apply_one_time_routine_repairs(data: dict) -> bool:
                 changed = True
 
         migrations.append(RESTORE_HOME_RECURRING_MIGRATION)
-        changed = True
-
-    if restore_may10_daily_routines(data):
         changed = True
 
     return changed
