@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}Today - Life Manager{% endblock %}
+
+{% block content %}
+<style>
+  :root {
+    --good: #4ade80; --good-dim: rgba(74,222,128,.14);
+    --due: #fbbf24; --due-dim: rgba(251,191,36,.12);
+    --late: #fb7185; --late-dim: rgba(251,113,133,.12);
+    --daily: #63b3ff;
+  }
+  .today-wrap { max-width: 640px; margin: 0 auto; padding-bottom: 5rem; }
+  .today-hero {
+    position: relative; overflow: hidden; border-radius: 22px; padding: 1.25rem 1.15rem 1.35rem;
+    background: radial-gradient(120% 140% at 50% -10%, rgba(167,139,250,.28), rgba(99,179,255,.10) 45%, rgba(22,22,31,.0) 75%), var(--surface);
+    border: 1px solid var(--border); box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  }
+  .hero-headline { text-align: center; font-size: 1.05rem; font-weight: 700; margin: 0 0 .15rem; letter-spacing: -.01em; }
+  .hero-date { text-align: center; color: var(--text-muted); font-size: .8rem; margin: 0 0 1rem; }
+  .ring-wrap { display: grid; place-items: center; margin: .25rem 0 .9rem; }
+  .ring { position: relative; width: 184px; height: 184px; }
+  .ring svg { transform: rotate(-90deg); width: 184px; height: 184px; }
+  .ring .ring-bg { stroke: rgba(255,255,255,.07); }
+  .ring .ring-fg { stroke: url(#ringGrad); stroke-linecap: round; transition: stroke-dashoffset .6s cubic-bezier(.22,1,.36,1); }
+  .ring-center { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; }
+  .ring-pct { font-size: 2.7rem; font-weight: 800; line-height: 1; letter-spacing: -.03em; }
+  .ring-sub { font-size: .78rem; color: var(--text-muted); margin-top: .25rem; }
+  .ring-done .ring-pct { color: var(--good); }
+
+  .xp-row { display: flex; align-items: center; gap: .6rem; margin: .2rem .15rem .75rem; }
+  .level-badge { flex: 0 0 auto; display: grid; place-items: center; min-width: 2.1rem; height: 2.1rem; padding: 0 .5rem;
+    border-radius: 999px; font-weight: 800; font-size: .82rem; color: #0a0a0f;
+    background: linear-gradient(135deg, #fde68a, #fbbf24); box-shadow: 0 4px 14px rgba(251,191,36,.35); }
+  .xp-track { flex: 1; height: .62rem; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; }
+  .xp-fill { height: 100%; width: 0; border-radius: 999px; background: var(--accent-gradient-vivid); transition: width .5s cubic-bezier(.22,1,.36,1); }
+  .xp-label { flex: 0 0 auto; font-size: .72rem; color: var(--text-muted); min-width: 4.6rem; text-align: right; }
+
+  .streak-row { display: flex; align-items: center; justify-content: center; gap: .55rem; }
+  .streak-flame { font-size: 1.05rem; font-weight: 800; }
+  .streak-dots { display: flex; gap: .28rem; }
+  .streak-dots .d { width: .72rem; height: .72rem; border-radius: 999px; background: rgba(255,255,255,.1); }
+  .streak-dots .d.on { background: var(--good); box-shadow: 0 0 8px rgba(74,222,128,.5); }
+  .streak-dots .d.today { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .section { margin-top: 1.35rem; }
+  .section-title { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin: 0 .25rem .55rem; }
+  .section-title h2 { font-size: .92rem; margin: 0; letter-spacing: .01em; }
+  .section-title .count { font-size: .74rem; color: var(--text-muted); }
+
+  .upnext { border-radius: 18px; padding: 1rem; margin-top: 1.1rem;
+    background: linear-gradient(135deg, rgba(99,179,255,.16), rgba(167,139,250,.16)); border: 1px solid rgba(99,179,255,.28); }
+  .upnext .un-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .09em; color: var(--accent); font-weight: 700; }
+  .upnext .un-name { font-size: 1.25rem; font-weight: 800; margin: .25rem 0 .15rem; letter-spacing: -.02em; }
+  .upnext .un-sub { font-size: .8rem; color: var(--text-muted); }
+  .upnext .un-btn { margin-top: .8rem; width: 100%; border: 0; border-radius: 13px; padding: .85rem; font-size: 1rem; font-weight: 800; color: #06121f;
+    background: linear-gradient(135deg, #7dd3fc, #4ade80); cursor: pointer; box-shadow: 0 8px 22px rgba(74,222,128,.28); }
+  .upnext .un-btn:active { transform: scale(.985); }
+  .upnext.alldone { background: var(--good-dim); border-color: rgba(74,222,128,.4); text-align: center; }
+  .upnext.alldone .un-name { color: var(--good); }
+
+  .tk { position: relative; display: flex; align-items: center; gap: .8rem; width: 100%; text-align: left;
+    border: 1px solid var(--border); border-left: 5px solid rgba(148,163,184,.5); border-radius: 15px;
+    padding: .85rem .85rem; margin: .5rem 0; background: var(--surface); color: inherit; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; transition: transform .12s ease, background .2s ease, opacity .25s ease; }
+  .tk:active { transform: scale(.985); }
+  .tk.daily { border-left-color: var(--daily); }
+  .tk.due { border-left-color: var(--due); background: linear-gradient(90deg, var(--due-dim), transparent 60%); }
+  .tk.overdue { border-left-color: var(--late); background: linear-gradient(90deg, var(--late-dim), transparent 60%); }
+  .tk.done { border-left-color: var(--good); opacity: .62; }
+  .tk.done .tk-name { text-decoration: line-through; }
+  .tk-check { flex: 0 0 auto; display: grid; place-items: center; width: 2.3rem; height: 2.3rem; border-radius: 999px;
+    border: 2px solid rgba(255,255,255,.18); font-size: 1.15rem; font-weight: 800; transition: all .2s ease; }
+  .tk.done .tk-check { background: var(--good); border-color: var(--good); color: #06210f; }
+  .tk-body { flex: 1; min-width: 0; }
+  .tk-name { font-weight: 700; font-size: 1rem; }
+  .tk-sub { font-size: .76rem; color: var(--text-muted); margin-top: .12rem; }
+  .tk-pill { flex: 0 0 auto; font-size: .72rem; font-weight: 700; color: var(--text-muted); padding: .22rem .5rem; border-radius: 999px; background: rgba(255,255,255,.06); }
+  .tk.pop { animation: tkpop .42s cubic-bezier(.22,1.4,.4,1); }
+  @keyframes tkpop { 0%{transform:scale(1)} 35%{transform:scale(1.04)} 100%{transform:scale(1)} }
+
+  .empty { color: var(--text-muted); font-size: .85rem; padding: .6rem .25rem; }
+  .show-more { display:block; width:100%; text-align:center; background:none; border:1px dashed var(--border); color:var(--text-muted);
+    border-radius:12px; padding:.6rem; font-size:.82rem; cursor:pointer; margin-top:.4rem; }
+  .done-section { opacity: .9; }
+
+  .xp-float { position: fixed; z-index: 9998; font-weight: 800; font-size: 1.1rem; color: var(--good); pointer-events: none;
+    text-shadow: 0 2px 10px rgba(0,0,0,.5); animation: xpfloat 1s ease-out forwards; }
+  @keyframes xpfloat { 0%{opacity:0; transform: translateY(0) scale(.8)} 18%{opacity:1} 100%{opacity:0; transform: translateY(-46px) scale(1.1)} }
+
+  #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9997; }
+
+  .celebrate { position: fixed; inset: 0; z-index: 9999; display: none; place-items: center; padding: 1.2rem;
+    background: rgba(5,6,12,.66); backdrop-filter: blur(3px); }
+  .celebrate.show { display: grid; animation: fadein .25s ease; }
+  @keyframes fadein { from{opacity:0} to{opacity:1} }
+  .celebrate-card { width: min(420px,100%); text-align: center; border-radius: 22px; padding: 1.8rem 1.4rem;
+    background: radial-gradient(120% 120% at 50% 0%, rgba(74,222,128,.2), var(--surface) 70%); border: 1px solid rgba(74,222,128,.35);
+    box-shadow: 0 30px 90px rgba(0,0,0,.5); animation: pop-in .4s cubic-bezier(.22,1.4,.4,1); }
+  @keyframes pop-in { 0%{transform:scale(.8); opacity:0} 100%{transform:scale(1); opacity:1} }
+  .celebrate-emoji { font-size: 3.6rem; line-height: 1; }
+  .celebrate-card h2 { margin: .6rem 0 .25rem; font-size: 1.5rem; }
+  .celebrate-card p { color: var(--text-muted); margin: 0 0 1.2rem; }
+  .celebrate-card button { width: 100%; border: 0; border-radius: 13px; padding: .85rem; font-weight: 800; font-size: 1rem; color: #06121f;
+    background: linear-gradient(135deg, #7dd3fc, #4ade80); cursor: pointer; }
+
+  .today-footer { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1.6rem; }
+  .today-footer button, .today-footer a { background: none; border: 0; color: var(--text-muted); font-size: .8rem; cursor: pointer; text-decoration: none; }
+  .today-footer .on { color: var(--accent); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tk.pop, .xp-float, .celebrate.show, .celebrate-card { animation: none; }
+    .ring .ring-fg, .xp-fill { transition: none; }
+  }
+</style>
+
+<div class="today-wrap">
+  <div class="today-hero">
+    <p class="hero-headline" id="headline">Let's make today count</p>
+    <p class="hero-date" id="hero-date"></p>
+    <div class="ring-wrap">
+      <div class="ring" id="ring">
+        <svg viewBox="0 0 184 184" aria-hidden="true">
+          <defs>
+            <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#38bdf8"/>
+              <stop offset="50%" stop-color="#818cf8"/>
+              <stop offset="100%" stop-color="#4ade80"/>
+            </linearGradient>
+          </defs>
+          <circle class="ring-bg" cx="92" cy="92" r="82" fill="none" stroke-width="16"/>
+          <circle class="ring-fg" id="ring-fg" cx="92" cy="92" r="82" fill="none" stroke-width="16"
+                  stroke-dasharray="515.2" stroke-dashoffset="515.2"/>
+        </svg>
+        <div class="ring-center">
+          <div>
+            <div class="ring-pct" id="ring-pct">0%</div>
+            <div class="ring-sub" id="ring-sub">0 of 0 done</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="xp-row">
+      <span class="level-badge" id="level-badge">Lv 1</span>
+      <span class="xp-track"><span class="xp-fill" id="xp-fill"></span></span>
+      <span class="xp-label" id="xp-label">0 / 100 XP</span>
+    </div>
+    <div class="streak-row">
+      <span class="streak-flame" id="streak-flame">🔥 0</span>
+      <span class="streak-dots" id="streak-dots"></span>
+    </div>
+  </div>
+
+  <div id="up-next"></div>
+  <div id="sections"></div>
+
+  <div class="today-footer">
+    <button type="button" id="toggle-sound">🔈 Sound off</button>
+    <button type="button" id="toggle-haptics">📳 Haptics on</button>
+    <a href="{{ url_for('cards_page', week=bootstrap.week_key) }}">Classic view</a>
+  </div>
+</div>
+
+<canvas id="confetti"></canvas>
+<div class="celebrate" id="celebrate">
+  <div class="celebrate-card">
+    <div class="celebrate-emoji" id="celebrate-emoji">🎉</div>
+    <h2 id="celebrate-title">Day complete!</h2>
+    <p id="celebrate-msg"></p>
+    <button type="button" id="celebrate-close">Heck yes</button>
+  </div>
+</div>
+
+<script>window.__TODAY__ = {{ bootstrap|tojson }};</script>
+{% endblock %}
+
+{% block body_scripts %}
+<script src="{{ url_for('static', filename='js/today.js') }}?v={{ cache_bust }}"></script>
+{% endblock %}

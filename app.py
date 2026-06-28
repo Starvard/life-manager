@@ -353,6 +353,32 @@ def cards_day_page():
     )
 
 
+@app.route("/today")
+def today_page():
+    """ADHD-friendly daily focus view. Data is bootstrapped server-side so the
+    page renders instantly with no client round-trips."""
+    day_str = request.args.get("date", local_today().isoformat())
+    try:
+        sel = date.fromisoformat(day_str)
+    except ValueError:
+        sel = local_today()
+        day_str = sel.isoformat()
+    monday = sel - timedelta(days=sel.weekday())
+    wk = iso_week_key(monday)
+    cards = _ordered_cards(get_routine_cards(wk))
+    history = routine_completion_history(day_str, 20)
+    bootstrap = {
+        "today": day_str,
+        "is_today": day_str == local_today().isoformat(),
+        "week_key": wk,
+        "week_start": monday.isoformat(),
+        "day_index": (sel - monday).days,
+        "cards": cards,
+        "history": history,
+    }
+    return render_template("today.html", bootstrap=bootstrap)
+
+
 @app.route("/baby")
 def baby_page():
     d = request.args.get("date", local_today().isoformat())
