@@ -86,6 +86,15 @@ _seed_data()
 app = Flask(__name__)
 app.secret_key = os.environ.get("LM_SECRET_KEY", "life-manager-local-key")
 
+# Cache static assets (CSS/JS/icons) for a year. Every static URL is requested
+# with a "?v=<cache_bust>" query string (see inject_cache_bust); cache_bust is
+# the process start time, so it changes on every deploy/restart and forces a
+# fresh fetch then. Without this, Werkzeug defaults to "Cache-Control: no-cache",
+# which made the browser revalidate ~14 JS/CSS files on EVERY page navigation —
+# a dozen+ round-trips per page against a single-worker server. This is the
+# single biggest fix for the app feeling "very very slow" on a phone.
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = timedelta(days=365)
+
 for d in [config.PHOTOS_DIR, config.CARDS_DIR,
           config.ROUTINE_CARDS_DIR, config.BABY_CARDS_DIR,
           config.BUDGET_DATA_DIR, config.BUDGET_PLANS_DIR,

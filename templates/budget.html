@@ -647,4 +647,8 @@
 
 {# Plaid Link SDK (defer: runs before DOMContentLoaded; app.js runs after and can rely on Plaid) #}
 <script defer src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+{% block body_scripts %}
+<script src="{{ url_for('static', filename='js/budget-polish.js') }}?v={{ cache_bust }}"></script>
+<script src="{{ url_for('static', filename='js/budget-category-drilldown.js') }}?v={{ cache_bust }}"></script>
+{% endblock %}
 {% endblock %}
