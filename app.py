@@ -29,6 +29,7 @@ from services.card_store import (
     regenerate_routine_cards,
     add_extra_task, remove_extra_task,
     complete_routine_day_scheduled,
+    routine_completion_history,
     get_baby_card, save_baby_card, update_baby_track, list_baby_days,
 )
 from services import push_subscriptions
@@ -647,6 +648,21 @@ def api_set_notes(week_key, area_key):
 @app.route("/api/routine-cards/weeks")
 def api_list_weeks():
     return jsonify({"weeks": list_routine_weeks()})
+
+
+@app.route("/api/routine-history")
+def api_routine_history():
+    """Completion history for past weeks, computed in one read-only call.
+
+    Replaces the routines page fetching dozens of weeks one-by-one (which also
+    triggered the server to auto-generate empty week files for every request).
+    """
+    sel = request.args.get("date", local_today().isoformat())
+    try:
+        weeks = int(request.args.get("weeks", 8))
+    except (TypeError, ValueError):
+        weeks = 8
+    return jsonify({"history": routine_completion_history(sel, weeks)})
 
 
 # \u2500\u2500 Web Push \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
