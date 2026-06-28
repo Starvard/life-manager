@@ -13,7 +13,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ cache_bust }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/budget-polish.css') }}?v={{ cache_bust }}">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
 <body>
@@ -111,14 +110,10 @@
     </div>
 
     <script src="{{ url_for('static', filename='js/app.js') }}?v={{ cache_bust }}"></script>
-    <script src="{{ url_for('static', filename='js/routine-performance-fix.js') }}?v={{ cache_bust }}"></script>
-    <script src="{{ url_for('static', filename='js/budget-polish.js') }}?v={{ cache_bust }}"></script>
-    <script src="{{ url_for('static', filename='js/budget-category-drilldown.js') }}?v={{ cache_bust }}"></script>
-    <script src="{{ url_for('static', filename='js/nav-dashboard-polish.js') }}?v={{ cache_bust }}"></script>
-    <script src="{{ url_for('static', filename='js/weekly-menu-sheets-entry.js') }}?v={{ cache_bust }}"></script>
-    <script src="{{ url_for('static', filename='js/weekly-menu-fill-may11.js') }}?v={{ cache_bust }}"></script>
-    <script src="{{ url_for('static', filename='js/weekly-menu-fill-may25-one-recipe.js') }}?v={{ cache_bust }}"></script>
-    <script src="{{ url_for('static', filename='js/weekly-menu-snack-slot.js') }}?v={{ cache_bust }}"></script>
-    <script src="{{ url_for('static', filename='js/grocery-consolidate-sort.js') }}?v={{ cache_bust }}"></script>
+    {# Page-specific enhancement scripts. Each page only loads what it needs,
+       instead of every page downloading every patch script. These run after
+       app.js (which registers Alpine components) and before the deferred
+       Alpine CDN in <head>, preserving the original execution order. #}
+    {% block body_scripts %}{% endblock %}
 </body>
 </html>

@@ -944,4 +944,9 @@ document.addEventListener("alpine:init", () => {
     }));
 });
 </script>
+{% block body_scripts %}
+<script src="{{ url_for('static', filename='js/weekly-menu-sheets-entry.js') }}?v={{ cache_bust }}"></script>
+<script src="{{ url_for('static', filename='js/weekly-menu-snack-slot.js') }}?v={{ cache_bust }}"></script>
+<script src="{{ url_for('static', filename='js/grocery-consolidate-sort.js') }}?v={{ cache_bust }}"></script>
+{% endblock %}
 {% endblock %}

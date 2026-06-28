@@ -111,9 +111,11 @@ areas:
     - name: HVAC Maintenance
       weight: 1.5
       freq_per_year: 2.0
+      freq: 0.038
     - name: Knife Sharpening
       weight: 1.0
       freq_per_year: 4.0
+      freq: 0.077
     - name: Meal Plan
       weight: 2.0
       freq: 1.0
@@ -152,3 +154,5 @@ areas:
   car_maintenance:
     name: Car Maintenance
     tasks: []
+_migrations:
+- restore_home_recurring_tasks_2026_04_29

@@ -123,7 +123,7 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     var dailyScores = {{ daily_score_row | tojson }};
@@ -435,4 +435,7 @@ document.addEventListener('DOMContentLoaded', function() {
     saveBtn?.addEventListener('click', save);
 })();
 </script>
+{% block body_scripts %}
+<script src="{{ url_for('static', filename='js/nav-dashboard-polish.js') }}?v={{ cache_bust }}"></script>
+{% endblock %}
 {% endblock %}

@@ -1,0 +1,1250 @@
+[
+  {
+    "id": "6203cd6b10b2",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "High-Protein Scrambled Eggs with Side Salad",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5-12 min",
+    "cook_time": "5-10 min",
+    "notes": "Default high-protein breakfast for Monday and Tuesday.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "breakfast"
+    ],
+    "ingredients": [
+      {
+        "name": "eggs",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cheese",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salad greens",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "fruit",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "yogurt or cottage cheese",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Whisk 2-3 eggs with salt and a splash of milk or water.",
+      "Cook in butter over medium-low heat, stirring slowly until softly set.",
+      "Fold in cheese at the end.",
+      "Serve with side salad plus fruit, yogurt, or cottage cheese."
+    ]
+  },
+  {
+    "id": "fca4c90137b9",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Turkey Egg Scramble with Side Salad",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5-12 min",
+    "cook_time": "5-10 min",
+    "notes": "Use the morning after taco melts.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "breakfast"
+    ],
+    "ingredients": [
+      {
+        "name": "leftover turkey taco filling",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "eggs",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cheese",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salad greens",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salsa",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Warm leftover turkey filling in a skillet.",
+      "Pour in beaten eggs and lower the heat.",
+      "Stir gently until just set.",
+      "Top with cheese and salsa.",
+      "Serve with a simple side salad."
+    ]
+  },
+  {
+    "id": "2a8d0f63596c",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Chicken Egg Bites with Side Salad",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5-12 min",
+    "cook_time": "5-10 min",
+    "notes": "Make after Wednesday dinner.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "breakfast"
+    ],
+    "ingredients": [
+      {
+        "name": "eggs",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cottage cheese or ricotta",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cooked chicken",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "shredded cheese",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "chopped greens",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salad greens",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Heat oven to 350°F and grease a muffin tin.",
+      "Whisk 8 eggs with 1/2 cup cottage cheese or ricotta, salt, pepper, and garlic powder.",
+      "Stir in chopped chicken, cheese, and greens.",
+      "Divide into muffin cups.",
+      "Bake 18-24 minutes until set.",
+      "Serve with side salad or refrigerate for fast breakfasts."
+    ]
+  },
+  {
+    "id": "a60a04ab3d37",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Scrambled Eggs with Leftover Chicken and Greens",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5-12 min",
+    "cook_time": "5-10 min",
+    "notes": "Friday breakfast.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "breakfast"
+    ],
+    "ingredients": [
+      {
+        "name": "leftover cooked chicken",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "eggs",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "greens",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cheese",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "hot sauce or salsa",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Warm chopped chicken in butter or oil.",
+      "Add greens and cook until wilted.",
+      "Pour in beaten eggs and stir until softly set.",
+      "Finish with cheese and hot sauce or salsa."
+    ]
+  },
+  {
+    "id": "53e8b80a49bb",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Egg Toast Fruit Plate",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5-12 min",
+    "cook_time": "5-10 min",
+    "notes": "Simple Sunday breakfast.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "breakfast"
+    ],
+    "ingredients": [
+      {
+        "name": "eggs",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "toast or roll",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "fruit",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "yogurt or cottage cheese",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Cook eggs any style.",
+      "Toast bread or warm a roll.",
+      "Add fruit on the side.",
+      "Add yogurt or cottage cheese if more protein is needed."
+    ]
+  },
+  {
+    "id": "2249ba80408d",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Easy Leftover Fridge Lunch Plate",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5-12 min",
+    "cook_time": "5-10 min",
+    "notes": "Monday lunch before the new dinner flow starts.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "lunch"
+    ],
+    "ingredients": [
+      {
+        "name": "available leftovers",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salad greens",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "fruit",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "yogurt or cottage cheese",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Pull the easiest existing leftovers from the fridge.",
+      "Warm anything that should be hot.",
+      "Add greens, fruit, yogurt, or cottage cheese for protein and freshness."
+    ]
+  },
+  {
+    "id": "8dd08152124e",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Leftover Meatballs Lunch Plate",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5-12 min",
+    "cook_time": "5-10 min",
+    "notes": "Tuesday lunch from Monday dinner.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "lunch"
+    ],
+    "ingredients": [
+      {
+        "name": "leftover meatballs",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "leftover pasta salad",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "leftover vegetables",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salad greens",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Reheat meatballs gently with a splash of sauce or water.",
+      "Plate leftover pasta salad and vegetables.",
+      "Add greens if you want it lighter and fresher."
+    ]
+  },
+  {
+    "id": "77068a0d0789",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Leftover Turkey Taco Lunch",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5-12 min",
+    "cook_time": "5-10 min",
+    "notes": "Wednesday lunch from Tuesday dinner.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "lunch"
+    ],
+    "ingredients": [
+      {
+        "name": "leftover turkey black bean filling",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "lettuce or greens",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salsa",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cheese",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Warm turkey black bean filling until hot.",
+      "Serve over greens as taco salad or in a tortilla as a melt.",
+      "Top with salsa and cheese."
+    ]
+  },
+  {
+    "id": "08cbf9c6055d",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Leftover Lemon Garlic Chicken Lunch",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5-12 min",
+    "cook_time": "5-10 min",
+    "notes": "Thursday lunch from Wednesday dinner.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "lunch"
+    ],
+    "ingredients": [
+      {
+        "name": "leftover lemon garlic chicken",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "leftover carrots or potatoes",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salad greens",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "lemon juice",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Slice chicken so it reheats evenly.",
+      "Warm chicken and vegetables until just hot.",
+      "Add greens on the side or underneath.",
+      "Finish with lemon."
+    ]
+  },
+  {
+    "id": "f04b4603bc79",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Leftover Peanut Chicken Cauliflower Rice Lunch",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5-12 min",
+    "cook_time": "5-10 min",
+    "notes": "Friday lunch from Thursday dinner.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "lunch"
+    ],
+    "ingredients": [
+      {
+        "name": "leftover peanut chicken cauliflower rice",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "carrots or cucumber",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "lime or lemon",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Reheat in short bursts so the sauce does not dry out.",
+      "Add a splash of water if the sauce is too thick.",
+      "Serve with carrots or cucumber and finish with citrus."
+    ]
+  },
+  {
+    "id": "31aeb92aed8c",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Leftover Steak and Broccoli Lunch",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5-12 min",
+    "cook_time": "5-10 min",
+    "notes": "Saturday lunch from Friday dinner.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "lunch"
+    ],
+    "ingredients": [
+      {
+        "name": "leftover steak",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "leftover broccoli",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "potatoes, rice, or salad greens",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Slice steak thin before reheating.",
+      "Warm steak gently and stop before it overcooks.",
+      "Reheat broccoli separately or eat it cold with lemon.",
+      "Add potatoes, rice, or greens if needed."
+    ]
+  },
+  {
+    "id": "68533147b2c1",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Leftover Chickpea Banza Pasta Bake Lunch",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5-12 min",
+    "cook_time": "5-10 min",
+    "notes": "Sunday lunch from Saturday dinner.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "lunch"
+    ],
+    "ingredients": [
+      {
+        "name": "leftover chickpea tomato Banza pasta bake",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salad greens or fruit",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Reheat pasta bake covered so it stays moist.",
+      "Add a spoonful of sauce or water first if it looks dry.",
+      "Serve with greens or fruit."
+    ]
+  },
+  {
+    "id": "1cb15f7bf24f",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Cheese Cracker Fruit Nap Snack",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5 min",
+    "cook_time": "0-5 min",
+    "notes": "Monday nap snack.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "snack"
+    ],
+    "ingredients": [
+      {
+        "name": "cheese",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "crackers",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "fruit",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Cut cheese into snack pieces.",
+      "Add crackers and fruit.",
+      "Keep the portion small enough that dinner still works."
+    ]
+  },
+  {
+    "id": "f36cc6c76981",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Apple Peanut Butter Nap Snack",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5 min",
+    "cook_time": "0-5 min",
+    "notes": "Tuesday nap snack.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "snack"
+    ],
+    "ingredients": [
+      {
+        "name": "apple",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "peanut butter",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Slice the apple.",
+      "Serve peanut butter on the side for dipping.",
+      "Add milk or yogurt if more protein is needed."
+    ]
+  },
+  {
+    "id": "47033bfac780",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Blueberry Yogurt Nap Snack",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5 min",
+    "cook_time": "0-5 min",
+    "notes": "Wednesday nap snack.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "snack"
+    ],
+    "ingredients": [
+      {
+        "name": "yogurt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "blueberries",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "chia seeds or nuts",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Spoon yogurt into a bowl.",
+      "Add blueberries.",
+      "Sprinkle with chia or nuts if you want it more filling."
+    ]
+  },
+  {
+    "id": "c7dc904f464a",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Egg Fruit Nap Snack",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5 min",
+    "cook_time": "0-5 min",
+    "notes": "Thursday nap snack.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "snack"
+    ],
+    "ingredients": [
+      {
+        "name": "egg",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "fruit",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt or everything seasoning",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Peel and season the egg.",
+      "Add fruit on the side.",
+      "Use two eggs if this needs to be a more serious snack."
+    ]
+  },
+  {
+    "id": "3a38c2bbec5b",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Cheese Crackers Pickles Nap Snack",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5 min",
+    "cook_time": "0-5 min",
+    "notes": "Friday nap snack.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "snack"
+    ],
+    "ingredients": [
+      {
+        "name": "cheese",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "crackers",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "pickles",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Put cheese, crackers, and pickles on a small plate.",
+      "Add fruit if the snack needs more.",
+      "Keep it no-cook."
+    ]
+  },
+  {
+    "id": "278d70efa999",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Hummus Carrots or Edamame Nap Snack",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5 min",
+    "cook_time": "0-5 min",
+    "notes": "Saturday nap snack.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "snack"
+    ],
+    "ingredients": [
+      {
+        "name": "hummus",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "carrots",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "edamame",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Put hummus in a small bowl with carrots.",
+      "If using edamame, microwave or steam it until hot.",
+      "Serve whichever option is easiest."
+    ]
+  },
+  {
+    "id": "8e638f0817cb",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Peanut Butter Crackers Fruit Nap Snack",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5 min",
+    "cook_time": "0-5 min",
+    "notes": "Sunday nap snack.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "snack"
+    ],
+    "ingredients": [
+      {
+        "name": "crackers",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "peanut butter",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "fruit",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Spread peanut butter on crackers or use it as a dip.",
+      "Add fruit on the side.",
+      "Use this as the easy Sunday snack."
+    ]
+  },
+  {
+    "id": "3c3a7db367e7",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Beef Ricotta Meatballs with Leftover Veggies and Pasta Salad",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5-12 min",
+    "cook_time": "15-35 min",
+    "notes": "Monday dinner. No extra pasta needed because pasta salad is already the side.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "dinner"
+    ],
+    "ingredients": [
+      {
+        "name": "ground beef",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "ricotta",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "egg",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "crushed crackers or breadcrumbs",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "Italian seasoning",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic powder",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "leftover vegetables",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "leftover pasta salad",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Heat oven to 400°F and line a sheet pan with foil or parchment.",
+      "Mix beef, ricotta, egg, crushed crackers, Italian seasoning, garlic powder, salt, and pepper just until combined.",
+      "Roll into small meatballs so they cook quickly.",
+      "Bake 15-18 minutes, until browned and cooked through.",
+      "Warm leftover vegetables while the meatballs cook.",
+      "Serve with leftover vegetables and leftover pasta salad. Add tomato sauce only if you want it."
+    ]
+  },
+  {
+    "id": "6b26b923282f",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Ground Turkey Black Bean Taco Melts",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5-12 min",
+    "cook_time": "15-35 min",
+    "notes": "Tuesday dinner. Make enough filling for Wednesday lunch and breakfast.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "dinner"
+    ],
+    "ingredients": [
+      {
+        "name": "ground turkey",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black beans",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salsa",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "taco seasoning",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "tortillas, bread, or rolls",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cheese",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "lettuce or salad greens",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Brown ground turkey in a skillet, breaking it up as it cooks.",
+      "Season with taco seasoning and add a splash of water if the pan looks dry.",
+      "Stir in drained black beans and salsa, then simmer 3-5 minutes.",
+      "Put filling on tortillas, bread, or rolls and top with cheese.",
+      "Toast until cheese melts and the outside is crisp.",
+      "Serve with lettuce or a quick side salad."
+    ]
+  },
+  {
+    "id": "f3256ccc30bb",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Lemon Garlic Chicken with Carrots and Potatoes",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5-12 min",
+    "cook_time": "15-35 min",
+    "notes": "Wednesday dinner. Cook extra chicken on purpose.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "dinner"
+    ],
+    "ingredients": [
+      {
+        "name": "chicken",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "carrots",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "potatoes",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "broccoli or green vegetable",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "lemon juice",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "butter or olive oil",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Heat oven to 425°F.",
+      "Cut potatoes and carrots small. Toss with oil, salt, pepper, and half the garlic.",
+      "Roast vegetables for 15 minutes.",
+      "Season chicken with salt, pepper, lemon juice, remaining garlic, and oil or butter.",
+      "Add chicken to the pan and roast until cooked through and vegetables are tender.",
+      "Cook broccoli on the side and save extra chicken for egg bites."
+    ]
+  },
+  {
+    "id": "6c25c61b90c5",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Peanut Chicken Cauliflower Rice Bowl",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5-12 min",
+    "cook_time": "15-35 min",
+    "notes": "Thursday dinner. This is the only bowl dinner this week.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "dinner"
+    ],
+    "ingredients": [
+      {
+        "name": "leftover cooked chicken",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cauliflower rice",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "carrots",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "peanut butter",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "soy sauce or fish sauce",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "lemon or lime juice",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "hot water",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Whisk peanut butter, soy or fish sauce, citrus, and hot water into a pourable sauce.",
+      "Cook cauliflower rice in a large skillet until hot and some moisture cooks off.",
+      "Add carrots and cook 2-3 minutes.",
+      "Stir in chicken and warm through.",
+      "Toss with peanut sauce and adjust with citrus, hot sauce, or soy sauce."
+    ]
+  },
+  {
+    "id": "1da738737cca",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Steak and Broccoli",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5-12 min",
+    "cook_time": "15-35 min",
+    "notes": "Friday dinner. This replaces the steak sandwiches.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "dinner"
+    ],
+    "ingredients": [
+      {
+        "name": "steak",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "broccoli",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "butter or olive oil",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "lemon juice",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "potatoes or rice",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Thaw steak Thursday night and pat it dry.",
+      "Season steak with salt and pepper.",
+      "Cook broccoli first until bright green and tender-crisp.",
+      "Sear steak in a hot skillet with a little oil to preferred doneness.",
+      "Rest steak 5-10 minutes before slicing.",
+      "Finish broccoli with butter or oil, garlic, lemon, salt, and pepper."
+    ]
+  },
+  {
+    "id": "4a9d66d3a0fe",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Chickpea Tomato Banza Pasta Bake",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5-12 min",
+    "cook_time": "15-35 min",
+    "notes": "Saturday pantry cleanup dinner.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "dinner"
+    ],
+    "ingredients": [
+      {
+        "name": "Banza pasta",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "tomato sauce or marinara",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "chickpeas",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "ricotta",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "shredded cheese",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "leftover chicken or turkey",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Heat oven to 375°F.",
+      "Boil Banza pasta 1-2 minutes less than box directions.",
+      "Mix drained pasta with sauce, drained chickpeas, ricotta, and optional leftover meat.",
+      "Spread in a baking dish and top with cheese.",
+      "Bake 20-25 minutes until bubbling.",
+      "Rest 5 minutes before serving."
+    ]
+  },
+  {
+    "id": "bccd47de680f",
+    "created": "2026-06-28T19:59:21Z",
+    "updated": "2026-06-28T19:59:21Z",
+    "name": "Snacky Leftover Dinner",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "5-12 min",
+    "cook_time": "15-35 min",
+    "notes": "Sunday fridge reset.",
+    "tags": [
+      "weekly menu",
+      "may 25",
+      "dinner"
+    ],
+    "ingredients": [
+      {
+        "name": "leftover pasta bake, meatballs, chicken, turkey, or steak",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "watermelon or fruit",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cheese and crackers",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "eggs, pickles, yogurt, or cottage cheese",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Pull out leftovers that need to be used first.",
+      "Warm anything that sounds better hot.",
+      "Put cold sides like fruit, cheese, crackers, pickles, yogurt, or cottage cheese on the table.",
+      "Let everyone build a plate."
+    ]
+  }
+]
