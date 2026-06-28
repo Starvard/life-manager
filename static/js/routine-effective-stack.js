@@ -4,22 +4,12 @@
   const MS_DAY = 86400000;
   const TZ = 'America/New_York';
   const SECTION_KEY = 'lm:routine-section:';
-  const WEEK_CACHE = new Map();
   const HISTORY_CACHE = new Map();
 
   function parseIso(s) { return new Date(String(s || '').slice(0, 10) + 'T00:00:00'); }
   function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
   function daysBetween(a, b) { return Math.round((parseIso(a) - parseIso(b)) / MS_DAY); }
-  function mondayFor(d) { const x = new Date(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
-  function weekKeyFor(d) {
-    const x = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-    const day = x.getUTCDay() || 7;
-    x.setUTCDate(x.getUTCDate() + 4 - day);
-    const yearStart = new Date(Date.UTC(x.getUTCFullYear(), 0, 1));
-    const week = Math.ceil((((x - yearStart) / MS_DAY) + 1) / 7);
-    return x.getUTCFullYear() + '-W' + String(week).padStart(2, '0');
-  }
   function todayIso() {
     const p = new Intl.DateTimeFormat('en-US', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
     const got = Object.fromEntries(p.map((x) => [x.type, x.value]));
@@ -175,42 +165,26 @@
     });
   }
 
-  async function fetchWeek(wk) {
-    if (WEEK_CACHE.has(wk)) return WEEK_CACHE.get(wk);
-    const p = fetch('/api/routine-cards/' + encodeURIComponent(wk), { cache: 'no-store' })
-      .then((r) => r.ok ? r.json() : { areas: {} })
-      .then((data) => data.areas || {})
-      .catch(() => ({}));
-    WEEK_CACHE.set(wk, p);
-    return p;
-  }
-
   function historyLookbackWeeks(items) {
     const maxDays = items.reduce((max, item) => isDaily(item.freq) ? max : Math.max(max, intervalDays(item.freq)), 0);
     return Math.max(6, Math.min(32, Math.ceil(maxDays / 7) + 2));
   }
 
-  async function loadHistory(selIso, items) {
-    const cacheKey = selIso + ':' + items.length;
+  // Past-week completion history (everything before the selected week) is fetched
+  // in a SINGLE read-only server call. Previously the client requested 6-32 weeks
+  // one-at-a-time, and each request made the server auto-generate + rewrite empty
+  // week files — dozens of round-trips and file writes per page load, repeated on
+  // every recurring toggle. Past weeks never change while you're on the page, so
+  // this is cached for the session; only the current week is re-derived (from the
+  // live cards) on each render, which is what makes toggles feel instant now.
+  async function loadPastHistory(selIso, items) {
+    const lookback = historyLookbackWeeks(items);
+    const cacheKey = selIso + ':' + lookback;
     if (HISTORY_CACHE.has(cacheKey)) return HISTORY_CACHE.get(cacheKey);
-    const promise = (async () => {
-      const weeks = [];
-      const lookback = historyLookbackWeeks(items);
-      const selectedMonday = mondayFor(parseIso(selIso));
-      for (let i = lookback; i >= 0; i--) weeks.push(weekKeyFor(addDays(selectedMonday, -7 * i)));
-      const hist = {};
-      for (let i = 0; i < weeks.length; i += 6) {
-        const chunk = weeks.slice(i, i + 6);
-        const areasByWeek = await Promise.all(chunk.map(fetchWeek));
-        areasByWeek.forEach((areas) => {
-          Object.values(areas || {}).forEach((card) => addHistoryFromCard(card, hist, selIso));
-        });
-        await new Promise((resolve) => setTimeout(resolve, 0));
-      }
-      alpineCards().forEach((card) => addHistoryFromCard(card, hist, selIso));
-      Object.keys(hist).forEach((k) => { hist[k] = Array.from(new Set(hist[k])).sort(); });
-      return hist;
-    })();
+    const promise = fetch('/api/routine-history?date=' + encodeURIComponent(selIso) + '&weeks=' + lookback, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : { history: {} }))
+      .then((d) => d.history || {})
+      .catch(() => ({}));
     HISTORY_CACHE.set(cacheKey, promise);
     return promise;
   }
@@ -256,7 +230,9 @@
       body: JSON.stringify({ task: item.taskIndex, day: di, dot, value: next, list: 'tasks' }),
     });
     if (!res.ok) throw new Error('Routine save failed');
-    HISTORY_CACHE.clear();
+    // Past-week history is unaffected by toggling a current-week dot, so we keep
+    // the cache. render() re-derives the current week from the live cards, which
+    // saveDot just mutated in place — no expensive history refetch needed.
     return next;
   }
 
@@ -448,7 +424,12 @@
     if (!cards.length) return;
     const sel = selectedIso();
     const items = catalogFrom(cards);
-    const hist = await loadHistory(sel, items);
+    // Cached past-week history + fresh current-week overlay from the live cards.
+    const past = await loadPastHistory(sel, items);
+    const hist = {};
+    for (const k in past) hist[k] = (past[k] || []).slice();
+    alpineCards().forEach((card) => addHistoryFromCard(card, hist, sel));
+    for (const k in hist) hist[k] = Array.from(new Set(hist[k])).sort();
     const dailyRows = [];
     const flexRows = [];
     items.forEach((item) => {
