@@ -791,6 +791,85 @@ def get_routine_card(week_key: str, area_key: str) -> dict | None:
     return cards.get(area_key)
 
 
+def load_week_cards_readonly(week_key: str) -> dict[str, dict]:
+    """Read existing area cards for a week WITHOUT generating or rewriting files.
+
+    Returns {} if the week directory does not exist yet. Used for fast,
+    side-effect-free history scans. The normal get_routine_cards() auto-generates
+    and re-saves files (running five reconcilers per area), which is far too
+    expensive to run across dozens of weeks just to read past completions.
+    """
+    week_dir = _routine_dir(week_key)
+    if not os.path.isdir(week_dir):
+        return {}
+    cards: dict[str, dict] = {}
+    try:
+        names = sorted(os.listdir(week_dir))
+    except OSError:
+        return {}
+    for fname in names:
+        if not fname.endswith(".json"):
+            continue
+        data = _load_json(os.path.join(week_dir, fname))
+        if data is not None:
+            cards[fname[:-5]] = data
+    return cards
+
+
+def routine_completion_history(selected_iso: str, weeks: int) -> dict[str, list[str]]:
+    """Completion-history map for the routines view, computed server-side.
+
+    Returns ``{"<area_key>::<task_name>": [ISO dates completed on/before
+    selected_iso]}`` by scanning up to ``weeks`` ISO weeks *before* the selected
+    week. Read-only — it never generates or rewrites card files.
+
+    The current (selected) week is intentionally excluded; the client overlays it
+    from the freshly rendered cards so a just-toggled dot shows up immediately.
+    This single call replaces the old client behaviour of fetching 6-32 weeks one
+    request at a time (which also forced the server to generate empty week files).
+    """
+    try:
+        sel = date.fromisoformat(selected_iso)
+    except (ValueError, TypeError):
+        sel = local_today()
+        selected_iso = sel.isoformat()
+    try:
+        weeks = int(weeks)
+    except (ValueError, TypeError):
+        weeks = 8
+    weeks = max(0, min(60, weeks))
+
+    sel_monday = week_start_date(sel)
+    hist: dict[str, list[str]] = {}
+    for i in range(weeks, 0, -1):
+        wk_monday = sel_monday - timedelta(days=7 * i)
+        cards = load_week_cards_readonly(iso_week_key(wk_monday))
+        for area_key, card in cards.items():
+            ws = card.get("week_start")
+            if not ws:
+                continue
+            try:
+                ws_date = date.fromisoformat(ws)
+            except (ValueError, TypeError):
+                continue
+            ak = card.get("area_key", area_key)
+            for task in card.get("tasks", []):
+                name = task.get("name", "")
+                if not name:
+                    continue
+                key = f"{ak}::{name}"
+                for di, row in enumerate(task.get("days", [])):
+                    if not any(row):
+                        continue
+                    done_iso = (ws_date + timedelta(days=di)).isoformat()
+                    if done_iso > selected_iso:
+                        continue
+                    hist.setdefault(key, []).append(done_iso)
+    for k in list(hist.keys()):
+        hist[k] = sorted(set(hist[k]))
+    return hist
+
+
 def save_routine_card(week_key: str, area_key: str, card: dict):
     os.makedirs(_routine_dir(week_key), exist_ok=True)
     _save_json(_routine_path(week_key, area_key), card)
