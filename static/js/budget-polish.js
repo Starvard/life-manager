@@ -182,7 +182,8 @@
     document.body.classList.add('budget-polish-active');
     const data = budgetData();
     if (!data) return;
-    buildDashboard(data);
+    // The old injected KPI dashboard was removed (the Big Picture card replaces
+    // it). We still apply calmer per-category budget severity colors below.
     setTimeout(() => applySeverity(data), 80);
   }
 
