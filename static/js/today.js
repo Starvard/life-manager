@@ -29,6 +29,22 @@
   function getXp() { return Math.max(0, parseInt(localStorage.getItem(XP_KEY) || '0', 10) || 0); }
   function setXp(v) { localStorage.setItem(XP_KEY, String(Math.max(0, v))); }
 
+  // ---- skip (this session only) + plan-a-date (persisted) ----
+  const skipped = new Set();
+  const PLAN_KEY = 'lm:today:plans';
+  function getPlans() {
+    let p = {};
+    try { p = JSON.parse(localStorage.getItem(PLAN_KEY) || '{}') || {}; } catch (e) { p = {}; }
+    // Once the planned date arrives (or passes), drop it so the task returns to today.
+    let changed = false;
+    Object.keys(p).forEach((k) => { if (!p[k] || p[k] <= SEL) { delete p[k]; changed = true; } });
+    if (changed) localStorage.setItem(PLAN_KEY, JSON.stringify(p));
+    return p;
+  }
+  function setPlan(key, dateStr) { const p = getPlans(); if (dateStr && dateStr > SEL) p[key] = dateStr; else delete p[key]; localStorage.setItem(PLAN_KEY, JSON.stringify(p)); }
+  function clearPlan(key) { const p = getPlans(); delete p[key]; localStorage.setItem(PLAN_KEY, JSON.stringify(p)); }
+  function planKeyOf(r) { return r.areaKey + '::' + r.name; }
+
   // ---- date / freq helpers (ported from the proven routine logic) ----
   function parseIso(s) { return new Date(String(s || '').slice(0, 10) + 'T00:00:00'); }
   function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
@@ -119,6 +135,8 @@
         }
       });
     });
+    const plans = getPlans();
+    rows.forEach((r) => { const pd = plans[planKeyOf(r)]; r.plannedDate = (pd && pd > SEL) ? pd : null; });
     return rows;
   }
 
@@ -126,6 +144,7 @@
   function computeProgress(rows) {
     let total = 0, done = 0;
     rows.forEach((r) => {
+      if (r.plannedDate) return; // deferred to a future day; not part of today's goal
       if (r.kind === 'daily') { total += r.total; done += r.done; }
       else if (r.status === 'overdue' || r.status === 'due' || r.status === 'done') { total += 1; if (r.complete) done += 1; }
     });
@@ -231,6 +250,14 @@
 
   // ---- rendering ----
   let lastRows = [];
+  let lastUpNext = null;
+
+  function plannedCardHtml(r) {
+    return '<button type="button" class="tk planned" data-unplan="' + esc(planKeyOf(r)) + '">' +
+      '<span class="tk-check">📅</span>' +
+      '<span class="tk-body"><span class="tk-name">' + esc(r.name) + '</span><span class="tk-sub">Planned for ' + esc(dateLabel(r.plannedDate)) + ' · tap to bring back · ' + esc(r.areaName) + '</span></span>' +
+      '</button>';
+  }
   function renderHero(rows) {
     const prog = computeProgress(rows);
     const ring = document.getElementById('ring');
@@ -286,7 +313,7 @@
       if (r.kind === 'recurring' && r.status === 'upcoming') return 6;
       return 7;
     };
-    const cand = rows.filter((r) => !r.complete).sort((a, b) => order(a) - order(b));
+    const cand = rows.filter((r) => !r.complete && !r.plannedDate && !skipped.has(r.id)).sort((a, b) => order(a) - order(b));
     return cand[0] || null;
   }
 
@@ -298,12 +325,16 @@
     // Up Next
     const upWrap = document.getElementById('up-next');
     const next = pickUpNext(rows);
+    lastUpNext = next;
     if (!next) {
       upWrap.innerHTML = '<div class="upnext alldone"><div class="un-label">All done</div><div class="un-name">Nothing left for today 🎉</div><div class="un-sub">Everything due is checked off. Rest is productive too.</div></div>';
     } else {
       const sub = next.kind === 'daily' ? (next.bucket + ' · ' + next.areaName + (next.total > 1 ? ' · ' + next.done + '/' + next.total : '')) : (next.label + ' · ' + next.areaName);
+      const planDefault = (next.dueIso && next.dueIso > SEL) ? next.dueIso : iso(addDays(parseIso(SEL), 1));
       upWrap.innerHTML = '<div class="upnext"><div class="un-label">Up next</div><div class="un-name">' + esc(next.name) + '</div><div class="un-sub">' + esc(sub) + '</div>' +
-        '<button type="button" class="un-btn" data-id="' + esc(next.id) + '">Do it ✓</button></div>';
+        '<button type="button" class="un-btn" data-id="' + esc(next.id) + '">Do it ✓</button>' +
+        '<div class="un-actions"><button type="button" data-act="skip">Skip for now</button><button type="button" data-act="plan">📅 Plan a date</button></div>' +
+        '<input type="date" class="un-plan-input" data-plan-input min="' + esc(iso(addDays(parseIso(SEL), 1))) + '" value="' + esc(planDefault) + '"></div>';
     }
 
     // Sections
@@ -311,12 +342,18 @@
     const rec = rows.filter((r) => r.kind === 'recurring');
     const buckets = ['Morning', 'Midday', 'Evening'];
     let html = '';
-    const dailyOpen = daily.filter((r) => !r.complete);
+    const dailyOpen = daily.filter((r) => !r.complete && !r.plannedDate);
     buckets.forEach((b) => { html += sectionHtml(b, dailyOpen.filter((r) => r.bucket === b)); });
-    const due = rec.filter((r) => r.status === 'overdue' || r.status === 'due');
+    const due = rec.filter((r) => (r.status === 'overdue' || r.status === 'due') && !r.plannedDate);
     html += sectionHtml('Due', due.sort((a, b) => (a.status === 'overdue' ? 0 : 1) - (b.status === 'overdue' ? 0 : 1)));
 
-    const coming = rec.filter((r) => r.status === 'upcoming' || r.status === 'later').sort((a, b) => (a.dueIso || '').localeCompare(b.dueIso || ''));
+    const planned = rows.filter((r) => r.plannedDate).sort((a, b) => (a.plannedDate || '').localeCompare(b.plannedDate || ''));
+    if (planned.length) {
+      html += '<div class="section"><div class="section-title"><h2>Planned</h2><span class="count">' + planned.length + '</span></div>' +
+        planned.map(plannedCardHtml).join('') + '</div>';
+    }
+
+    const coming = rec.filter((r) => (r.status === 'upcoming' || r.status === 'later') && !r.plannedDate).sort((a, b) => (a.dueIso || '').localeCompare(b.dueIso || ''));
     if (coming.length) {
       html += '<div class="section"><div class="section-title"><h2>Coming up</h2><span class="count">' + coming.length + '</span></div>' +
         '<div id="coming-list" style="display:none">' + coming.map(taskCardHtml).join('') + '</div>' +
@@ -418,7 +455,26 @@
     document.getElementById('sections').addEventListener('click', handler);
     document.getElementById('up-next').addEventListener('click', handler);
     document.getElementById('sections').addEventListener('click', (e) => {
-      if (e.target.id === 'show-coming') { const l = document.getElementById('coming-list'); if (l) l.style.display = 'block'; e.target.style.display = 'none'; }
+      if (e.target.id === 'show-coming') { const l = document.getElementById('coming-list'); if (l) l.style.display = 'block'; e.target.style.display = 'none'; return; }
+      const un = e.target.closest('[data-unplan]');
+      if (un) { clearPlan(un.getAttribute('data-unplan')); render(); }
+    });
+
+    // Up next: Skip (surface a different task this session) / Plan a date (defer).
+    document.getElementById('up-next').addEventListener('click', (e) => {
+      const act = e.target.closest('[data-act]');
+      if (!act || !lastUpNext) return;
+      const a = act.getAttribute('data-act');
+      if (a === 'skip') { skipped.add(lastUpNext.id); render(); }
+      else if (a === 'plan') {
+        const inp = document.querySelector('[data-plan-input]');
+        if (inp) { inp.classList.add('show'); inp.focus(); if (inp.showPicker) { try { inp.showPicker(); } catch (err) {} } }
+      }
+    });
+    document.getElementById('up-next').addEventListener('change', (e) => {
+      const inp = e.target.closest('[data-plan-input]');
+      if (!inp || !lastUpNext) return;
+      if (inp.value) { setPlan(planKeyOf(lastUpNext), inp.value); haptic(10); render(); }
     });
 
     document.getElementById('celebrate-close').addEventListener('click', closeCelebrate);
