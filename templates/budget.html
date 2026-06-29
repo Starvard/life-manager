@@ -37,109 +37,6 @@
     </div>
 </div>
 
-{# ── At a glance: plan vs actual, then credit card context ─────── #}
-<div class="budget-at-a-glance">
-    <div class="budget-aag-main card">
-        <div class="budget-aag-grid">
-            <div class="budget-aag-block">
-                <div class="budget-aag-label">Income</div>
-                <p class="text-muted" style="font-size:0.75rem; margin:0 0 0.5rem; line-height:1.4;">
-                    <strong>Projected</strong> and <strong>Actual</strong> both use the same income rows on the <a href="#" @click.prevent="view='budgets'">Budgets</a> tab
-                    (Dyndrite, Other Income, Jenna Sales, From Savings): budget target vs money received in those categories this month.
-                </p>
-                <div class="budget-aag-row">
-                    <span class="budget-aag-k">Projected</span>
-                    <span class="budget-aag-v" x-text="formatMoney(projectedIncome())"></span>
-                </div>
-                <div class="budget-aag-row">
-                    <span class="budget-aag-k">Actual</span>
-                    <button type="button" class="budget-aag-v budget-aag-link"
-                            @click="openIncomeBreakdown()" x-text="formatMoney(lifestyleIncome())"></button>
-                </div>
-            </div>
-            <div class="budget-aag-block">
-                <div class="budget-aag-label">Spend <span class="budget-aag-note">(purchases)</span></div>
-                <div class="budget-aag-row">
-                    <span class="budget-aag-k">Projected (plan)</span>
-                    <span class="budget-aag-v" x-text="formatMoney(projectedSpend())"></span>
-                </div>
-                <div class="budget-aag-row">
-                    <span class="budget-aag-k">Actual (out of bank)</span>
-                    <span class="budget-aag-v" x-text="formatMoney(lifestyleSpentAbs())"></span>
-                </div>
-            </div>
-            <div class="budget-aag-block budget-aag-net">
-                <div class="budget-aag-label">Cash flow <span class="budget-aag-note">(take-home &minus; card payoffs, vs spend)</span></div>
-                <div class="budget-aag-row">
-                    <span class="budget-aag-k">Projected</span>
-                    <span class="budget-aag-v" x-text="formatMoney(projectedNet())"></span>
-                </div>
-                <div class="budget-aag-row">
-                    <span class="budget-aag-k">Actual</span>
-                    <span class="budget-aag-v" :class="lifestyleNet() >= 0 ? 'pos' : 'neg'"
-                          x-text="formatMoney(lifestyleNet())"></span>
-                </div>
-            </div>
-        </div>
-        <div class="budget-aag-budget" x-show="overallStatus().has_budget">
-            <div class="budget-aag-budget-head">
-                <span>Budget progress</span>
-                <span class="text-muted" style="font-size:0.78rem;"
-                      x-text="formatMoney(overallStatus().total_spent) + ' of ' + formatMoney(overallStatus().total_budget) + ' · ' + overallStatus().percent.toFixed(0) + '%'"></span>
-            </div>
-            <div class="budget-status-bar">
-                <div class="budget-status-bar-fill"
-                     :class="overallStatus().over ? 'over' : ''"
-                     :style="'width:' + Math.min(100, overallStatus().percent) + '%'"></div>
-            </div>
-            <div class="budget-aag-budget-foot"
-                 :class="overallStatus().over ? 'over' : ''"
-                 x-text="overallStatus().over ? ('Over by ' + formatMoney(Math.abs(overallStatus().total_remaining))) : (formatMoneySigned(overallStatus().total_remaining) + ' left')">
-            </div>
-        </div>
-        <p class="budget-aag-meta text-muted" x-show="!overallStatus().has_budget" style="font-size:0.8rem;margin:0.5rem 0 0;">
-            <span x-text="report.transaction_count"></span> transactions this month.
-            Set limits on the <a href="#" @click.prevent="view='budgets'">Budgets</a> tab to track over/under.
-        </p>
-    </div>
-
-    <div class="budget-aag-card card">
-        <div class="budget-aag-card-title">Credit card</div>
-        <p class="budget-aag-card-hint text-muted">
-            Purchases are counted in Spend. Compare payoffs to <strong>last month’s</strong> take-home (what the card is typically clearing against).
-        </p>
-        <div class="budget-aag-card-rows">
-            <div class="budget-aag-card-row">
-                <span>Last month’s take-home
-                    <span class="text-muted" x-show="report.card_compare && report.card_compare.prior_month"
-                          x-text="'(' + report.card_compare.prior_month + ')'"></span>
-                </span>
-                <strong x-text="formatMoney(priorMonthSalaryIncome())"></strong>
-            </div>
-            <div class="budget-aag-card-row" x-show="cardPayoffTotal() > 0.005 && cardPayoffVsPriorSalary() != null">
-                <span>Card payoffs vs that income</span>
-                <strong x-text="(cardPayoffVsPriorSalary() == null) ? '—' : (cardPayoffVsPriorSalary().toFixed(0) + '%')"></strong>
-            </div>
-            <div class="budget-aag-card-row">
-                <span>Last month card spend
-                    <span class="text-muted" x-show="report.card_compare && report.card_compare.prior_month"
-                          x-text="'(' + report.card_compare.prior_month + ')'"></span>
-                </span>
-                <strong x-text="formatMoney(cardPurchasesPriorMonth())"></strong>
-            </div>
-            <div class="budget-aag-card-row">
-                <span>This month card payoffs</span>
-                <strong x-text="formatMoney(cardPayoffTotal())"></strong>
-            </div>
-            <div class="budget-aag-card-row muted" x-show="cardPayoffsPriorMonth() > 0">
-                <span>Last month card payoffs</span>
-                <span x-text="formatMoney(cardPayoffsPriorMonth())"></span>
-            </div>
-        </div>
-        <button type="button" class="btn btn-sm btn-outline budget-aag-card-btn" @click="goToCardPayments()">View payoff transactions</button>
-    </div>
-</div>
-
 <div class="card budget-flow-card" x-show="(report.cash_flow_series || []).length > 0" x-cloak>
     <div class="card-title">Big picture: money in &amp; out</div>
     <p class="text-muted" style="font-size:0.8rem; margin: 0 0 0.9rem;">
@@ -149,10 +46,10 @@
 
     {# This month in / out / net #}
     <div class="budget-flow-hero">
-        <div class="budget-flow-stat in">
+        <button type="button" class="budget-flow-stat in budget-flow-stat-btn" @click="openIncomeBreakdown()" title="See where this month's income came from">
             <span class="budget-flow-stat-lbl">In this month</span>
             <span class="budget-flow-stat-val" x-text="formatMoney(outlook().current.in)"></span>
-        </div>
+        </button>
         <div class="budget-flow-stat out">
             <span class="budget-flow-stat-lbl">Out this month</span>
             <span class="budget-flow-stat-val" x-text="formatMoney(outlook().current.out)"></span>
@@ -200,24 +97,27 @@
         <span><i class="budget-flow-dot out"></i> Out</span>
     </div>
 
-    {# Next-month outlook: save or short #}
-    <div class="budget-outlook" :class="outlook().next_month.outcome === 'save' ? 'save' : 'short'">
-        <div class="budget-outlook-head">
-            Next month outlook
-            <span class="text-muted" x-text="'· ' + monthLabel(outlook().next_month.key)"></span>
+    {# Outlook: predicted savings, monthly + yearly #}
+    <div class="budget-outlook" :class="outlook().annual.outcome === 'save' ? 'save' : 'short'">
+        <div class="budget-outlook-head">Predicted savings</div>
+        <div class="budget-outlook-year">
+            <div class="budget-outlook-year-block big">
+                <span class="budget-outlook-year-lbl" x-text="outlook().annual.outcome === 'save' ? 'In a year you’d save' : 'In a year you’d be short'"></span>
+                <span class="budget-outlook-year-amt" x-text="formatMoney(Math.abs(outlook().annual.predicted_savings))"></span>
+            </div>
+            <div class="budget-outlook-year-block">
+                <span class="budget-outlook-year-lbl" x-text="outlook().next_month.predicted_net >= 0 ? 'Per month (save)' : 'Per month (short)'"></span>
+                <span class="budget-outlook-year-amt sm" x-text="formatMoney(Math.abs(outlook().next_month.predicted_net))"></span>
+            </div>
         </div>
-        <div class="budget-outlook-headline">
-            <span class="budget-outlook-tag" x-text="outlook().next_month.outcome === 'save' ? 'On track to save' : 'Heading for a shortfall'"></span>
-            <span class="budget-outlook-amt" x-text="formatMoney(Math.abs(outlook().next_month.predicted_net))"></span>
-        </div>
-        <p class="budget-outlook-method text-muted" x-text="'Projected from your last ' + outlook().averages.months + '-month average.'"></p>
+        <p class="budget-outlook-method text-muted" x-text="incomeBasisNote()"></p>
         <div class="budget-outlook-rows">
             <div class="budget-outlook-row">
-                <span>Expected money in</span>
+                <span>Predicted income / mo</span>
                 <strong x-text="formatMoney(outlook().next_month.predicted_in)"></strong>
             </div>
             <div class="budget-outlook-row">
-                <span>Expected money out</span>
+                <span>Predicted spending / mo</span>
                 <strong x-text="formatMoney(outlook().next_month.predicted_out)"></strong>
             </div>
             <div class="budget-outlook-row" x-show="outlook().next_month.card_bill_due > 0.005">
@@ -225,10 +125,12 @@
                 <strong x-text="formatMoney(outlook().next_month.card_bill_due)"></strong>
             </div>
             <div class="budget-outlook-row total" :class="outlook().next_month.predicted_net >= 0 ? 'pos' : 'neg'">
-                <span x-text="outlook().next_month.predicted_net >= 0 ? 'Predicted savings' : 'Predicted shortfall'"></span>
+                <span x-text="outlook().next_month.predicted_net >= 0 ? 'Net saved / mo' : 'Net short / mo'"></span>
                 <strong x-text="formatMoneySigned(outlook().next_month.predicted_net)"></strong>
             </div>
         </div>
+        <p class="budget-outlook-annual-note text-muted"
+           x-text="'Over 12 months: ' + formatMoney(outlook().annual.predicted_income) + ' in · ' + formatMoney(outlook().annual.predicted_spend) + ' out.'"></p>
     </div>
 </div>
 

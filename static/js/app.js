@@ -1094,6 +1094,8 @@ document.addEventListener("alpine:init", () => {
             const cur = (o && o.current) || {};
             const avg = (o && o.averages) || {};
             const nxt = (o && o.next_month) || {};
+            const basis = (o && o.income_basis) || {};
+            const ann = (o && o.annual) || {};
             return {
                 current: {
                     in: Number(cur.in) || 0,
@@ -1106,15 +1108,40 @@ document.addEventListener("alpine:init", () => {
                     net: Number(avg.net) || 0,
                     months: Number(avg.months) || 0,
                 },
+                income_basis: {
+                    window_days: Number(basis.window_days) || 0,
+                    weekly: Number(basis.weekly) || 0,
+                    monthly: Number(basis.monthly) || 0,
+                    annual: Number(basis.annual) || 0,
+                    income_in_window: Number(basis.income_in_window) || 0,
+                },
                 next_month: {
                     key: nxt.key || "",
                     predicted_in: Number(nxt.predicted_in) || 0,
                     predicted_out: Number(nxt.predicted_out) || 0,
                     predicted_net: Number(nxt.predicted_net) || 0,
                     card_bill_due: Number(nxt.card_bill_due) || 0,
+                    income_source: nxt.income_source || "monthly_avg",
                     outcome: nxt.outcome || (Number(nxt.predicted_net) >= 0 ? "save" : "short"),
                 },
+                annual: {
+                    predicted_income: Number(ann.predicted_income) || 0,
+                    predicted_spend: Number(ann.predicted_spend) || 0,
+                    predicted_savings: Number(ann.predicted_savings) || 0,
+                    outcome: ann.outcome || (Number(ann.predicted_savings) >= 0 ? "save" : "short"),
+                },
             };
+        },
+
+        /** Friendly explanation of where the income projection comes from. */
+        incomeBasisNote() {
+            const o = this.outlook();
+            const b = o.income_basis;
+            if (o.next_month.income_source === "recent_weekly" && b.weekly > 0) {
+                const weeks = Math.round((b.window_days || 14) / 7);
+                return `Based on your last ${weeks} weeks of pay: ~${this.formatMoney(b.weekly)}/week (≈ ${this.formatMoney(b.monthly)}/mo). Spending is your recent ${o.averages.months}-month average.`;
+            }
+            return `Projected from your last ${o.averages.months}-month average.`;
         },
 
         /** Width % of the current-month in/out track, scaled to the larger of the two. */

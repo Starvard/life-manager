@@ -509,6 +509,18 @@ button.budget-aag-link:hover { color: #99f6e4; }
 .budget-outlook-amt { font-size: 1.5rem; font-weight: 800; font-variant-numeric: tabular-nums; }
 .budget-outlook.save .budget-outlook-amt { color: #6ee7b7; }
 .budget-outlook.short .budget-outlook-amt { color: #fca5a5; }
+.budget-outlook-year { display: flex; align-items: flex-end; gap: 1.5rem; flex-wrap: wrap; margin: 0.1rem 0 0.2rem; }
+.budget-outlook-year-block { display: flex; flex-direction: column; }
+.budget-outlook-year-lbl { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; }
+.budget-outlook-year-amt { font-size: 1.6rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.budget-outlook-year-block.big .budget-outlook-year-amt { font-size: 2rem; }
+.budget-outlook-year-amt.sm { font-size: 1.15rem; }
+.budget-outlook.save .budget-outlook-year-amt { color: #6ee7b7; }
+.budget-outlook.short .budget-outlook-year-amt { color: #fca5a5; }
+.budget-outlook-annual-note { font-size: 0.72rem; margin: 0.6rem 0 0; }
+.budget-flow-stat-btn { font: inherit; text-align: left; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.budget-flow-stat-btn:hover { border-color: var(--border-focus); background: var(--surface); }
+.budget-flow-stat-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .budget-outlook-method { font-size: 0.72rem; margin: 0.25rem 0 0.6rem; }
 .budget-outlook-rows { display: flex; flex-direction: column; gap: 0.35rem; }
 .budget-outlook-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; padding: 0.3rem 0; border-bottom: 1px solid var(--border-light); }
