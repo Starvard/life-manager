@@ -607,7 +607,7 @@
                                     <span class="budget-avg-mo" x-text="' · ' + categoryAvgSpend(cat).months + ' mo'"></span>
                                 </span>
                             </template>
-                            <template x-if="!categoryAvgSpend(cat)">—</template>
+                            <template x-if="!categoryAvgSpend(cat)"><span>—</span></template>
                         </td>
                         <td>
                             <button class="btn btn-sm btn-outline"
