@@ -334,7 +334,8 @@
       upWrap.innerHTML = '<div class="upnext"><div class="un-label">Up next</div><div class="un-name">' + esc(next.name) + '</div><div class="un-sub">' + esc(sub) + '</div>' +
         '<button type="button" class="un-btn" data-id="' + esc(next.id) + '">Do it ✓</button>' +
         '<div class="un-actions"><button type="button" data-act="skip">Skip for now</button><button type="button" data-act="plan">📅 Plan a date</button></div>' +
-        '<input type="date" class="un-plan-input" data-plan-input min="' + esc(iso(addDays(parseIso(SEL), 1))) + '" value="' + esc(planDefault) + '"></div>';
+        '<input type="date" class="un-plan-input" data-plan-input min="' + esc(iso(addDays(parseIso(SEL), 1))) + '" value="' + esc(planDefault) + '">' +
+        '<div class="un-plan-hint">Pick the day you\'ll actually do it — it\'ll wait in “Planned” until then.</div></div>';
     }
 
     // Sections
@@ -467,8 +468,10 @@
       const a = act.getAttribute('data-act');
       if (a === 'skip') { skipped.add(lastUpNext.id); render(); }
       else if (a === 'plan') {
-        const inp = document.querySelector('[data-plan-input]');
-        if (inp) { inp.classList.add('show'); inp.focus(); if (inp.showPicker) { try { inp.showPicker(); } catch (err) {} } }
+        const up = act.closest('.upnext');
+        const inp = up && up.querySelector('[data-plan-input]');
+        if (up) up.classList.add('planning');
+        if (inp) { inp.focus(); if (inp.showPicker) { try { inp.showPicker(); } catch (err) {} } }
       }
     });
     document.getElementById('up-next').addEventListener('change', (e) => {
