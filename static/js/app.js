@@ -555,6 +555,13 @@ document.addEventListener("alpine:init", () => {
             sources: { client_id: "missing", secret: "missing", env: "missing", redirect_uri: "missing" },
         },
         plaidForm: { client_id: "", secret: "", env: "sandbox", redirect_uri: "" },
+        autoSync: (initialPlaidStatus && initialPlaidStatus.auto_sync) || {
+            enabled: true,
+            interval_hours: 12,
+            last_auto_sync: null,
+        },
+        savingAutoSync: false,
+        autoSyncing: false,
         savingCreds: false,
         plaidCredMsg: "",
         linking: false,
@@ -631,6 +638,9 @@ document.addEventListener("alpine:init", () => {
             }
             // Fresh numbers from server (bypasses any stale HTML-embedded report / HTTP cache)
             void this.refreshReport();
+            // Throttled auto-sync (server decides if it's due) so banks stay
+            // fresh without the user clicking, and without extra Plaid cost.
+            void this.maybeAutoSync();
         },
 
         monthLabel(m) {
@@ -1078,6 +1088,65 @@ document.addEventListener("alpine:init", () => {
             });
         },
 
+        /** Default-safe accessor for the money outlook block. */
+        outlook() {
+            const o = this.report.money_outlook;
+            const cur = (o && o.current) || {};
+            const avg = (o && o.averages) || {};
+            const nxt = (o && o.next_month) || {};
+            return {
+                current: {
+                    in: Number(cur.in) || 0,
+                    out: Number(cur.out) || 0,
+                    net: Number(cur.net) || 0,
+                },
+                averages: {
+                    in: Number(avg.in) || 0,
+                    out: Number(avg.out) || 0,
+                    net: Number(avg.net) || 0,
+                    months: Number(avg.months) || 0,
+                },
+                next_month: {
+                    key: nxt.key || "",
+                    predicted_in: Number(nxt.predicted_in) || 0,
+                    predicted_out: Number(nxt.predicted_out) || 0,
+                    predicted_net: Number(nxt.predicted_net) || 0,
+                    card_bill_due: Number(nxt.card_bill_due) || 0,
+                    outcome: nxt.outcome || (Number(nxt.predicted_net) >= 0 ? "save" : "short"),
+                },
+            };
+        },
+
+        /** Width % of the current-month in/out track, scaled to the larger of the two. */
+        flowBarPct(value) {
+            const o = this.outlook().current;
+            const max = Math.max(1, o.in, o.out);
+            return Math.min(100, (Math.abs(Number(value) || 0) / max) * 100);
+        },
+
+        /** Paired in/out bars for the 12-month flow chart, scaled to a shared max. */
+        flowSeriesBars() {
+            const rows = this.report.cash_flow_series || [];
+            if (!rows.length) return [];
+            const maxAbs = Math.max(
+                1,
+                ...rows.map((r) => Math.max(Number(r.income) || 0, Number(r.outflow) || 0))
+            );
+            return rows.map((r) => {
+                const income = Number(r.income) || 0;
+                const outflow = Number(r.outflow) || 0;
+                const net = Number(r.net) || 0;
+                return {
+                    month: r.month,
+                    income,
+                    outflow,
+                    net,
+                    inPct: (income / maxAbs) * 100,
+                    outPct: (outflow / maxAbs) * 100,
+                };
+            });
+        },
+
         categoryAvgSpend(cat) {
             const m = this.report.category_average_spend && this.report.category_average_spend[cat];
             if (!m) return null;
@@ -1352,11 +1421,15 @@ document.addEventListener("alpine:init", () => {
             // Note: Plaid's modal handles "linking" state itself; we reset on exit.
         },
 
-        async syncPlaid() {
+        async syncPlaid(opts) {
             if (this.syncing) return;
+            const fullRebuild = !!(opts && opts.fullRebuild);
+            if (fullRebuild && !confirm("Full re-sync re-pulls your entire bank history from Plaid (slower, more API calls). Only needed after reconnecting a bank. Continue?")) {
+                return;
+            }
             this.syncing = true;
             try {
-                const res = await api("POST", "/api/budget/plaid/sync", {});
+                const res = await api("POST", "/api/budget/plaid/sync", { full_rebuild: fullRebuild });
                 if (res && res.ok) {
                     const parts = [];
                     if (res.added) parts.push(`${res.added} new`);
@@ -1374,6 +1447,53 @@ document.addEventListener("alpine:init", () => {
                 setTimeout(() => { this.errorMsg = ""; }, 4000);
             }
             this.syncing = false;
+        },
+
+        /** Fire-and-forget throttled sync on page load. Server enforces the interval. */
+        async maybeAutoSync() {
+            if (this.plaidItems.length === 0) return;
+            if (this.autoSync && this.autoSync.enabled === false) return;
+            try {
+                const res = await api("POST", "/api/budget/plaid/auto-sync", {});
+                if (res && res.last_auto_sync) this.autoSync.last_auto_sync = res.last_auto_sync;
+                if (res && res.ran && (res.added || res.modified || res.removed)) {
+                    // New data landed — refresh the numbers quietly.
+                    await this.refreshReport();
+                    this.importMsg = "Auto-synced your banks.";
+                    setTimeout(() => { this.importMsg = ""; }, 4000);
+                }
+            } catch (e) { /* silent: auto-sync must never block the page */ }
+        },
+
+        async saveAutoSyncSettings() {
+            this.savingAutoSync = true;
+            try {
+                const res = await api("PUT", "/api/budget/plaid/auto-sync/settings", {
+                    enabled: !!this.autoSync.enabled,
+                    interval_hours: Number(this.autoSync.interval_hours) || 12,
+                });
+                if (res && res.ok) {
+                    this.autoSync.enabled = res.enabled;
+                    this.autoSync.interval_hours = res.interval_hours;
+                }
+            } catch (e) { /* ignore */ }
+            this.savingAutoSync = false;
+        },
+
+        async syncNow() {
+            this.autoSyncing = true;
+            try {
+                const res = await api("POST", "/api/budget/plaid/auto-sync", { force: true });
+                if (res && res.last_auto_sync) this.autoSync.last_auto_sync = res.last_auto_sync;
+                const parts = [];
+                if (res && res.added) parts.push(`${res.added} new`);
+                if (res && res.modified) parts.push(`${res.modified} updated`);
+                if (res && res.removed) parts.push(`${res.removed} removed`);
+                this.importMsg = parts.length ? `Synced: ${parts.join(", ")}.` : "Already up to date.";
+                setTimeout(() => { this.importMsg = ""; }, 4000);
+                if (parts.length) setTimeout(() => window.location.reload(), 900);
+            } catch (e) { /* ignore */ }
+            this.autoSyncing = false;
         },
 
         async removePlaidItem(item) {

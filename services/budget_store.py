@@ -570,6 +570,76 @@ def compute_cashflow_series(ending_month: str, n_months: int = 12) -> list[dict[
     return out
 
 
+def compute_money_outlook(month: str, lookback: int = 6) -> dict:
+    """Big-picture in/out flow plus a forward projection for next month.
+
+    Combines the current month's real cash flow (money in vs money out, with
+    credit-card payoff transfers excluded so purchases aren't double counted)
+    with a rolling average over recent **completed** months to project next
+    month's net — i.e. whether the household is on track to **save** or come up
+    **short**. ``card_bill_due`` surfaces the typical credit-card payoff so the
+    upcoming bill is explicit, since that is the lump that usually decides it.
+    """
+    cur = aggregate_month_financials(month)
+    cur_in = max(0.0, float(cur["lifestyle_income"]))
+    cur_out = float(cur["purchases_spend"])
+    cur_net = round(cur_in - cur_out, 2)
+
+    all_m = get_available_months()
+    # Average over completed months (strictly before the selected month) so an
+    # in-progress month doesn't drag the projection artificially low.
+    prior = [m for m in all_m if m < month]
+    window = prior[-lookback:] if prior else [m for m in all_m if m <= month][-lookback:]
+    if not window:
+        window = [month]
+
+    sum_in = sum_out = sum_payoff = 0.0
+    per_month: list[dict] = []
+    for m in window:
+        a = aggregate_month_financials(m)
+        mi = max(0.0, float(a["lifestyle_income"]))
+        mo = float(a["purchases_spend"])
+        pf = float(a["card_payoff_total"])
+        sum_in += mi
+        sum_out += mo
+        sum_payoff += pf
+        per_month.append({"month": m, "in": round(mi, 2), "out": round(mo, 2), "net": round(mi - mo, 2)})
+
+    n = max(1, len(window))
+    avg_in = sum_in / n
+    avg_out = sum_out / n
+    avg_payoff = sum_payoff / n
+
+    pred_in = round(avg_in, 2)
+    pred_out = round(avg_out, 2)
+    pred_net = round(pred_in - pred_out, 2)
+
+    return {
+        "current": {
+            "month": month,
+            "in": round(cur_in, 2),
+            "out": round(cur_out, 2),
+            "net": cur_net,
+        },
+        "averages": {
+            "in": round(avg_in, 2),
+            "out": round(avg_out, 2),
+            "net": round(avg_in - avg_out, 2),
+            "months": int(n),
+            "window": list(window),
+        },
+        "next_month": {
+            "key": _month_add(month, 1),
+            "predicted_in": pred_in,
+            "predicted_out": pred_out,
+            "predicted_net": pred_net,
+            "card_bill_due": round(avg_payoff, 2),
+            "outcome": "save" if pred_net >= 0 else "short",
+        },
+        "per_month": per_month,
+    }
+
+
 def compute_monthly_report(month: str) -> dict:
     """Compute income/expense/net totals and category breakdown for a month."""
     cur = aggregate_month_financials(month)
@@ -772,6 +842,7 @@ def compute_monthly_report(month: str) -> dict:
             "card_payoff_vs_salary_pct": card_payoff_vs_salary,
         },
         "cash_flow_series": compute_cashflow_series(month, 12),
+        "money_outlook": compute_money_outlook(month),
         "category_average_spend": category_average_spend,
         "transaction_count": len([t for t in txns if not t.get("is_duplicate")]),
         "income_breakdown": income_breakdown,

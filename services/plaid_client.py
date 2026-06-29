@@ -294,7 +294,12 @@ def _plaid_tx_to_record(t: dict, account_lookup: dict[str, dict]) -> dict:
 
 
 def _reset_item_cursors(items: list[dict]) -> None:
-    """Force the next Plaid sync call to return the full initial history again."""
+    """Force the next Plaid sync call to return the full initial history again.
+
+    Only used by the explicit "Full re-sync" path (``full_rebuild=True``). Day
+    to day, syncs are incremental and keep the stored cursor so Plaid only
+    returns the delta since last time — that is the cost-efficient pattern.
+    """
     with _items_lock:
         data = _load_items_file()
         wanted = {it.get("item_id") for it in items}
@@ -305,13 +310,159 @@ def _reset_item_cursors(items: list[dict]) -> None:
         _save_items_file(data)
 
 
-def sync_all_items() -> dict:
+# ── Auto-sync settings (throttled background refresh) ─────────────
+
+AUTO_SYNC_DEFAULT_ENABLED = True
+AUTO_SYNC_DEFAULT_INTERVAL_HOURS = 12.0
+# Never let the throttle drop below this many hours, so a misconfigured value
+# can't turn every page load into a billable Plaid call.
+AUTO_SYNC_MIN_INTERVAL_HOURS = 1.0
+
+
+def _parse_iso(ts: str | None) -> datetime | None:
+    if not ts:
+        return None
+    try:
+        return datetime.fromisoformat(str(ts).replace("Z", ""))
+    except (ValueError, TypeError):
+        return None
+
+
+def get_auto_sync_settings() -> dict:
+    """Return {enabled, interval_hours, last_auto_sync} from the items file."""
+    with _items_lock:
+        data = _load_items_file()
+    enabled = data.get("auto_sync")
+    if enabled is None:
+        enabled = AUTO_SYNC_DEFAULT_ENABLED
+    try:
+        interval = float(data.get("auto_sync_interval_hours") or AUTO_SYNC_DEFAULT_INTERVAL_HOURS)
+    except (TypeError, ValueError):
+        interval = AUTO_SYNC_DEFAULT_INTERVAL_HOURS
+    interval = max(AUTO_SYNC_MIN_INTERVAL_HOURS, interval)
+    return {
+        "enabled": bool(enabled),
+        "interval_hours": interval,
+        "last_auto_sync": data.get("last_auto_sync"),
+    }
+
+
+def set_auto_sync_settings(enabled: bool | None = None, interval_hours: float | None = None) -> dict:
+    with _items_lock:
+        data = _load_items_file()
+        if enabled is not None:
+            data["auto_sync"] = bool(enabled)
+        if interval_hours is not None:
+            try:
+                data["auto_sync_interval_hours"] = max(
+                    AUTO_SYNC_MIN_INTERVAL_HOURS, float(interval_hours)
+                )
+            except (TypeError, ValueError):
+                pass
+        _save_items_file(data)
+    return get_auto_sync_settings()
+
+
+def _mark_auto_sync_now() -> None:
+    with _items_lock:
+        data = _load_items_file()
+        data["last_auto_sync"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+        _save_items_file(data)
+
+
+def auto_sync_if_due(force: bool = False) -> dict:
+    """Run an incremental sync only if auto-sync is on and the throttle elapsed.
+
+    Returns ``{"ran": bool, "due": bool, ...}``. Designed to be called on every
+    Budget page load: the throttle lives server-side so multiple loads/devices
+    don't each trigger a (billable) Plaid call.
+    """
+    settings = get_auto_sync_settings()
+    if not is_configured():
+        return {"ran": False, "due": False, "reason": "not_configured", **settings}
+    with _items_lock:
+        items = list(_load_items_file().get("items", []))
+    if not items:
+        return {"ran": False, "due": False, "reason": "no_items", **settings}
+    if not force and not settings["enabled"]:
+        return {"ran": False, "due": False, "reason": "disabled", **settings}
+
+    last = _parse_iso(settings["last_auto_sync"])
+    due = True
+    if last is not None and not force:
+        elapsed_h = (datetime.utcnow() - last).total_seconds() / 3600.0
+        due = elapsed_h >= settings["interval_hours"]
+    if not due:
+        return {"ran": False, "due": False, "reason": "throttled", **settings}
+
+    # Stamp the time *before* syncing so a slow/failed call doesn't let a
+    # second concurrent page load kick off another sync.
+    _mark_auto_sync_now()
+    result = sync_all_items(full_rebuild=False)
+    result["ran"] = bool(result.get("ok"))
+    result["due"] = True
+    result.update(get_auto_sync_settings())
+    return result
+
+
+# ── Transactions sync (incremental by default) ───────────────────
+
+def _apply_incremental_updates(
+    existing: list[dict],
+    added_records: list[dict],
+    modified_records: list[dict],
+    removed_tx_ids: list[str],
+) -> list[dict]:
+    """Apply a Plaid delta to the stored transaction list.
+
+    - ``removed`` Plaid rows are dropped.
+    - ``modified`` rows replace the matching stored row in place, preserving the
+      user's category override.
+    - ``added`` rows (plus any modified rows we couldn't match) are merged with
+      the existing dedupe logic so relinks don't double-count.
+    """
+    from services.budget_dedupe import deduplicate_transactions, merge_new_transactions
+
+    removed_set = {r for r in removed_tx_ids if r}
+    modified_by_id = {
+        r.get("transaction_id"): r for r in modified_records if r.get("transaction_id")
+    }
+
+    new_existing: list[dict] = []
+    for tx in existing:
+        tid = tx.get("transaction_id")
+        is_plaid = tx.get("source") == "plaid"
+        if is_plaid and tid and tid in removed_set:
+            continue
+        if is_plaid and tid and tid in modified_by_id:
+            rec = dict(modified_by_id.pop(tid))
+            # Carry user decisions forward across the modification.
+            if tx.get("category_override"):
+                rec["category_override"] = tx["category_override"]
+            if tx.get("is_duplicate") is False:
+                rec["is_duplicate"] = False
+            new_existing.append(rec)
+        else:
+            new_existing.append(tx)
+
+    incoming_adds = list(added_records) + list(modified_by_id.values())
+    if incoming_adds:
+        return merge_new_transactions(new_existing, incoming_adds)
+    return deduplicate_transactions(new_existing)
+
+
+def sync_all_items(full_rebuild: bool = False) -> dict:
     """Run /transactions/sync for every connected Item. Returns a summary.
 
-    This intentionally rebuilds Plaid-sourced rows from scratch each sync. That
-    is slower than pure cursor-based incremental sync, but it is much safer for
-    this app after users remove/relink banks because Plaid transaction IDs can
-    change and create months of duplicates. Manual/CSV transactions are kept.
+    By default this is a true **incremental** cursor sync: each Item's stored
+    cursor is reused so Plaid only returns the transactions that changed since
+    last time. This is the cost-efficient pattern — pulling the full multi-year
+    history on every sync (which the app used to do) multiplies Plaid API calls
+    and is the main reason syncs got expensive.
+
+    Pass ``full_rebuild=True`` for the rare cleanup case (e.g. right after a
+    bank relink): cursors are cleared, the entire history is re-pulled, and all
+    ``source=plaid`` rows are rebuilt from scratch. Manual/CSV rows are kept.
     """
     from services.budget_dedupe import merge_new_transactions
     from services.budget_store import load_transactions, save_transactions
@@ -331,18 +482,22 @@ def sync_all_items() -> dict:
     if not items:
         return {"ok": False, "error": "No banks connected yet."}
 
-    # Clean Plaid rebuild: clear cursors so Plaid returns the initial full
-    # history for the newly linked Items, then replace source=plaid rows only.
-    _reset_item_cursors(items)
+    if full_rebuild:
+        # Clear cursors so Plaid returns the initial full history for each Item.
+        _reset_item_cursors(items)
+        for it in items:
+            it["cursor"] = None
 
     client = _get_client()
-    all_new_records: list[dict] = []
+    all_added_records: list[dict] = []
+    all_modified_records: list[dict] = []
+    all_removed_ids: list[str] = []
     per_item_summary: list[dict] = []
     errors: list[str] = []
 
     for it in items:
         access_token = it.get("access_token")
-        cursor = None
+        cursor = None if full_rebuild else (it.get("cursor") or None)
         institution = it.get("institution_name") or "Bank"
         account_lookup = {
             a.get("account_id"): {
@@ -404,8 +559,9 @@ def sync_all_items() -> dict:
                         ]
             _save_items_file(fresh)
 
-        all_new_records.extend(added_records)
-        all_new_records.extend(modified_records)
+        all_added_records.extend(added_records)
+        all_modified_records.extend(modified_records)
+        all_removed_ids.extend(removed_ids)
         per_item_summary.append(
             {
                 "institution_name": institution,
@@ -417,20 +573,33 @@ def sync_all_items() -> dict:
         )
 
     existing = load_transactions()
-    non_plaid_existing = [tx for tx in existing if tx.get("source") != "plaid"]
-    removed_plaid_count = len(existing) - len(non_plaid_existing)
+    removed_plaid_count = 0
+    any_changes = bool(all_added_records or all_modified_records or all_removed_ids)
 
-    if all_new_records:
-        merged = merge_new_transactions(non_plaid_existing, all_new_records)
+    if full_rebuild:
+        non_plaid_existing = [tx for tx in existing if tx.get("source") != "plaid"]
+        removed_plaid_count = len(existing) - len(non_plaid_existing)
+        if all_added_records or all_modified_records:
+            merged = merge_new_transactions(
+                non_plaid_existing, all_added_records + all_modified_records
+            )
+        else:
+            # All Items failed / returned nothing: keep history rather than wipe.
+            merged = existing if errors else non_plaid_existing
+    elif any_changes:
+        merged = _apply_incremental_updates(
+            existing, all_added_records, all_modified_records, all_removed_ids
+        )
     else:
-        # If Plaid had an outage or all Items failed, preserve the existing file
-        # rather than wiping history to zero.
+        # Nothing changed — leave the file (and its cache) untouched.
         merged = existing
 
-    save_transactions(merged)
+    if merged is not existing:
+        save_transactions(merged)
 
     return {
         "ok": True,
+        "mode": "full_rebuild" if full_rebuild else "incremental",
         "items": per_item_summary,
         "added": sum(s.get("added", 0) for s in per_item_summary),
         "modified": sum(s.get("modified", 0) for s in per_item_summary),

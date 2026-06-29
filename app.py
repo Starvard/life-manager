@@ -777,6 +777,7 @@ def budget_page():
         "client_id_preview": (_creds["client_id"][:6] + "…") if _creds["client_id"] else "",
         "redirect_uri": _creds["redirect_uri"],
         "sources": plaid_credentials.credential_source(),
+        "auto_sync": plaid_client.get_auto_sync_settings(),
     }
     v, _vsrc = get_app_version()
     html = render_template(
@@ -1056,6 +1057,7 @@ def api_budget_plaid_status():
         "has_redirect_uri": bool(creds["redirect_uri"]),
         "sources": sources,
         "items": plaid_client.list_items_public(),
+        "auto_sync": plaid_client.get_auto_sync_settings(),
     })
 
 
@@ -1140,7 +1142,9 @@ def api_budget_plaid_exchange():
 
 @app.route("/api/budget/plaid/sync", methods=["POST"])
 def api_budget_plaid_sync():
-    result = plaid_client.sync_all_items()
+    body = request.get_json(silent=True) or {}
+    full_rebuild = bool(body.get("full_rebuild") or request.args.get("full"))
+    result = plaid_client.sync_all_items(full_rebuild=full_rebuild)
     if not result.get("ok"):
         return jsonify(result), 400
     # Re-categorize to apply up-to-date rules
@@ -1148,6 +1152,33 @@ def api_budget_plaid_sync():
     recategorize_all(txns)
     save_transactions(txns)
     return jsonify(result)
+
+
+@app.route("/api/budget/plaid/auto-sync", methods=["POST"])
+def api_budget_plaid_auto_sync():
+    """Throttled background sync. Called on Budget page load; self-throttles."""
+    body = request.get_json(silent=True) or {}
+    result = plaid_client.auto_sync_if_due(force=bool(body.get("force")))
+    if result.get("ran"):
+        txns = load_transactions()
+        recategorize_all(txns)
+        save_transactions(txns)
+    return jsonify(result)
+
+
+@app.route("/api/budget/plaid/auto-sync/settings", methods=["GET"])
+def api_budget_plaid_auto_sync_settings():
+    return jsonify(plaid_client.get_auto_sync_settings())
+
+
+@app.route("/api/budget/plaid/auto-sync/settings", methods=["PUT"])
+def api_budget_plaid_save_auto_sync_settings():
+    body = request.get_json(force=True) or {}
+    updated = plaid_client.set_auto_sync_settings(
+        enabled=body.get("enabled") if "enabled" in body else None,
+        interval_hours=body.get("interval_hours") if "interval_hours" in body else None,
+    )
+    return jsonify({"ok": True, **updated})
 
 
 @app.route("/api/budget/plaid/items/<item_id>", methods=["DELETE"])
