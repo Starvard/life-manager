@@ -348,14 +348,16 @@ document.addEventListener('DOMContentLoaded', function() {
 {% endif %}
 
 <div class="card push-reminders-card" id="push-reminders-card">
-    <div class="card-title">Push reminders</div>
+    <div class="card-title">Routine reminders</div>
     <p class="push-reminders-hint">
-        <strong>This PC (Chrome):</strong> use <code>http://127.0.0.1:5000</code> with <strong>start.bat</strong>—loopback HTTP counts as secure for workers and push.
-        <strong>Android phone:</strong> install <code>cloudflared</code> once, run <code>tunnel-cloudflare.bat</code>, then open the printed <code>https://….trycloudflare.com</code> link on your phone.
+        Get a gentle nudge to check your routines <strong>every 3 hours from 7am to 10pm</strong>.
+        Tap <strong>Enable</strong> on each device you want pinged, then <strong>Send test</strong> to confirm it works.
+        (Phones need the app opened over <strong>https://</strong>.)
     </p>
     <div class="push-reminders-actions">
         <button type="button" class="btn-push" id="push-enable-btn">Enable reminders</button>
         <button type="button" class="btn-push btn-push-secondary" id="push-disable-btn" hidden>Disable</button>
+        <button type="button" class="btn-push btn-push-secondary" id="push-test-btn">Send test</button>
     </div>
     <p class="push-reminders-status" id="push-status" aria-live="polite"></p>
 </div>

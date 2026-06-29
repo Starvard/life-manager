@@ -115,6 +115,7 @@
   .celebrate-card button { width: 100%; border: 0; border-radius: 13px; padding: .85rem; font-weight: 800; font-size: 1rem; color: #06121f;
     background: linear-gradient(135deg, #7dd3fc, #4ade80); cursor: pointer; }
 
+  .today-reminders { margin-top: 1.6rem; }
   .today-footer { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1.6rem; }
   .today-footer button, .today-footer a { background: none; border: 0; color: var(--text-muted); font-size: .8rem; cursor: pointer; text-decoration: none; }
   .today-footer .on { color: var(--accent); }
@@ -164,6 +165,17 @@
 
   <div id="up-next"></div>
   <div id="sections"></div>
+
+  <div class="card push-reminders-card today-reminders" id="push-reminders-card">
+    <div class="card-title">🔔 Routine reminders</div>
+    <p class="push-reminders-hint">A gentle nudge every 3 hours, 7am–10pm. Enable on this device, then send a test.</p>
+    <div class="push-reminders-actions">
+      <button type="button" class="btn-push" id="push-enable-btn">Enable reminders</button>
+      <button type="button" class="btn-push btn-push-secondary" id="push-disable-btn" hidden>Disable</button>
+      <button type="button" class="btn-push btn-push-secondary" id="push-test-btn">Send test</button>
+    </div>
+    <p class="push-reminders-status" id="push-status" aria-live="polite"></p>
+  </div>
 
   <div class="today-footer">
     <button type="button" id="toggle-sound">🔈 Sound off</button>
