@@ -454,6 +454,78 @@ button.budget-aag-link:hover { color: #99f6e4; }
 .budget-cashflow-label { font-size: 0.62rem; color: var(--text-muted); margin-top: 0.35rem; line-height: 1.1; }
 .budget-cashflow-net { font-size: 0.8rem; margin: 0.6rem 0 0; font-weight: 600; }
 
+/* Big picture: money in & out + next-month outlook */
+.budget-flow-card { margin-bottom: 1.25rem; }
+.budget-flow-hero {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-bottom: 0.9rem;
+}
+@media (max-width: 520px) { .budget-flow-hero { grid-template-columns: 1fr 1fr; } }
+.budget-flow-stat {
+    background: var(--surface-hover); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 0.6rem 0.7rem; border-left: 4px solid var(--border);
+}
+.budget-flow-stat.in { border-left-color: #34d399; }
+.budget-flow-stat.out { border-left-color: #f87171; }
+.budget-flow-stat.net.pos { border-left-color: #34d399; }
+.budget-flow-stat.net.neg { border-left-color: #f87171; }
+.budget-flow-stat-lbl { display: block; font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.budget-flow-stat-val { display: block; font-size: 1.25rem; font-weight: 700; margin-top: 0.15rem; color: var(--text-bright); font-variant-numeric: tabular-nums; }
+.budget-flow-stat.in .budget-flow-stat-val { color: #6ee7b7; }
+.budget-flow-stat.out .budget-flow-stat-val { color: #fca5a5; }
+.budget-flow-stat.net.pos .budget-flow-stat-val { color: #6ee7b7; }
+.budget-flow-stat.net.neg .budget-flow-stat-val { color: #fca5a5; }
+
+.budget-flow-track { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.1rem; }
+.budget-flow-track-row { display: grid; grid-template-columns: 2rem 1fr auto; align-items: center; gap: 0.6rem; }
+.budget-flow-track-lbl { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); }
+.budget-flow-track-bar { height: 14px; background: var(--surface-hover); border-radius: 7px; overflow: hidden; }
+.budget-flow-track-fill { height: 100%; border-radius: 7px; min-width: 2px; transition: width 0.25s ease; }
+.budget-flow-track-fill.in { background: linear-gradient(90deg, #34d399, #059669); }
+.budget-flow-track-fill.out { background: linear-gradient(90deg, #f87171, #b91c1c); }
+.budget-flow-track-amt { font-size: 0.78rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text-bright); }
+
+.budget-flow-trend-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.4rem; }
+.budget-flow-bar-wrap {
+    height: 100px; margin: 0 auto; width: 100%; max-width: 2.2rem; display: flex;
+    flex-direction: row; justify-content: center; align-items: flex-end; gap: 2px;
+    border-bottom: 1px solid var(--border-light);
+}
+.budget-flow-bar { width: 45%; max-width: 9px; border-radius: 3px 3px 0 0; min-height: 2px; transition: height 0.2s ease; }
+.budget-flow-bar.in { background: linear-gradient(180deg, #34d399, #059669); }
+.budget-flow-bar.out { background: linear-gradient(180deg, #f87171, #b91c1c); }
+.budget-flow-legend { display: flex; gap: 1rem; justify-content: center; margin-top: 0.5rem; font-size: 0.72rem; color: var(--text-muted); }
+.budget-flow-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 0.3rem; vertical-align: middle; }
+.budget-flow-dot.in { background: #059669; }
+.budget-flow-dot.out { background: #b91c1c; }
+
+.budget-outlook { margin-top: 1.1rem; padding: 0.85rem 0.95rem; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+.budget-outlook.save { background: linear-gradient(165deg, rgba(16,185,129,0.10) 0%, var(--surface) 60%); border-color: rgba(16,185,129,0.35); }
+.budget-outlook.short { background: linear-gradient(165deg, rgba(239,68,68,0.10) 0%, var(--surface) 60%); border-color: rgba(239,68,68,0.35); }
+.budget-outlook-head { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.4rem; }
+.budget-outlook-headline { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+.budget-outlook-tag { font-size: 0.95rem; font-weight: 700; color: var(--text-bright); }
+.budget-outlook.save .budget-outlook-tag { color: #6ee7b7; }
+.budget-outlook.short .budget-outlook-tag { color: #fca5a5; }
+.budget-outlook-amt { font-size: 1.5rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.budget-outlook.save .budget-outlook-amt { color: #6ee7b7; }
+.budget-outlook.short .budget-outlook-amt { color: #fca5a5; }
+.budget-outlook-method { font-size: 0.72rem; margin: 0.25rem 0 0.6rem; }
+.budget-outlook-rows { display: flex; flex-direction: column; gap: 0.35rem; }
+.budget-outlook-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; padding: 0.3rem 0; border-bottom: 1px solid var(--border-light); }
+.budget-outlook-row:last-child { border-bottom: none; }
+.budget-outlook-row strong { font-variant-numeric: tabular-nums; color: var(--text-bright); }
+.budget-outlook-row.total { margin-top: 0.2rem; padding-top: 0.5rem; border-top: 1px solid var(--border); border-bottom: none; font-size: 0.88rem; }
+.budget-outlook-row.total.pos strong { color: #6ee7b7; }
+.budget-outlook-row.total.neg strong { color: #fca5a5; }
+
+/* Auto-sync settings (Connect tab) */
+.budget-autosync { margin-top: 1rem; padding-top: 0.9rem; border-top: 1px solid var(--border); }
+.budget-autosync-title { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.45rem; }
+.budget-autosync-toggle { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; cursor: pointer; user-select: none; }
+.budget-autosync-toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
+.budget-autosync-interval { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: var(--text-muted); margin-top: 0.6rem; }
+.budget-autosync-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
+
 .budget-avg-col { min-width: 5.5rem; white-space: nowrap; }
 .budget-avg-hint { cursor: help; opacity: 0.55; font-weight: 400; }
 .budget-avg-mo { font-size: 0.68rem; opacity: 0.75; }
