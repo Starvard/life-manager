@@ -72,15 +72,10 @@ def refresh_reminder_state_after_dot_change(
     task_idx: int,
     day_idx: int,
 ) -> None:
-    """Clear push cooldown when this task has no incomplete scheduled dots left today."""
-    card = get_routine_card(week_key, area_key)
-    if not card:
-        return
-    tasks = card.get(list_key, [])
-    if task_idx >= len(tasks):
-        return
-    if _first_incomplete_scheduled_dot(tasks[task_idx], day_idx) is None:
-        clear_reminder_cooldown(reminder_tag(week_key, area_key, list_key, task_idx))
+    """No-op since reminders moved to a simple periodic nudge (no per-task
+    cooldowns). Kept for API compatibility with app.py; returning early also
+    avoids an extra card file read on every dot toggle."""
+    return
 
 
 def clear_reminder_cooldown(tag: str) -> None:
@@ -259,73 +254,91 @@ def send_push_to_subscription(sub: dict, payload: dict) -> bool:
         return False
 
 
+def _int_env(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, str(default)))
+    except (TypeError, ValueError):
+        return default
+
+
+def reminder_window() -> tuple[int, int, int]:
+    """(start_hour, end_hour, every_hours) for the periodic routine nudge.
+
+    Defaults: ping every 3 hours from 7am to 10pm (local time). Override with
+    LM_REMINDER_START_HOUR / LM_REMINDER_END_HOUR / LM_REMINDER_EVERY_HOURS.
+    """
+    start = max(0, min(23, _int_env("LM_REMINDER_START_HOUR", 7)))
+    end = max(0, min(23, _int_env("LM_REMINDER_END_HOUR", 22)))
+    every = max(1, min(12, _int_env("LM_REMINDER_EVERY_HOURS", 3)))
+    if end < start:
+        end = start
+    return start, end, every
+
+
+def _count_incomplete_today() -> int:
+    """Best-effort count of routine dots scheduled today that aren't done yet."""
+    try:
+        week_key = _week_key_containing_today()
+        cards = get_routine_cards(week_key)
+        week_start = next((c.get("week_start") for c in cards.values()), None)
+        if not week_start:
+            return 0
+        day_idx = today_weekday_index(week_start)
+        if day_idx is None:
+            return 0
+        return len(collect_today_nags(week_key, day_idx))
+    except Exception:
+        return 0
+
+
 def run_reminder_scan() -> None:
+    """Simple recurring nudge: ping all subscribed devices every few hours during
+    the day (default every 3h, 7am-10pm) so routines stay top of mind.
+
+    The scheduler calls this every LM_REMINDER_INTERVAL_MINUTES (default 30), so
+    we only actually send once per time slot — tracked by `last_routine_ping`."""
     if webpush is None:
         return
     subs = push_subscriptions.list_subscriptions()
     if not subs:
         return
-    vapid_keys.ensure_vapid_keys()
 
-    week_key = _week_key_containing_today()
-    cards = get_routine_cards(week_key)
-    week_start = next((c.get("week_start") for c in cards.values()), None)
-    if not week_start:
-        return
-    day_idx = today_weekday_index(week_start)
-    if day_idx is None:
+    now = local_now()
+    start, end, every = reminder_window()
+    hour = now.hour
+    if hour < start or hour > end:
         return
 
-    nags = collect_today_nags(week_key, day_idx)
-    if not nags:
+    slots = list(range(start, end + 1, every))  # e.g. [7, 10, 13, 16, 19, 22]
+    due = [s for s in slots if hour >= s]
+    if not due:
         return
+    slot = max(due)
+    today_iso = local_today().isoformat()
+    slot_key = f"{today_iso}:{slot:02d}"
 
     state = _load_state()
-    last_sent = state.setdefault("last_sent", {})
-    daily_scheduled = state.setdefault("daily_scheduled", {})
-    now = time.time()
-    cool = _cooldown_seconds()
-    today_iso = local_today().isoformat()
-    nt_map = notify_time_lookup()
+    if state.get("last_routine_ping") == slot_key:
+        return  # already pinged for this slot today
 
-    for item in nags:
-        tag = item["tag"]
-        list_key = item["list_key"]
-        if list_key == "tasks":
-            nt = nt_map.get((item["area_key"], item["task_name"]))
-            if not nt:
-                # Blank Notify = opted out. Matches the UI promise on /routines.
-                continue
-            if not _notify_time_reached(nt):
-                continue
-            if daily_scheduled.get(tag) == today_iso:
-                continue
-        else:
-            # Per-week ad-hoc rows have no per-task notify time; fall back to
-            # the cooldown nag loop so they still surface today.
-            prev = last_sent.get(tag)
-            if prev is not None and (now - prev) < cool:
-                continue
+    vapid_keys.ensure_vapid_keys()
+    count = _count_incomplete_today()
+    if count > 0:
+        body = f"{count} routine{'s' if count != 1 else ''} still open today — tap to knock one out."
+    else:
+        body = "Routine check-in 🌱 Tap to see what's coming up."
+    payload = {
+        "title": "Routine check-in",
+        "body": body,
+        "tag": "lm-routine-ping",
+        "url": "/today",
+        "list": "tasks",
+    }
 
-        payload = {
-            "title": item["title"],
-            "body": item["body"],
-            "tag": item["tag"],
-            "week_key": item["week_key"],
-            "area_key": item["area_key"],
-            "task": item["task_idx"],
-            "day": item["day"],
-            "dot": item["dot"],
-            "list": item["list_key"],
-            "url": f"/cards?week={item['week_key']}",
-        }
-        any_ok = False
-        for sub in subs:
-            if send_push_to_subscription(sub, payload):
-                any_ok = True
-        if any_ok:
-            if list_key == "tasks":
-                daily_scheduled[tag] = today_iso
-            else:
-                last_sent[tag] = now
-            _save_state(state)
+    any_ok = False
+    for sub in subs:
+        if send_push_to_subscription(sub, payload):
+            any_ok = True
+    if any_ok:
+        state["last_routine_ping"] = slot_key
+        _save_state(state)

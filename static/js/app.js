@@ -2231,12 +2231,32 @@ async function initPushReminders() {
                 setStatus("Could not save subscription on server.");
                 return;
             }
-            setStatus("Subscribed. Incomplete tasks for today will be nagged on the scheduler interval.");
+            setStatus("Reminders on! You'll get a routine check-in every 3 hours (7am–10pm). Tap Send test to confirm.");
         } catch (e) {
             setStatus("Subscribe failed — on this PC try http://127.0.0.1:5000; on HTTPS use a trusted certificate (tunnel/mkcert).");
         }
         await syncUi();
     });
+
+    const btnTest = document.getElementById("push-test-btn");
+    if (btnTest) {
+        btnTest.addEventListener("click", async () => {
+            setStatus("Sending test…");
+            try {
+                const res = await fetch("/api/push/test", { method: "POST" });
+                const data = await res.json();
+                if (data.registered === 0) {
+                    setStatus("No devices are subscribed yet — tap Enable first.");
+                } else if (data.sent > 0) {
+                    setStatus(`Test sent to ${data.sent} of ${data.registered} device(s). Check your notifications.`);
+                } else {
+                    setStatus("Couldn't deliver the test push. If you just enabled, try disabling and enabling again.");
+                }
+            } catch (e) {
+                setStatus("Test failed to send (network or server error).");
+            }
+        });
+    }
 
     btnDis.addEventListener("click", async () => {
         const sub = await reg.pushManager.getSubscription();
