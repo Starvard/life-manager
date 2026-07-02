@@ -36,6 +36,7 @@ from services import push_subscriptions
 from services import vapid_keys
 from services.push_reminders import (
     refresh_reminder_state_after_dot_change,
+    run_reminder_scan,
     send_test_push_to_all,
 )
 from services.card_generator import generate_cards_pdf
@@ -722,6 +723,15 @@ def api_push_unsubscribe():
 def api_push_test():
     sent, registered = send_test_push_to_all()
     return jsonify({"ok": True, "sent": sent, "registered": registered})
+
+
+@app.route("/api/push/run-reminders", methods=["POST"])
+def api_push_run_reminders():
+    """Run a reminder scan right now. The external cron workflow calls this so
+    reminders still fire when the in-process scheduler was asleep (stopped Fly
+    machine). Idempotent — each nudge slot / per-task reminder sends once.
+    POST only: browsers prefetch GET URLs, which would consume the send."""
+    return jsonify({"ok": True, **run_reminder_scan()})
 
 
 # \u2500\u2500 API: Baby Cards \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500

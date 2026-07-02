@@ -1,5 +1,62 @@
 /* Life Manager — Web Push + notification actions (scope: site root via /sw.js). */
 
+/* No caching happens here, so take over immediately on update — otherwise a
+   long-lived PWA tab keeps running the previous push handler indefinitely. */
+self.addEventListener("install", () => {
+  self.skipWaiting();
+});
+self.addEventListener("activate", (event) => {
+  event.waitUntil(clients.claim());
+});
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+/* Browsers rotate/expire push subscriptions from time to time. Without this
+   handler the server keeps pushing to the dead endpoint, gets a 410, and
+   silently drops the device — reminders stop until the user re-enables.
+   Re-subscribe and tell the server about the new endpoint. */
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(
+    (async () => {
+      try {
+        const res = await fetch("/api/push/vapid-public-key", { credentials: "include" });
+        const { publicKey } = await res.json();
+        if (!publicKey) return;
+        const sub = await self.registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        });
+        await fetch("/api/push/subscribe", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(sub.toJSON()),
+        });
+        const old = event.oldSubscription;
+        if (old && old.endpoint && old.endpoint !== sub.endpoint) {
+          await fetch("/api/push/subscribe", {
+            method: "DELETE",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ endpoint: old.endpoint }),
+          });
+        }
+      } catch (e) {
+        /* next page load re-syncs the subscription anyway */
+      }
+    })()
+  );
+});
+
 self.addEventListener("push", (event) => {
   let payload = {};
   if (event.data) {
@@ -13,6 +70,13 @@ self.addEventListener("push", (event) => {
   const options = {
     body: payload.body || "",
     tag,
+    // Tags repeat (per-task tags span the week; the nudge tag is constant),
+    // and without renotify Chrome treats a same-tag push as a silent
+    // in-place update — the reminder never buzzes again. Re-alert always.
+    renotify: true,
+    // Reminders should stick around until acted on (desktop Chrome honors
+    // this; Android shows them in the tray as usual).
+    requireInteraction: !!payload.requireInteraction,
     data: {
       tag,
       url: payload.url || "/cards",
@@ -20,13 +84,14 @@ self.addEventListener("push", (event) => {
       area_key: payload.area_key,
       task: payload.task,
       day: payload.day,
+      dot: payload.dot,
       list: payload.list || "tasks",
     },
     icon: "/static/icons/icon-192.png",
     badge: "/static/icons/icon-192.png",
     actions: [
       { action: "open", title: "Open" },
-      { action: "done", title: "Done" },
+      { action: "done", title: "Done ✓" },
     ],
   };
   event.waitUntil(
