@@ -15,6 +15,24 @@
     </div>
 </div>
 
+{# "What should I do right now?" comes first — everything else is reference. #}
+<a href="{{ url_for('today_page') }}" class="today-strip{% if today_weekday_idx is not none and today_open_count == 0 %} today-strip-clear{% endif %}">
+    <div class="today-strip-main">
+        <span class="today-strip-label">Today</span>
+        {% if today_weekday_idx is none %}
+        <span class="today-strip-next">Jump back to today</span>
+        <span class="today-strip-sub">You're viewing a past week</span>
+        {% elif today_open_count == 0 %}
+        <span class="today-strip-next">All clear for today 🎉</span>
+        <span class="today-strip-sub">Everything planned is done{% if today_score_pct is not none %} · {{ today_score_pct }}% score{% endif %}</span>
+        {% else %}
+        <span class="today-strip-next">Up next: {{ today_up_next.name }} · {{ today_up_next.area }}</span>
+        <span class="today-strip-sub">{{ today_open_count }} task{{ '' if today_open_count == 1 else 's' }} open{% if today_score_pct is not none %} · {{ today_score_pct }}% done{% endif %}</span>
+        {% endif %}
+    </div>
+    <span class="today-strip-cta">Open Today →</span>
+</a>
+
 <nav class="app-grid" aria-label="Jump to a section of the app">
     {% for sec in dashboard_sections %}
     <div class="app-tile{% if not sec.href %} app-tile-current{% endif %}" data-nav-tab="{{ sec.key }}">
@@ -36,25 +54,6 @@
     </div>
     {% endfor %}
 </nav>
-
-<div class="card nav-tabs-pref-card" id="home-nav-tabs-visibility">
-    <div class="card-title">Show / hide tabs</div>
-    <p class="subtitle nav-tabs-pref-intro">Choose which tabs appear in the desktop sidebar and phone bottom bar. Home stays visible so you always have a place to bring tabs back.</p>
-    <div class="nav-tabs-pref-grid" id="home-nav-tabs-grid">
-        {% for t in nav_tabs_catalog %}
-        <label class="nav-tab-pref-label">
-            <input type="checkbox" name="home_nav_show_{{ t.key }}" value="1" data-nav-pref-key="{{ t.key }}"{% if t.key not in hidden_nav_tabs %} checked{% endif %}{% if t.key == 'home' %} disabled{% endif %}>
-            <span>{{ t.label }}</span>
-        </label>
-        {% endfor %}
-    </div>
-    <div class="nav-tabs-pref-actions">
-        <button type="button" class="btn btn-primary btn-sm" id="home-nav-tabs-save-btn">Save tabs</button>
-        <button type="button" class="btn btn-outline btn-sm" id="home-nav-tabs-show-all-btn">Show all</button>
-        <button type="button" class="btn btn-outline btn-sm" id="home-nav-tabs-hide-all-btn">Hide all except Home</button>
-        <span class="nav-tabs-save-status" id="home-nav-tabs-save-status" aria-live="polite"></span>
-    </div>
-</div>
 
 {% set ua = request.headers.get('User-Agent', '') or '' %}
 {% set ua_mobile = 'Android' in ua or 'iPhone' in ua or 'iPad' in ua or 'iPod' in ua %}
@@ -385,6 +384,27 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 </div>
 {% endif %}
+
+{# Settings live at the bottom — they're rarely touched and shouldn't sit
+   between "open the app" and "do today's routines". #}
+<div class="card nav-tabs-pref-card" id="home-nav-tabs-visibility">
+    <div class="card-title">Show / hide tabs</div>
+    <p class="subtitle nav-tabs-pref-intro">Choose which tabs appear in the desktop sidebar and phone bottom bar. Home stays visible so you always have a place to bring tabs back.</p>
+    <div class="nav-tabs-pref-grid" id="home-nav-tabs-grid">
+        {% for t in nav_tabs_catalog %}
+        <label class="nav-tab-pref-label">
+            <input type="checkbox" name="home_nav_show_{{ t.key }}" value="1" data-nav-pref-key="{{ t.key }}"{% if t.key not in hidden_nav_tabs %} checked{% endif %}{% if t.key == 'home' %} disabled{% endif %}>
+            <span>{{ t.label }}</span>
+        </label>
+        {% endfor %}
+    </div>
+    <div class="nav-tabs-pref-actions">
+        <button type="button" class="btn btn-primary btn-sm" id="home-nav-tabs-save-btn">Save tabs</button>
+        <button type="button" class="btn btn-outline btn-sm" id="home-nav-tabs-show-all-btn">Show all</button>
+        <button type="button" class="btn btn-outline btn-sm" id="home-nav-tabs-hide-all-btn">Hide all except Home</button>
+        <span class="nav-tabs-save-status" id="home-nav-tabs-save-status" aria-live="polite"></span>
+    </div>
+</div>
 
 <script>
 (function () {

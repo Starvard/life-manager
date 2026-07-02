@@ -215,6 +215,46 @@ def _ordered_routine_areas_for_forms() -> dict:
 
 # \u2500\u2500 HTML Pages \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
+def _today_focus_summary(cards: dict, today_idx: int | None) -> tuple[dict | None, int]:
+    """(up_next, open_count) for the dashboard's Today strip.
+
+    up_next mirrors the Today page's ordering: the first non-daily task with an
+    unfilled scheduled dot today (those are the ones that slip), falling back
+    to the first open daily task. open_count is tasks, not dots."""
+    if today_idx is None:
+        return None, 0
+    candidates: list[dict] = []
+    for key, card in cards.items():
+        for task in list(card.get("tasks", [])) + list(card.get("extra_tasks", [])):
+            sched = list(task.get("scheduled") or [])
+            while len(sched) < 7:
+                sched.append(0)
+            try:
+                n = max(0, int(sched[today_idx]))
+            except (TypeError, ValueError):
+                n = 0
+            if n <= 0:
+                continue
+            days = task.get("days") or []
+            row = days[today_idx] if today_idx < len(days) else []
+            done = sum(1 for i in range(min(n, len(row))) if row[i])
+            if done >= n:
+                continue
+            try:
+                freq = float(task.get("freq") or 0)
+            except (TypeError, ValueError):
+                freq = 0.0
+            candidates.append({
+                "name": task.get("name", ""),
+                "area": card.get("area_name", key),
+                "daily": freq >= 7,
+            })
+    up_next = next((c for c in candidates if not c["daily"]), None)
+    if up_next is None and candidates:
+        up_next = candidates[0]
+    return up_next, len(candidates)
+
+
 @app.route("/")
 def dashboard():
     wk = request.args.get("week", _default_week_key())
@@ -228,6 +268,7 @@ def dashboard():
     today_score_pct = None
     if today_idx is not None:
         _, _, today_score_pct = weighted_day_score(cards, today_idx)
+    today_up_next, today_open_count = _today_focus_summary(cards, today_idx)
     day_metrics = week_day_summary(cards)
     score_bests = update_and_return_bests(wk, cards)
     routine_menu_week = wk
@@ -236,12 +277,6 @@ def dashboard():
     anchor_day = _anchor_date_iso_for_week(routine_menu_week)
     hidden_tabs = ui_prefs.get_hidden_nav_tabs()
     dashboard_sections = [
-        {
-            "key": "home",
-            "label": "Home",
-            "description": "This overview, scores, and push reminders.",
-            "href": None,
-        },
         {
             "key": "cards",
             "label": "Cards",
@@ -306,6 +341,8 @@ def dashboard():
         daily_score_row=daily_row,
         today_weekday_idx=today_idx,
         today_score_pct=today_score_pct,
+        today_up_next=today_up_next,
+        today_open_count=today_open_count,
         day_metrics=day_metrics,
         score_bests=score_bests,
     )
