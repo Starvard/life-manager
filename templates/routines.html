@@ -5,12 +5,12 @@
 <div class="page-header">
     <h1>Routine Configuration</h1>
     <p class="subtitle">Frequency = times per week. Examples: daily = 7, twice daily = 14, twice/week = 2, every 3 days = 2.33, every 6 months = 0.038. For flexible recurring tasks, the app uses: <strong>last completed date + interval = next due date</strong>.</p>
-    <p class="subtitle routines-push-behavior">Push: only when <strong>today</strong> has a <strong>scheduled dot</strong> for that task that is still empty—not for missed dots on earlier weekdays by themselves. Notify is <strong>blank by default</strong>; set a time on any task to opt that task in.</p>
+    <p class="subtitle routines-push-behavior">Push: only when <strong>today</strong> has a <strong>scheduled dot</strong> for that task that is still empty—not for missed dots on earlier weekdays by themselves. Notify is <strong>blank by default</strong>; set a time on any task to get a once-a-day reminder for it (with a Done ✓ button) after that time.</p>
 </div>
 
 <div class="card routines-push-card">
     <div class="card-title">Push notifications</div>
-    <p class="routines-push-hint">Sends one test to every device that tapped Enable reminders. <strong>Notify</strong> defaults to <strong>blank (no reminder)</strong>; set a time per task to enable reminders for it. Times use <strong>this computer&rsquo;s clock</strong>.</p>
+    <p class="routines-push-hint">Sends one test to every device that tapped Enable reminders. <strong>Notify</strong> defaults to <strong>blank (no reminder)</strong>; set a time per task to enable reminders for it. Times use the <strong>server&rsquo;s timezone</strong> (<code>LM_TIMEZONE</code>, America/New_York in production).</p>
     <button type="button" class="btn btn-primary" id="routines-test-push">Send test notification</button>
     <span class="routines-test-push-status" id="routines-test-push-status" aria-live="polite"></span>
 </div>
@@ -68,7 +68,7 @@
                        value="{{ task.weight if task.weight is defined else '' }}" step="0.5" min="0.5" max="10" placeholder="1" title="Weight for scoring">
                 <input type="time" name="task_notify_time_{{ area_key }}_{{ loop.index0 }}"
                        value="{{ task.notify_time if task.notify_time else '' }}"
-                       title="Remind after this time when today has a scheduled dot (PC clock). Leave blank to disable.">
+                       title="Remind once a day after this time while today's scheduled dot is still empty. Leave blank to disable.">
                 <div class="task-days-picker">
                     {% set od = task.get('on_days', []) %}
                     {% for label in ['Mo','Tu','We','Th','Fr','Sa','Su'] %}

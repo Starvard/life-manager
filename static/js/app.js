@@ -2331,6 +2331,18 @@ async function initPushReminders() {
             btnEn.hidden = true;
             btnDis.hidden = false;
             setStatus("Reminders enabled on this device.");
+            // Re-register with the server on every load: subscriptions rotate,
+            // and one failed delivery (410) makes the server silently drop the
+            // device. This keeps the server's list in sync with the browser.
+            try {
+                await fetch("/api/push/subscribe", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(sub.toJSON()),
+                });
+            } catch (e) {
+                /* offline — will retry next load */
+            }
         } else {
             btnEn.hidden = false;
             btnDis.hidden = true;

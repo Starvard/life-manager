@@ -1,21 +1,28 @@
 """
-Scan today's incomplete scheduled routine dots and send Web Push reminders.
+Web Push routine reminders.
 
-Uses stable notification tags (one per task row + list) so Android replaces
-duplicate nags. Cooldown avoids buzzing the same task too often while still
-uncompleted.
+Two kinds of sends, both driven by ``run_reminder_scan``:
+
+- **Periodic nudge**: every few hours during the day (default 3h, 7am-10pm),
+  spotlighting the next open task with a Done action. Skipped when everything
+  is done. One send per time slot (``last_routine_ping``).
+- **Per-task notify-time reminders**: tasks with a ``notify_time`` set on the
+  /routines editor ping once per day after that time while today's scheduled
+  dot is still empty (``last_sent`` keyed by tag + date).
+
+Stable notification tags (one per task row + list) let Android replace
+duplicate nags instead of stacking them.
 """
 
 from __future__ import annotations
 
 import json
 import os
-import time
 import traceback
-from datetime import date, datetime, time as time_cls
+from datetime import date, time as time_cls
 
 import config
-from services.card_store import get_routine_card, get_routine_cards
+from services.card_store import get_routine_cards
 from services.local_time import local_now, local_today
 from services.routine_manager import load_routines
 from services.score_helpers import today_weekday_index
@@ -39,17 +46,16 @@ def _week_key_containing_today(today: date | None = None) -> str:
 def _load_state() -> dict:
     path = config.PUSH_REMINDER_STATE_FILE
     if not os.path.isfile(path):
-        return {"last_sent": {}, "daily_scheduled": {}}
+        return {"last_sent": {}}
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
         if not isinstance(data.get("last_sent"), dict):
             data["last_sent"] = {}
-        if not isinstance(data.get("daily_scheduled"), dict):
-            data["daily_scheduled"] = {}
+        data.pop("daily_scheduled", None)  # legacy per-dot cooldown state
         return data
     except (json.JSONDecodeError, OSError):
-        return {"last_sent": {}, "daily_scheduled": {}}
+        return {"last_sent": {}}
 
 
 def _save_state(state: dict) -> None:
@@ -61,8 +67,11 @@ def _save_state(state: dict) -> None:
     os.replace(tmp, path)
 
 
-def reminder_tag(week_key: str, area_key: str, list_key: str, task_idx: int) -> str:
-    return f"lm-{week_key}-{area_key}-{list_key}-{task_idx}"
+def reminder_tag(week_key: str, area_key: str, list_key: str, task_idx: int, day_idx: int) -> str:
+    """Stable within a day (same-day re-sends replace instead of stacking) but
+    fresh across days — browsers can silently suppress a tag that has been
+    re-shown too many times, which would eat future reminders."""
+    return f"lm-{week_key}-{area_key}-{list_key}-{task_idx}-d{day_idx}"
 
 
 def refresh_reminder_state_after_dot_change(
@@ -76,20 +85,6 @@ def refresh_reminder_state_after_dot_change(
     cooldowns). Kept for API compatibility with app.py; returning early also
     avoids an extra card file read on every dot toggle."""
     return
-
-
-def clear_reminder_cooldown(tag: str) -> None:
-    """Call when a task is completed so the next due window can notify again."""
-    state = _load_state()
-    ls = state.get("last_sent", {})
-    if tag in ls:
-        del ls[tag]
-        state["last_sent"] = ls
-    ds = state.get("daily_scheduled", {})
-    if tag in ds:
-        del ds[tag]
-        state["daily_scheduled"] = ds
-    _save_state(state)
 
 
 def _first_incomplete_scheduled_dot(task: dict, day_idx: int) -> int | None:
@@ -128,9 +123,13 @@ def collect_today_nags(week_key: str, day_idx: int) -> list[dict]:
                 doi = _first_incomplete_scheduled_dot(task, day_idx)
                 if doi is None:
                     continue
-                tag = reminder_tag(week_key, area_key, list_key, task_idx)
+                tag = reminder_tag(week_key, area_key, list_key, task_idx, day_idx)
                 tname = task.get("name", "Task")
                 body = f"{area_name}: {tname} — scheduled today"
+                try:
+                    freq = float(task.get("freq") or 0)
+                except (TypeError, ValueError):
+                    freq = 0.0
                 out.append({
                     "tag": tag,
                     "title": "Life Manager",
@@ -143,6 +142,7 @@ def collect_today_nags(week_key: str, day_idx: int) -> list[dict]:
                     "day": day_idx,
                     "dot": doi,
                     "list_key": list_key,
+                    "freq": freq,
                 })
     return out
 
@@ -210,14 +210,6 @@ def send_test_push_to_all() -> tuple[int, int]:
     return n, len(subs)
 
 
-def _cooldown_seconds() -> float:
-    try:
-        m = float(os.environ.get("LM_REMINDER_COOLDOWN_MINUTES", "120"))
-    except ValueError:
-        m = 120.0
-    return max(60.0, m * 60.0)
-
-
 def _vapid_contact() -> str:
     return os.environ.get("LM_VAPID_CONTACT", "mailto:life-manager@localhost")
 
@@ -275,70 +267,169 @@ def reminder_window() -> tuple[int, int, int]:
     return start, end, every
 
 
-def _count_incomplete_today() -> int:
-    """Best-effort count of routine dots scheduled today that aren't done yet."""
+def _send_to_all(subs: list[dict], payload: dict) -> int:
+    """Send one payload to every subscription; returns delivery count."""
+    n = 0
+    for sub in subs:
+        if send_push_to_subscription(sub, payload):
+            n += 1
+    return n
+
+
+def _collect_nags_for_today() -> list[dict]:
     try:
         week_key = _week_key_containing_today()
         cards = get_routine_cards(week_key)
         week_start = next((c.get("week_start") for c in cards.values()), None)
         if not week_start:
-            return 0
+            return []
         day_idx = today_weekday_index(week_start)
         if day_idx is None:
-            return 0
-        return len(collect_today_nags(week_key, day_idx))
+            return []
+        return collect_today_nags(week_key, day_idx)
     except Exception:
+        traceback.print_exc()
+        return []
+
+
+def _pick_featured_nag(nags: list[dict]) -> dict:
+    """The task to spotlight in the periodic nudge. Non-daily tasks first —
+    those are the ones that slip — matching the Today page's Up Next order."""
+    return sorted(nags, key=lambda n: (n.get("freq", 0) >= 7,))[0]
+
+
+def _task_action_fields(nag: dict) -> dict:
+    """Payload fields the service worker needs for the notification's
+    Done ✓ action (completes the dot without opening the app)."""
+    return {
+        "week_key": nag["week_key"],
+        "area_key": nag["area_key"],
+        "task": nag["task_idx"],
+        "day": nag["day"],
+        "dot": nag["dot"],
+        "list": nag["list_key"],
+    }
+
+
+def _send_notify_time_reminders(subs: list[dict], nags: list[dict], state: dict) -> int:
+    """Per-task reminders for tasks with a Notify time set on /routines.
+
+    Fires once per task per day, after the configured time, while the task
+    still has an incomplete scheduled dot. The notification carries a Done ✓
+    action so the task can be completed from the lock screen."""
+    times = notify_time_lookup()
+    if not times:
         return 0
+    today_iso = local_today().isoformat()
+    last_sent = state.get("last_sent") or {}
+    sent = 0
+    for nag in nags:
+        hhmm = times.get((nag["area_key"], nag["task_name"]))
+        if not hhmm or not _notify_time_reached(hhmm):
+            continue
+        if last_sent.get(nag["tag"]) == today_iso:
+            continue
+        payload = {
+            "title": f"⏰ {nag['task_name']}",
+            "body": f"{nag['area_name']} — planned for today. Hit Done ✓ when it's finished.",
+            "tag": nag["tag"],
+            "url": "/today",
+            # The user asked for this exact reminder — keep it on screen
+            # until they act on it (desktop; Android keeps it in the tray).
+            "requireInteraction": True,
+            **_task_action_fields(nag),
+        }
+        if _send_to_all(subs, payload) > 0:
+            last_sent[nag["tag"]] = today_iso
+            sent += 1
+    # Keep only today's entries so the state file doesn't grow forever.
+    state["last_sent"] = {k: v for k, v in last_sent.items() if v == today_iso}
+    return sent
 
 
-def run_reminder_scan() -> None:
-    """Simple recurring nudge: ping all subscribed devices every few hours during
-    the day (default every 3h, 7am-10pm) so routines stay top of mind.
-
-    The scheduler calls this every LM_REMINDER_INTERVAL_MINUTES (default 30), so
-    we only actually send once per time slot — tracked by `last_routine_ping`."""
-    if webpush is None:
-        return
-    subs = push_subscriptions.list_subscriptions()
-    if not subs:
-        return
-
+def _send_periodic_nudge(subs: list[dict], nags: list[dict], state: dict) -> int:
+    """Recurring check-in (default every 3h, 7am-10pm) spotlighting the next
+    task. Skipped entirely when nothing is open, so every notification is
+    actionable. The scheduler calls this every LM_REMINDER_INTERVAL_MINUTES
+    (default 30); `last_routine_ping` ensures one send per time slot."""
     now = local_now()
     start, end, every = reminder_window()
     hour = now.hour
     if hour < start or hour > end:
-        return
+        return 0
 
     slots = list(range(start, end + 1, every))  # e.g. [7, 10, 13, 16, 19, 22]
     due = [s for s in slots if hour >= s]
     if not due:
-        return
+        return 0
     slot = max(due)
     today_iso = local_today().isoformat()
     slot_key = f"{today_iso}:{slot:02d}"
 
-    state = _load_state()
     if state.get("last_routine_ping") == slot_key:
-        return  # already pinged for this slot today
+        return 0  # already pinged for this slot today
+    if not nags:
+        # All clear — stay quiet instead of pinging "nothing to do". Mark the
+        # slot handled so a task un-checked later doesn't trigger a late ping.
+        state["last_routine_ping"] = slot_key
+        return 0
 
-    vapid_keys.ensure_vapid_keys()
-    count = _count_incomplete_today()
-    if count > 0:
-        body = f"{count} routine{'s' if count != 1 else ''} still open today — tap to knock one out."
+    count = len(nags)
+    featured = _pick_featured_nag(nags)
+    others = count - 1
+    name_bit = f"{featured['task_name']} · {featured['area_name']}"
+    evening = slot >= max(slots[-2] if len(slots) > 1 else slots[-1], 18)
+    if evening:
+        title = "Evening check-in 🔥"
+        body = (
+            f"{count} routine{'s' if count != 1 else ''} left today. "
+            f"Up next: {name_bit}. Hit Done ✓ to clear it."
+        )
     else:
-        body = "Routine check-in 🌱 Tap to see what's coming up."
+        title = "Routine check-in"
+        if others > 0:
+            body = f"Up next: {name_bit}. {others} more open today."
+        else:
+            body = f"Up next: {name_bit}. Last one today!"
     payload = {
-        "title": "Routine check-in",
+        "title": title,
         "body": body,
-        "tag": "lm-routine-ping",
+        # Date-scoped: nudges within a day replace each other, but each day
+        # starts with a fresh tag (repeated tags can get silently suppressed).
+        "tag": f"lm-routine-ping-{today_iso}",
         "url": "/today",
-        "list": "tasks",
+        **_task_action_fields(featured),
     }
 
-    any_ok = False
-    for sub in subs:
-        if send_push_to_subscription(sub, payload):
-            any_ok = True
-    if any_ok:
+    delivered = _send_to_all(subs, payload)
+    if delivered > 0:
         state["last_routine_ping"] = slot_key
-        _save_state(state)
+    return delivered
+
+
+def run_reminder_scan() -> dict:
+    """Send any due routine reminders. Called by the in-process scheduler and
+    by POST /api/push/run-reminders (external cron backstop for when the Fly
+    machine was asleep). Safe to call repeatedly: the periodic nudge sends
+    once per time slot and per-task reminders once per task per day.
+
+    Returns a small summary dict for the HTTP endpoint / logs."""
+    summary = {"subscriptions": 0, "task_reminders_sent": 0, "nudge_deliveries": 0}
+    if webpush is None:
+        summary["skipped"] = "pywebpush not installed"
+        return summary
+    subs = push_subscriptions.list_subscriptions()
+    summary["subscriptions"] = len(subs)
+    if not subs:
+        summary["skipped"] = "no subscribed devices"
+        return summary
+
+    vapid_keys.ensure_vapid_keys()
+    nags = _collect_nags_for_today()
+    summary["open_today"] = len(nags)
+
+    state = _load_state()
+    summary["task_reminders_sent"] = _send_notify_time_reminders(subs, nags, state)
+    summary["nudge_deliveries"] = _send_periodic_nudge(subs, nags, state)
+    _save_state(state)
+    return summary
