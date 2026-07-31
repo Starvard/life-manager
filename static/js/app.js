@@ -78,6 +78,20 @@ function _schedSlotIndex(sched, di, doi) {
     return k + doi;
 }
 
+/**
+ * The score model spreads min(sched, fills) "pool" credit Mon→Sun, so empty
+ * scheduled dots can *look* filled when an earlier day was completed. For days
+ * after "today" in the current week (or a week that has not started yet) we
+ * must not do that, or a tap on a future day appears to backfill past skips
+ * and corrupts the visual record. Past-only weeks (todayIdx > 6) still use
+ * the full pool mapping for review.
+ */
+function _allowRoutinePoolVirtualFill(todayIdx, dayIdx) {
+    if (todayIdx < 0) return false;
+    if (todayIdx > 6) return true;
+    return dayIdx <= todayIdx;
+}
+
 function earnedByDayForTask(task) {
     const r = ROUTINE_BONUS_RATIO;
     let w = Number(task.weight);
@@ -199,6 +213,8 @@ document.addEventListener("alpine:init", () => {
                 _taskTotalFillCount(task.days || [])
             );
             const cls = {};
+            const ti = this.todayIdx;
+            const allowPoolVirtual = _allowRoutinePoolVirtualFill(ti, di);
 
             if (filled) {
                 cls.filled = true;
@@ -206,12 +222,10 @@ document.addEventListener("alpine:init", () => {
                 return cls;
             }
 
-            if (isScheduled && slotK >= 0 && slotK < pool) {
+            if (isScheduled && slotK >= 0 && slotK < pool && allowPoolVirtual) {
                 cls.filled = true;
                 return cls;
             }
-
-            const ti = this.todayIdx;
 
             if (ti > 6 && isScheduled) {
                 cls["overdue-4"] = true;
@@ -374,6 +388,8 @@ document.addEventListener("alpine:init", () => {
                 _taskTotalFillCount(task.days || [])
             );
             const cls = {};
+            const ti = this.todayIdx;
+            const allowPoolVirtual = _allowRoutinePoolVirtualFill(ti, di);
 
             if (filled) {
                 cls.filled = true;
@@ -381,12 +397,10 @@ document.addEventListener("alpine:init", () => {
                 return cls;
             }
 
-            if (isScheduled && slotK >= 0 && slotK < pool) {
+            if (isScheduled && slotK >= 0 && slotK < pool && allowPoolVirtual) {
                 cls.filled = true;
                 return cls;
             }
-
-            const ti = this.todayIdx;
 
             if (ti > 6 && isScheduled) {
                 cls["overdue-4"] = true;
