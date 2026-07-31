@@ -75,6 +75,10 @@
     padding: .85rem .85rem; margin: .5rem 0; background: var(--surface); color: inherit; cursor: pointer;
     -webkit-tap-highlight-color: transparent; transition: transform .12s ease, background .2s ease, opacity .25s ease; }
   .tk:active { transform: scale(.985); }
+  .tk.swipeable { touch-action: pan-y; }
+  .tk.swiping { transition: none; }
+  .tk.swipe-ready { opacity: .72; }
+  .tk.swipe-out { transition: transform .18s ease, opacity .18s ease; transform: translateX(-120%) !important; opacity: 0; }
   .tk.daily { border-left-color: var(--daily); }
   .tk.due { border-left-color: var(--due); background: linear-gradient(90deg, var(--due-dim), transparent 60%); }
   .tk.overdue { border-left-color: var(--late); background: linear-gradient(90deg, var(--late-dim), transparent 60%); }
@@ -128,6 +132,7 @@
   @media (prefers-reduced-motion: reduce) {
     .tk.pop, .xp-float, .celebrate.show, .celebrate-card { animation: none; }
     .ring .ring-fg, .xp-fill { transition: none; }
+    .tk.swipe-out { transition: none; }
   }
 </style>
 
