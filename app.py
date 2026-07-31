@@ -30,6 +30,7 @@ from services.card_store import (
     add_extra_task, remove_extra_task,
     complete_routine_day_scheduled,
     routine_completion_history,
+    get_daily_flex_slots,
     get_baby_card, save_baby_card, update_baby_track, list_baby_days,
 )
 from services import push_subscriptions
@@ -391,6 +392,29 @@ def cards_day_page():
     )
 
 
+def _routine_task_names_match(cards: dict, areas: dict) -> bool:
+    """True when each area's card task names match routines.yaml order/names."""
+    for area_key, area in areas.items():
+        yaml_names = [
+            (t.get("name") or "").strip()
+            for t in area.get("tasks", [])
+            if isinstance(t, dict) and (t.get("name") or "").strip()
+        ]
+        if not yaml_names:
+            continue
+        card = cards.get(area_key)
+        if card is None:
+            return False
+        card_names = [
+            (t.get("name") or "").strip()
+            for t in card.get("tasks", [])
+            if isinstance(t, dict)
+        ]
+        if card_names != yaml_names:
+            return False
+    return True
+
+
 @app.route("/today")
 def today_page():
     """ADHD-friendly daily focus view. Data is bootstrapped server-side so the
@@ -403,7 +427,12 @@ def today_page():
         day_str = sel.isoformat()
     monday = sel - timedelta(days=sel.weekday())
     wk = iso_week_key(monday)
-    cards = _ordered_cards(get_routine_cards(wk))
+    cards = get_routine_cards(wk)
+    # YAML rewrites (new timed tasks / renamed rows) need a regenerate so the
+    # day plan sees the new names; fills are preserved by matching name.
+    if not _routine_task_names_match(cards, load_routines().get("areas", {})):
+        cards = regenerate_routine_cards(wk)
+    cards = _ordered_cards(cards)
     history = routine_completion_history(day_str, 20)
     bootstrap = {
         "today": day_str,
@@ -413,6 +442,7 @@ def today_page():
         "day_index": (sel - monday).days,
         "cards": cards,
         "history": history,
+        "daily_flex_slots": get_daily_flex_slots(),
     }
     return render_template("today.html", bootstrap=bootstrap)
 
@@ -492,6 +522,11 @@ def save_routines_form():
                 task["on_days"] = sorted(set(od))
             nt = request.form.get(f"task_notify_time_{area_key}_{i}", "").strip()
             task["notify_time"] = nt
+            tt = request.form.get(f"task_time_{area_key}_{i}", "").strip()
+            if tt:
+                task["time"] = tt
+            if request.form.get(f"task_at_work_{area_key}_{i}"):
+                task["at_work"] = True
             updated_tasks.append(task)
             i += 1
 
@@ -532,6 +567,11 @@ def save_routines_form():
                 new_task["on_days"] = sorted(set(od))
             ntn = request.form.get(f"new_task_notify_time_{area_key}", "").strip()
             new_task["notify_time"] = ntn
+            ntt = request.form.get(f"new_task_time_{area_key}", "").strip()
+            if ntt:
+                new_task["time"] = ntt
+            if request.form.get(f"new_task_at_work_{area_key}"):
+                new_task["at_work"] = True
             updated_tasks.append(new_task)
 
         area["tasks"] = updated_tasks
