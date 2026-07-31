@@ -197,7 +197,7 @@
     const items = [];
 
     rows.forEach((r) => {
-      if (!r.onPlan || !r.time || r.plannedDate) return;
+      if (!r.onPlan || !r.time || r.plannedDate || skipped.has(r.id)) return;
       items.push({ sortTime: r.time, row: r, flex: null });
       used.add(r.id);
     });
@@ -357,6 +357,7 @@
   function taskCardHtml(r, opts) {
     opts = opts || {};
     let cls = 'tk', icon = '○', sub = '', pill = '';
+    const swipeable = r.kind === 'recurring' && !r.complete;
     if (r.kind === 'daily') {
       cls += ' daily' + (r.complete ? ' done' : '');
       icon = r.complete ? '✓' : '○';
@@ -366,6 +367,10 @@
       cls += ' ' + (r.complete ? 'done' : r.status);
       icon = r.complete ? '✓' : (r.status === 'overdue' ? '!' : '○');
       sub = (r.label || '') + ' · ' + r.areaName;
+      if (swipeable) {
+        cls += ' swipeable';
+        sub += ' · swipe to skip';
+      }
     }
     if (r.atWork) cls += ' at-work';
     if (opts.flexLabel) cls += ' flex-slot';
@@ -375,7 +380,8 @@
     const flexBit = opts.flexLabel
       ? '<span class="tk-flex-tag">' + esc(opts.flexLabel) + '</span>'
       : '';
-    return '<button type="button" class="' + cls + '" data-id="' + esc(r.id) + '">' +
+    return '<button type="button" class="' + cls + '" data-id="' + esc(r.id) + '"' +
+      (swipeable ? ' data-swipe-skip="1"' : '') + '>' +
       timeBit +
       '<span class="tk-check">' + icon + '</span>' +
       '<span class="tk-body"><span class="tk-name">' + esc(r.name) + flexBit + '</span><span class="tk-sub">' + esc(sub) + '</span></span>' +
@@ -449,7 +455,7 @@
     html += '</div>';
 
     const bonus = rows.filter((r) =>
-      !r.complete && !r.plannedDate && r.kind === 'recurring' && !usedIds.has(r.id) &&
+      !r.complete && !r.plannedDate && r.kind === 'recurring' && !usedIds.has(r.id) && !skipped.has(r.id) &&
       (r.status === 'overdue' || r.status === 'due' || r.status === 'upcoming')
     ).sort((a, b) => flexPriority(a) - flexPriority(b) || (a.dueIso || '').localeCompare(b.dueIso || ''));
     if (bonus.length) {
@@ -544,6 +550,79 @@
     hb.textContent = hapticsOn ? '📳 Haptics on' : '📴 Haptics off'; hb.classList.toggle('on', hapticsOn);
   }
 
+  function skipForNow(id) {
+    if (!id || skipped.has(id)) return;
+    skipped.add(id);
+    haptic(12);
+    render();
+  }
+
+  function bindSwipeSkip(root) {
+    // Swipe left on non-daily rows = same as Up Next "Skip for now".
+    // Vertical scrolls stay normal; dailies are not swipeable.
+    let startX = 0, startY = 0, tracking = null, moved = false, lastDx = 0, blockedClick = false;
+    const THRESH = 72;
+
+    root.addEventListener('touchstart', (e) => {
+      const btn = e.target.closest('[data-swipe-skip]');
+      if (!btn || !e.touches || !e.touches[0]) return;
+      tracking = btn;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      moved = false;
+      lastDx = 0;
+      btn.classList.add('swiping');
+    }, { passive: true });
+
+    root.addEventListener('touchmove', (e) => {
+      if (!tracking || !e.touches || !e.touches[0]) return;
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+      if (!moved && Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) {
+        tracking.style.transform = '';
+        tracking.classList.remove('swiping', 'swipe-ready');
+        tracking = null;
+        lastDx = 0;
+        return;
+      }
+      if (Math.abs(dx) > 8) moved = true;
+      lastDx = dx;
+      if (dx < 0) {
+        const x = Math.max(dx, -140);
+        tracking.style.transform = 'translateX(' + x + 'px)';
+        tracking.classList.toggle('swipe-ready', x <= -THRESH);
+      } else {
+        tracking.style.transform = '';
+        tracking.classList.remove('swipe-ready');
+      }
+    }, { passive: true });
+
+    function endSwipe() {
+      if (!tracking) return;
+      const btn = tracking;
+      const id = btn.getAttribute('data-id');
+      const dx = lastDx;
+      tracking = null;
+      lastDx = 0;
+      if (moved && dx <= -THRESH) {
+        blockedClick = true;
+        btn.classList.add('swipe-out');
+        setTimeout(() => skipForNow(id), reduceMotion ? 0 : 180);
+      } else {
+        btn.style.transform = '';
+        btn.classList.remove('swiping', 'swipe-ready');
+      }
+    }
+    root.addEventListener('touchend', endSwipe, { passive: true });
+    root.addEventListener('touchcancel', endSwipe, { passive: true });
+    root.addEventListener('click', (e) => {
+      if (!blockedClick) return;
+      blockedClick = false;
+      e.preventDefault();
+      e.stopPropagation();
+    }, true);
+  }
+
   function init() {
     setHeadline();
     refreshPrefButtons();
@@ -561,12 +640,13 @@
       const un = e.target.closest('[data-unplan]');
       if (un) { clearPlan(un.getAttribute('data-unplan')); render(); }
     });
+    bindSwipeSkip(document.getElementById('sections'));
 
     document.getElementById('up-next').addEventListener('click', (e) => {
       const act = e.target.closest('[data-act]');
       if (!act || !lastUpNext) return;
       const a = act.getAttribute('data-act');
-      if (a === 'skip') { skipped.add(lastUpNext.id); render(); }
+      if (a === 'skip') { skipForNow(lastUpNext.id); }
       else if (a === 'plan') {
         const up = act.closest('.upnext');
         const inp = up && up.querySelector('[data-plan-input]');
