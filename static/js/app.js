@@ -78,6 +78,20 @@ function _schedSlotIndex(sched, di, doi) {
     return k + doi;
 }
 
+/**
+ * The score model spreads min(sched, fills) "pool" credit Mon→Sun, so empty
+ * scheduled dots can *look* filled when an earlier day was completed. For days
+ * after "today" in the current week (or a week that has not started yet) we
+ * must not do that, or a tap on a future day appears to backfill past skips
+ * and corrupts the visual record. Past-only weeks (todayIdx > 6) still use
+ * the full pool mapping for review.
+ */
+function _allowRoutinePoolVirtualFill(todayIdx, dayIdx) {
+    if (todayIdx < 0) return false;
+    if (todayIdx > 6) return true;
+    return dayIdx <= todayIdx;
+}
+
 function earnedByDayForTask(task) {
     const r = ROUTINE_BONUS_RATIO;
     let w = Number(task.weight);
@@ -199,6 +213,8 @@ document.addEventListener("alpine:init", () => {
                 _taskTotalFillCount(task.days || [])
             );
             const cls = {};
+            const ti = this.todayIdx;
+            const allowPoolVirtual = _allowRoutinePoolVirtualFill(ti, di);
 
             if (filled) {
                 cls.filled = true;
@@ -206,12 +222,10 @@ document.addEventListener("alpine:init", () => {
                 return cls;
             }
 
-            if (isScheduled && slotK >= 0 && slotK < pool) {
+            if (isScheduled && slotK >= 0 && slotK < pool && allowPoolVirtual) {
                 cls.filled = true;
                 return cls;
             }
-
-            const ti = this.todayIdx;
 
             if (ti > 6 && isScheduled) {
                 cls["overdue-4"] = true;
@@ -374,6 +388,8 @@ document.addEventListener("alpine:init", () => {
                 _taskTotalFillCount(task.days || [])
             );
             const cls = {};
+            const ti = this.todayIdx;
+            const allowPoolVirtual = _allowRoutinePoolVirtualFill(ti, di);
 
             if (filled) {
                 cls.filled = true;
@@ -381,12 +397,10 @@ document.addEventListener("alpine:init", () => {
                 return cls;
             }
 
-            if (isScheduled && slotK >= 0 && slotK < pool) {
+            if (isScheduled && slotK >= 0 && slotK < pool && allowPoolVirtual) {
                 cls.filled = true;
                 return cls;
             }
-
-            const ti = this.todayIdx;
 
             if (ti > 6 && isScheduled) {
                 cls["overdue-4"] = true;
@@ -555,6 +569,13 @@ document.addEventListener("alpine:init", () => {
             sources: { client_id: "missing", secret: "missing", env: "missing", redirect_uri: "missing" },
         },
         plaidForm: { client_id: "", secret: "", env: "sandbox", redirect_uri: "" },
+        autoSync: (initialPlaidStatus && initialPlaidStatus.auto_sync) || {
+            enabled: true,
+            interval_hours: 12,
+            last_auto_sync: null,
+        },
+        savingAutoSync: false,
+        autoSyncing: false,
         savingCreds: false,
         plaidCredMsg: "",
         linking: false,
@@ -631,6 +652,9 @@ document.addEventListener("alpine:init", () => {
             }
             // Fresh numbers from server (bypasses any stale HTML-embedded report / HTTP cache)
             void this.refreshReport();
+            // Throttled auto-sync (server decides if it's due) so banks stay
+            // fresh without the user clicking, and without extra Plaid cost.
+            void this.maybeAutoSync();
         },
 
         monthLabel(m) {
@@ -1078,6 +1102,92 @@ document.addEventListener("alpine:init", () => {
             });
         },
 
+        /** Default-safe accessor for the money outlook block. */
+        outlook() {
+            const o = this.report.money_outlook;
+            const cur = (o && o.current) || {};
+            const avg = (o && o.averages) || {};
+            const nxt = (o && o.next_month) || {};
+            const basis = (o && o.income_basis) || {};
+            const ann = (o && o.annual) || {};
+            return {
+                current: {
+                    in: Number(cur.in) || 0,
+                    out: Number(cur.out) || 0,
+                    net: Number(cur.net) || 0,
+                },
+                averages: {
+                    in: Number(avg.in) || 0,
+                    out: Number(avg.out) || 0,
+                    net: Number(avg.net) || 0,
+                    months: Number(avg.months) || 0,
+                },
+                income_basis: {
+                    window_days: Number(basis.window_days) || 0,
+                    weekly: Number(basis.weekly) || 0,
+                    monthly: Number(basis.monthly) || 0,
+                    annual: Number(basis.annual) || 0,
+                    income_in_window: Number(basis.income_in_window) || 0,
+                },
+                next_month: {
+                    key: nxt.key || "",
+                    predicted_in: Number(nxt.predicted_in) || 0,
+                    predicted_out: Number(nxt.predicted_out) || 0,
+                    predicted_net: Number(nxt.predicted_net) || 0,
+                    card_bill_due: Number(nxt.card_bill_due) || 0,
+                    income_source: nxt.income_source || "monthly_avg",
+                    outcome: nxt.outcome || (Number(nxt.predicted_net) >= 0 ? "save" : "short"),
+                },
+                annual: {
+                    predicted_income: Number(ann.predicted_income) || 0,
+                    predicted_spend: Number(ann.predicted_spend) || 0,
+                    predicted_savings: Number(ann.predicted_savings) || 0,
+                    outcome: ann.outcome || (Number(ann.predicted_savings) >= 0 ? "save" : "short"),
+                },
+            };
+        },
+
+        /** Friendly explanation of where the income projection comes from. */
+        incomeBasisNote() {
+            const o = this.outlook();
+            const b = o.income_basis;
+            if (o.next_month.income_source === "recent_weekly" && b.weekly > 0) {
+                const weeks = Math.round((b.window_days || 14) / 7);
+                return `Based on your last ${weeks} weeks of pay: ~${this.formatMoney(b.weekly)}/week (≈ ${this.formatMoney(b.monthly)}/mo). Spending is your recent ${o.averages.months}-month average.`;
+            }
+            return `Projected from your last ${o.averages.months}-month average.`;
+        },
+
+        /** Width % of the current-month in/out track, scaled to the larger of the two. */
+        flowBarPct(value) {
+            const o = this.outlook().current;
+            const max = Math.max(1, o.in, o.out);
+            return Math.min(100, (Math.abs(Number(value) || 0) / max) * 100);
+        },
+
+        /** Paired in/out bars for the 12-month flow chart, scaled to a shared max. */
+        flowSeriesBars() {
+            const rows = this.report.cash_flow_series || [];
+            if (!rows.length) return [];
+            const maxAbs = Math.max(
+                1,
+                ...rows.map((r) => Math.max(Number(r.income) || 0, Number(r.outflow) || 0))
+            );
+            return rows.map((r) => {
+                const income = Number(r.income) || 0;
+                const outflow = Number(r.outflow) || 0;
+                const net = Number(r.net) || 0;
+                return {
+                    month: r.month,
+                    income,
+                    outflow,
+                    net,
+                    inPct: (income / maxAbs) * 100,
+                    outPct: (outflow / maxAbs) * 100,
+                };
+            });
+        },
+
         categoryAvgSpend(cat) {
             const m = this.report.category_average_spend && this.report.category_average_spend[cat];
             if (!m) return null;
@@ -1352,11 +1462,15 @@ document.addEventListener("alpine:init", () => {
             // Note: Plaid's modal handles "linking" state itself; we reset on exit.
         },
 
-        async syncPlaid() {
+        async syncPlaid(opts) {
             if (this.syncing) return;
+            const fullRebuild = !!(opts && opts.fullRebuild);
+            if (fullRebuild && !confirm("Full re-sync re-pulls your entire bank history from Plaid (slower, more API calls). Only needed after reconnecting a bank. Continue?")) {
+                return;
+            }
             this.syncing = true;
             try {
-                const res = await api("POST", "/api/budget/plaid/sync", {});
+                const res = await api("POST", "/api/budget/plaid/sync", { full_rebuild: fullRebuild });
                 if (res && res.ok) {
                     const parts = [];
                     if (res.added) parts.push(`${res.added} new`);
@@ -1374,6 +1488,53 @@ document.addEventListener("alpine:init", () => {
                 setTimeout(() => { this.errorMsg = ""; }, 4000);
             }
             this.syncing = false;
+        },
+
+        /** Fire-and-forget throttled sync on page load. Server enforces the interval. */
+        async maybeAutoSync() {
+            if (this.plaidItems.length === 0) return;
+            if (this.autoSync && this.autoSync.enabled === false) return;
+            try {
+                const res = await api("POST", "/api/budget/plaid/auto-sync", {});
+                if (res && res.last_auto_sync) this.autoSync.last_auto_sync = res.last_auto_sync;
+                if (res && res.ran && (res.added || res.modified || res.removed)) {
+                    // New data landed — refresh the numbers quietly.
+                    await this.refreshReport();
+                    this.importMsg = "Auto-synced your banks.";
+                    setTimeout(() => { this.importMsg = ""; }, 4000);
+                }
+            } catch (e) { /* silent: auto-sync must never block the page */ }
+        },
+
+        async saveAutoSyncSettings() {
+            this.savingAutoSync = true;
+            try {
+                const res = await api("PUT", "/api/budget/plaid/auto-sync/settings", {
+                    enabled: !!this.autoSync.enabled,
+                    interval_hours: Number(this.autoSync.interval_hours) || 12,
+                });
+                if (res && res.ok) {
+                    this.autoSync.enabled = res.enabled;
+                    this.autoSync.interval_hours = res.interval_hours;
+                }
+            } catch (e) { /* ignore */ }
+            this.savingAutoSync = false;
+        },
+
+        async syncNow() {
+            this.autoSyncing = true;
+            try {
+                const res = await api("POST", "/api/budget/plaid/auto-sync", { force: true });
+                if (res && res.last_auto_sync) this.autoSync.last_auto_sync = res.last_auto_sync;
+                const parts = [];
+                if (res && res.added) parts.push(`${res.added} new`);
+                if (res && res.modified) parts.push(`${res.modified} updated`);
+                if (res && res.removed) parts.push(`${res.removed} removed`);
+                this.importMsg = parts.length ? `Synced: ${parts.join(", ")}.` : "Already up to date.";
+                setTimeout(() => { this.importMsg = ""; }, 4000);
+                if (parts.length) setTimeout(() => window.location.reload(), 900);
+            } catch (e) { /* ignore */ }
+            this.autoSyncing = false;
         },
 
         async removePlaidItem(item) {
@@ -2184,6 +2345,18 @@ async function initPushReminders() {
             btnEn.hidden = true;
             btnDis.hidden = false;
             setStatus("Reminders enabled on this device.");
+            // Re-register with the server on every load: subscriptions rotate,
+            // and one failed delivery (410) makes the server silently drop the
+            // device. This keeps the server's list in sync with the browser.
+            try {
+                await fetch("/api/push/subscribe", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(sub.toJSON()),
+                });
+            } catch (e) {
+                /* offline — will retry next load */
+            }
         } else {
             btnEn.hidden = false;
             btnDis.hidden = true;
@@ -2231,12 +2404,32 @@ async function initPushReminders() {
                 setStatus("Could not save subscription on server.");
                 return;
             }
-            setStatus("Subscribed. Incomplete tasks for today will be nagged on the scheduler interval.");
+            setStatus("Reminders on! You'll get a routine check-in every 3 hours (7am–10pm). Tap Send test to confirm.");
         } catch (e) {
             setStatus("Subscribe failed — on this PC try http://127.0.0.1:5000; on HTTPS use a trusted certificate (tunnel/mkcert).");
         }
         await syncUi();
     });
+
+    const btnTest = document.getElementById("push-test-btn");
+    if (btnTest) {
+        btnTest.addEventListener("click", async () => {
+            setStatus("Sending test…");
+            try {
+                const res = await fetch("/api/push/test", { method: "POST" });
+                const data = await res.json();
+                if (data.registered === 0) {
+                    setStatus("No devices are subscribed yet — tap Enable first.");
+                } else if (data.sent > 0) {
+                    setStatus(`Test sent to ${data.sent} of ${data.registered} device(s). Check your notifications.`);
+                } else {
+                    setStatus("Couldn't deliver the test push. If you just enabled, try disabling and enabling again.");
+                }
+            } catch (e) {
+                setStatus("Test failed to send (network or server error).");
+            }
+        });
+    }
 
     btnDis.addEventListener("click", async () => {
         const sub = await reg.pushManager.getSubscription();

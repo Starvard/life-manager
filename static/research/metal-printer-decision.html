@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Metal Printer Decision - Research</title>
+  <style>
+    :root { --ink:#111827; --muted:#4b5563; --line:#d1d5db; --soft:#f3f4f6; --card:#ffffff; --accent:#2563eb; --warn:#f59e0b; --bad:#dc2626; --good:#059669; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#f8fafc; color:var(--ink); line-height:1.45; }
+    main { max-width: 1120px; margin: 0 auto; padding: 24px 18px 64px; }
+    a { color: var(--accent); }
+    .back { display:inline-block; margin-bottom:16px; font-size:14px; text-decoration:none; }
+    h1 { font-size: clamp(28px, 4vw, 44px); line-height:1.05; margin: 0 0 8px; letter-spacing:-0.03em; }
+    h2 { margin: 34px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); font-size: 22px; }
+    h3 { margin: 22px 0 8px; font-size: 17px; }
+    p, li { font-size: 15px; }
+    .subtitle { color:var(--muted); font-size: 16px; max-width: 900px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px; margin:16px 0; box-shadow:0 1px 2px rgba(15,23,42,.04); }
+    .callout { border-left:5px solid var(--accent); background:#eff6ff; }
+    .warning { border-left-color: var(--warn); background:#fffbeb; }
+    .danger { border-left-color: var(--bad); background:#fef2f2; }
+    .good { border-left-color: var(--good); background:#ecfdf5; }
+    .grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:14px; }
+    .grid3 { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:14px; }
+    .kicker { color:var(--muted); text-transform:uppercase; letter-spacing:.08em; font-weight:700; font-size:12px; margin-bottom:4px; }
+    table { width:100%; border-collapse:collapse; font-size:14px; background:white; }
+    th, td { border:1px solid var(--line); padding:10px; vertical-align:top; text-align:left; }
+    th { background:var(--soft); font-weight:700; }
+    .table-wrap { overflow-x:auto; border-radius:12px; border:1px solid var(--line); }
+    .table-wrap table { border:0; min-width:780px; }
+    .table-wrap th:first-child, .table-wrap td:first-child { border-left:0; }
+    .table-wrap th:last-child, .table-wrap td:last-child { border-right:0; }
+    .score { font-weight:800; font-size:18px; }
+    .tag { display:inline-block; border:1px solid var(--line); border-radius:999px; padding:3px 8px; font-size:12px; background:white; margin:2px 3px 2px 0; }
+    .todo { list-style:none; padding-left:0; }
+    .todo li { margin:8px 0; padding-left:28px; position:relative; }
+    .todo li::before { content:"☐"; position:absolute; left:0; color:#111827; font-size:18px; top:-2px; }
+    .print-sheet { break-inside: avoid; }
+    .small { font-size:13px; color:var(--muted); }
+    .decision { font-size:20px; font-weight:800; }
+    .nowrap { white-space:nowrap; }
+    @media (max-width: 800px) { .grid, .grid3 { grid-template-columns: 1fr; } main { padding:18px 12px 48px; } }
+    @media print {
+      body { background:white; }
+      main { max-width:none; padding:0; }
+      .back, .no-print { display:none !important; }
+      .card { box-shadow:none; border-color:#999; }
+      h2 { break-after: avoid; }
+      .print-page { break-before: page; }
+      a { color:inherit; text-decoration:none; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <a class="back" href="/research">← Research</a>
+  <div class="kicker">Meeting prep</div>
+  <h1>Metal Printer Decision: EOS M290 vs SLM 280 vs Used Machine</h1>
+  <p class="subtitle">A practical decision packet for choosing the first two LPBF machines with the goal of producing printed screens by August. This is intentionally written as a meeting aid: decision matrix, option pros/cons, discussion prompts, and printable check sheets.</p>
+
+  <section class="card callout">
+    <h2 style="margin-top:0">Current working recommendation</h2>
+    <p class="decision">Unless the used Beehive SLM 280 can be contracted, cleaned, updated, validated, and accepted on a short fixed schedule, the safest August-production path is likely: <strong>buy one new primary machine now and avoid making the second machine dependent on the used-machine recovery path.</strong></p>
+    <p>For a startup screen-production ramp, the main enemy is not theoretical capability. It is calendar risk. A used aluminum machine with older software, no warranty, unknown cleanout burden, and a negotiation dependency can easily consume the exact time window needed for facility setup, process development, operator training, powder qualification, and first article iteration.</p>
+  </section>
+
+  <section class="grid3">
+    <div class="card good"><div class="kicker">Best if August is king</div><strong>Lowest schedule risk</strong><p>Order two new machines from one OEM if delivery can support the August goal. Uniformity reduces training, spares, qualification, and workflow complexity.</p></div>
+    <div class="card warning"><div class="kicker">Best balanced hedge</div><strong>One new machine now, second later</strong><p>Gets the first process moving while preserving leverage. Risk: one machine may bottleneck production and qualification capacity.</p></div>
+    <div class="card danger"><div class="kicker">Highest uncertainty</div><strong>Used Beehive SLM 280 as machine #2</strong><p>Could be a deal, but only if acceptance criteria, cleanout responsibility, software update path, and delivery schedule are locked before relying on it.</p></div>
+  </section>
+
+  <h2>1. The decision in one table</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Option</th><th>Speed to August</th><th>Technical / ops risk</th><th>Commercial leverage</th><th>Best reason to choose it</th><th>Biggest concern</th></tr></thead>
+    <tbody>
+      <tr><td><strong>2× EOS M290</strong></td><td>Medium to high if EOS can accelerate delivery</td><td>Low to medium</td><td>Good two-machine discount leverage</td><td>Uniform fleet, mature ecosystem, clean start</td><td>Delivery timing and total package cost</td></tr>
+      <tr><td><strong>2× SLM 280</strong></td><td>Medium to high if available quickly</td><td>Low to medium</td><td>Good two-machine discount leverage</td><td>Uniform fleet and potentially strong productivity/cost position</td><td>Team familiarity, install/support timing, exact configuration</td></tr>
+      <tr><td><strong>1× M290 + 1× SLM 280</strong></td><td>Medium</td><td>Medium</td><td>Weaker discount leverage unless peripherals are removed or bundled creatively</td><td>Hedge between ecosystems and preserve optionality</td><td>Two training paths, two parameter sets, two maintenance ecosystems</td></tr>
+      <tr><td><strong>1× M290 + used Beehive SLM 280</strong></td><td>Low to medium unless Beehive path is already nearly closed</td><td>High</td><td>Potentially high if used price is excellent</td><td>May lower upfront CapEx and provide second chamber</td><td>Aluminum cleanout, old software, no warranty, negotiation delay</td></tr>
+      <tr><td><strong>1× new machine only, second later</strong></td><td>High for first prints; medium for production volume</td><td>Low for launch, medium for capacity</td><td>Lower immediate leverage</td><td>Focuses ramp on one platform and avoids overcommitting</td><td>Single point of failure and less production capacity by August</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Weighted decision matrix</h2>
+  <p>Suggested scoring: 1 = poor, 3 = acceptable, 5 = strong. Weights are biased toward producing printed screens by August, not long-term perfect-fleet optimization.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Criterion</th><th>Weight</th><th>2× M290</th><th>2× SLM 280</th><th>1× M290 + 1× SLM 280</th><th>1× M290 + used SLM 280</th><th>1× new only</th></tr></thead>
+    <tbody>
+      <tr><td>Delivery / install confidence before August</td><td>25%</td><td>3</td><td>3</td><td>3</td><td>2</td><td>4</td></tr>
+      <tr><td>Process ramp simplicity</td><td>20%</td><td>5</td><td>5</td><td>3</td><td>3</td><td>5</td></tr>
+      <tr><td>Production capacity by August</td><td>20%</td><td>5</td><td>5</td><td>5</td><td>3</td><td>2</td></tr>
+      <tr><td>Commercial value / discount leverage</td><td>15%</td><td>4</td><td>4</td><td>3</td><td>4</td><td>2</td></tr>
+      <tr><td>Service, warranty, support confidence</td><td>10%</td><td>5</td><td>5</td><td>5</td><td>1</td><td>5</td></tr>
+      <tr><td>Long-term flexibility</td><td>10%</td><td>3</td><td>3</td><td>5</td><td>4</td><td>4</td></tr>
+      <tr><th>Weighted score</th><th>100%</th><th class="score">4.25</th><th class="score">4.25</th><th class="score">3.85</th><th class="score">2.85</th><th class="score">3.60</th></tr>
+    </tbody>
+  </table></div>
+  <p class="small">Interpretation: two uniform new machines look best if delivery supports the schedule. One new machine is safer than a used-machine dependency, but may not create enough August capacity. The mixed-new option is viable, but only if the strategic value of comparing platforms outweighs the extra operational burden.</p>
+
+  <h2>3. Responses to the big meeting questions</h2>
+  <div class="card">
+    <h3>How does it look if the first two machines are not uniform?</h3>
+    <p>It does not look bad by itself. A mixed fleet can look thoughtful if the reason is clear: hedging vendor risk, comparing real production performance, preserving leverage, or matching different part families. It looks messy only if it appears accidental or if the team cannot explain how qualification, training, spare parts, powder handling, and production planning will be controlled.</p>
+    <p><strong>Meeting answer:</strong> “Non-uniform is acceptable if we deliberately treat machine #1 as the production baseline and machine #2 as either a qualified duplicate path or a controlled second platform. What we cannot do is buy complexity without assigning ownership for qualification and support.”</p>
+  </div>
+  <div class="card">
+    <h3>Does uniformity matter?</h3>
+    <p>Yes, especially for a first shop trying to hit an August production milestone. Uniformity simplifies operator training, build file prep, powder handling, maintenance, spares, service relationships, parameter transfer, quoting, and process documentation. Non-uniformity can be worth it later, once the team has a stable production rhythm.</p>
+    <p><strong>Practical rule:</strong> if the goal is “get printed screens out by August,” uniformity has real value. If the goal is “learn the market and build long-term optionality,” mixed machines may be defensible.</p>
+  </div>
+  <div class="card">
+    <h3>Do we have time to take on the used SLM 280?</h3>
+    <p>Only if the machine passes a fast go/no-go gate. The used-machine path should not be allowed to drift. The aluminum history matters because residual aluminum powder and contamination can create safety, cleanliness, and cross-contamination concerns. Older software matters because upgrades can create dependencies on OEM support, licenses, controller compatibility, and post-processing/build prep workflows. No warranty means every hidden defect becomes your schedule problem.</p>
+    <p><strong>Meeting answer:</strong> “We can consider it only if Beehive accepts a tight timeline, clear acceptance test, documented maintenance/software status, and either seller-funded cleanout or a price reduction large enough to pay for the risk.”</p>
+  </div>
+  <div class="card">
+    <h3>What gives the best opportunity to be producing printed screens by August?</h3>
+    <p>The highest-probability path is the path with the fewest uncontrolled dependencies: a new machine with committed delivery, install, training, service, and applications support. Two new uniform machines are strongest if delivery is possible. One new machine now can start the ramp fastest, but may create capacity risk. A used machine can help only if it is already clean, current, supported, and contractually tied to acceptance criteria.</p>
+  </div>
+
+  <h2>4. Used Beehive SLM 280 risk review</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Risk</th><th>Why it matters</th><th>What to ask / require</th><th>Go / no-go signal</th></tr></thead>
+    <tbody>
+      <tr><td>Printed aluminum</td><td>Aluminum powder is reactive and contamination-sensitive. Cleanout can be non-trivial if switching alloys.</td><td>Who performs certified cleanout? What surfaces and powder circuits are included? Is there documentation?</td><td>No-go if cleanout scope is vague or unfunded.</td></tr>
+      <tr><td>Older software</td><td>May limit build prep workflow, supportability, parameter access, service diagnostics, or compatibility with current tooling.</td><td>Exact software version, controller status, upgrade quote, license transfer terms, OEM support confirmation.</td><td>No-go if upgrade path is unknown.</td></tr>
+      <tr><td>No warranty</td><td>Hidden optics, recoater, filter, chiller, sensors, and gas-system issues become startup delays.</td><td>Can you buy third-party/OEM service coverage after inspection? Can seller escrow part of payment until acceptance?</td><td>No-go if all risk transfers before hot acceptance.</td></tr>
+      <tr><td>Negotiation delay</td><td>The schedule cost may exceed the purchase savings.</td><td>Decision deadline, firm price, included accessories, rigging responsibility, delivery date.</td><td>No-go if no signed path within days, not weeks.</td></tr>
+      <tr><td>Unknown accessories</td><td>Sieve, filters, build plates, powder modules, carts, and software seats can erase savings.</td><td>Itemized list of every included peripheral and consumable.</td><td>No-go if “machine only” still requires major missing purchases.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>5. Option-by-option pros and cons</h2>
+  <section class="grid">
+    <div class="card"><h3>2× EOS M290</h3><p><span class="tag">Uniform</span><span class="tag">Mature ecosystem</span><span class="tag">Lower complexity</span></p><ul><li>Cleanest qualification story if both machines arrive in time.</li><li>Good first-fleet optics: disciplined, supportable, repeatable.</li><li>Two-machine package should create discount leverage.</li></ul><p><strong>Concern:</strong> delivery timing and total installed cost.</p></div>
+    <div class="card"><h3>2× SLM 280</h3><p><span class="tag">Uniform</span><span class="tag">Potentially productive</span><span class="tag">Single ecosystem</span></p><ul><li>Also gives clean fleet story if both are new/current.</li><li>May be commercially attractive if vendor is hungry.</li><li>Good if support/training/install dates are firm.</li></ul><p><strong>Concern:</strong> exact config, delivery, support path, and team familiarity.</p></div>
+    <div class="card"><h3>1× M290 + 1× SLM 280</h3><p><span class="tag">Hedge</span><span class="tag">Flexible</span><span class="tag">More complex</span></p><ul><li>Creates real-world comparison and avoids full vendor lock-in.</li><li>Can be framed as a deliberate platform evaluation.</li><li>Useful if one vendor can deliver much faster.</li></ul><p><strong>Concern:</strong> two machine workflows during the most fragile ramp window.</p></div>
+    <div class="card"><h3>1× M290 + used Beehive SLM 280</h3><p><span class="tag">Potential savings</span><span class="tag">High uncertainty</span><span class="tag">Acceptance critical</span></p><ul><li>Could reduce CapEx if the price is meaningfully lower.</li><li>Could add second chamber if all risks are resolved quickly.</li><li>May be worthwhile as an upside option, not the critical path.</li></ul><p><strong>Concern:</strong> cleanout, software, warranty, and negotiation delay.</p></div>
+    <div class="card"><h3>1× new machine only</h3><p><span class="tag">Simple</span><span class="tag">Fast focus</span><span class="tag">Capacity risk</span></p><ul><li>Best way to start process development without fleet complexity.</li><li>Preserves capital and second-machine optionality.</li><li>Reduces immediate training and facility burden.</li></ul><p><strong>Concern:</strong> one machine is a single point of failure and may not hit August production volume.</p></div>
+  </section>
+
+  <h2>6. Questions to ask EOS / SLM / Beehive tomorrow</h2>
+  <section class="grid">
+    <div class="card"><h3>For EOS / SLM new-machine quotes</h3><ul class="todo"><li>What is the earliest realistic ship, install, and first-print date?</li><li>Can machines be moved from another allocation to accelerate delivery?</li><li>What exactly is included: sieves, build plates, filters, powder handling, chillers, oxygen sensors, software seats, training?</li><li>What can be removed from one machine package without hurting startup?</li><li>What is the two-machine discount vs one-machine price?</li><li>Can they commit applications support for the printed screen ramp?</li><li>What are the warranty and service-response terms?</li></ul></div>
+    <div class="card"><h3>For Beehive used SLM 280</h3><ul class="todo"><li>Exact model, year, serial number, laser count, laser hours, and build hours.</li><li>What aluminum alloy was printed and when was the last build?</li><li>What is the current software/control version and license status?</li><li>What accessories are included and what is missing?</li><li>Who pays for cleanout, rigging, shipping, reinstall, calibration, and acceptance?</li><li>Can payment be tied to site acceptance with a successful test build?</li><li>Can OEM or qualified service inspect before purchase?</li></ul></div>
+  </section>
+
+  <h2>7. August production path</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Workstream</th><th>Needed to print screens by August</th><th>Risk if delayed</th></tr></thead>
+    <tbody>
+      <tr><td>Machine order / contract</td><td>Signed PO, clear delivery/install dates, defined included equipment.</td><td>Everything slips.</td></tr>
+      <tr><td>Facility readiness</td><td>Power, gas, ventilation, powder storage, EHS, receiving/rigging plan.</td><td>Machine arrives but cannot run.</td></tr>
+      <tr><td>Material and powder handling</td><td>Initial powder order, sieve strategy, storage, waste/passivation plan if reactive alloys are involved.</td><td>Printer installed but not production-ready.</td></tr>
+      <tr><td>Build prep and parameters</td><td>Baseline screen geometry, orientation, supports, scan strategy, coupons, first article plan.</td><td>First prints are experiments instead of controlled ramp.</td></tr>
+      <tr><td>Inspection and acceptance</td><td>Dimensional checks, roughness/flow/performance checks, acceptance criteria.</td><td>No clear definition of “production-ready.”</td></tr>
+      <tr><td>Operator training</td><td>Powder safety, machine operation, maintenance, build turnover, depowdering.</td><td>Low uptime and higher safety risk.</td></tr>
+    </tbody>
+  </table></div>
+
+  <section class="print-page print-sheet">
+    <h2>Printable sheet A: Meeting decision worksheet</h2>
+    <div class="card">
+      <p><strong>Decision needed:</strong> ____________________________________________________________</p>
+      <p><strong>Non-negotiable August requirement:</strong> __________________________________________</p>
+      <p><strong>Preferred option going into meeting:</strong> _________________________________________</p>
+      <p><strong>Option we will not choose unless conditions are met:</strong> ___________________________</p>
+      <p><strong>Biggest unknown after meeting:</strong> ______________________________________________</p>
+      <p><strong>Owner for next action:</strong> _______________________ <strong>Due:</strong> _________________</p>
+    </div>
+  </section>
+
+  <section class="print-sheet">
+    <h2>Printable sheet B: Used-machine go/no-go checklist</h2>
+    <div class="card"><ul class="todo">
+      <li>Firm purchase price is low enough to justify no warranty and recovery work.</li>
+      <li>Seller provides serial number, hours, service history, software version, and included equipment list.</li>
+      <li>Aluminum cleanout scope is documented and assigned to seller, OEM, or qualified third party.</li>
+      <li>Software update/license transfer path is confirmed in writing.</li>
+      <li>Machine can be inspected before purchase.</li>
+      <li>Acceptance test is defined before final payment.</li>
+      <li>Delivery/install timeline supports August production without becoming the critical path.</li>
+      <li>Missing peripherals are priced and included in total landed cost.</li>
+    </ul></div>
+  </section>
+
+  <section class="print-sheet">
+    <h2>Printable sheet C: Simple answer script</h2>
+    <div class="card">
+      <p><strong>Uniform fleet answer:</strong> “Uniformity matters because we are trying to ramp production quickly. Mixed machines can be smart later, but our first two machines need to reduce operational uncertainty unless there is a strong strategic reason to split platforms.”</p>
+      <p><strong>Used machine answer:</strong> “The used 280 is not automatically wrong, but it cannot be the schedule-critical path unless cleanout, software, inspection, warranty/service exposure, and acceptance are all locked immediately.”</p>
+      <p><strong>August answer:</strong> “The best August path is the option with committed delivery, complete peripherals, training, service support, and the fewest uncontrolled dependencies.”</p>
+    </div>
+  </section>
+
+  <h2>8. Notes and assumptions to update after quotes</h2>
+  <div class="card"><ul class="todo">
+    <li>Actual EOS delivery date: ___________________________</li>
+    <li>Actual SLM delivery date: ___________________________</li>
+    <li>Two-machine EOS discount: __________________________</li>
+    <li>Two-machine SLM discount: __________________________</li>
+    <li>Mixed-machine price penalty or savings: ______________</li>
+    <li>Beehive used-machine all-in cost: ____________________</li>
+    <li>Critical missing peripherals: ________________________</li>
+    <li>Final recommendation after meeting: __________________</li>
+  </ul></div>
+
+  <p class="small no-print">Prepared as an internal planning aid. Verify all machine specifications, delivery dates, software status, warranty coverage, and safety requirements directly with the OEM/seller before committing.</p>
+</main>
+</body>
+</html>

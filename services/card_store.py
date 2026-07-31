@@ -683,13 +683,20 @@ def _generate_routine_cards(week_key: str, target_date: date) -> dict[str, dict]
                     w = 1.0
             except (TypeError, ValueError):
                 w = 1.0
-            card["tasks"].append({
+            row = {
                 "name": task["name"],
                 "freq": task["freq"],
                 "weight": w,
                 "days": days,
                 "scheduled": scheduled,
-            })
+            }
+            # Copy schedule-order metadata from YAML (matched by name).
+            meta = _task_meta_from_routines(plan["key"]).get(task["name"]) or {}
+            if meta.get("time"):
+                row["time"] = meta["time"]
+            if meta.get("at_work"):
+                row["at_work"] = True
+            card["tasks"].append(row)
         prev_wk = _prev_week_key(week_key)
         prev = _load_card_file(prev_wk, plan["key"]) if prev_wk else None
         _attach_prev_week_carry_state(card, prev)
@@ -739,7 +746,9 @@ def get_routine_cards(week_key: str) -> dict[str, dict]:
         parts = week_key.split("-W")
         year, wn = int(parts[0]), int(parts[1])
         return _generate_routine_cards(week_key, date.fromisocalendar(year, wn, 1))
-    if _sync_task_weights_from_routines(cards):
+    synced = _sync_task_weights_from_routines(cards)
+    synced = _sync_task_schedule_meta_from_routines(cards) or synced
+    if synced:
         for area_key, data in cards.items():
             _save_json(_routine_path(week_key, area_key), data)
     return cards
@@ -789,6 +798,85 @@ def regenerate_routine_cards(week_key: str) -> dict[str, dict]:
 def get_routine_card(week_key: str, area_key: str) -> dict | None:
     cards = get_routine_cards(week_key)
     return cards.get(area_key)
+
+
+def load_week_cards_readonly(week_key: str) -> dict[str, dict]:
+    """Read existing area cards for a week WITHOUT generating or rewriting files.
+
+    Returns {} if the week directory does not exist yet. Used for fast,
+    side-effect-free history scans. The normal get_routine_cards() auto-generates
+    and re-saves files (running five reconcilers per area), which is far too
+    expensive to run across dozens of weeks just to read past completions.
+    """
+    week_dir = _routine_dir(week_key)
+    if not os.path.isdir(week_dir):
+        return {}
+    cards: dict[str, dict] = {}
+    try:
+        names = sorted(os.listdir(week_dir))
+    except OSError:
+        return {}
+    for fname in names:
+        if not fname.endswith(".json"):
+            continue
+        data = _load_json(os.path.join(week_dir, fname))
+        if data is not None:
+            cards[fname[:-5]] = data
+    return cards
+
+
+def routine_completion_history(selected_iso: str, weeks: int) -> dict[str, list[str]]:
+    """Completion-history map for the routines view, computed server-side.
+
+    Returns ``{"<area_key>::<task_name>": [ISO dates completed on/before
+    selected_iso]}`` by scanning up to ``weeks`` ISO weeks *before* the selected
+    week. Read-only — it never generates or rewrites card files.
+
+    The current (selected) week is intentionally excluded; the client overlays it
+    from the freshly rendered cards so a just-toggled dot shows up immediately.
+    This single call replaces the old client behaviour of fetching 6-32 weeks one
+    request at a time (which also forced the server to generate empty week files).
+    """
+    try:
+        sel = date.fromisoformat(selected_iso)
+    except (ValueError, TypeError):
+        sel = local_today()
+        selected_iso = sel.isoformat()
+    try:
+        weeks = int(weeks)
+    except (ValueError, TypeError):
+        weeks = 8
+    weeks = max(0, min(60, weeks))
+
+    sel_monday = week_start_date(sel)
+    hist: dict[str, list[str]] = {}
+    for i in range(weeks, 0, -1):
+        wk_monday = sel_monday - timedelta(days=7 * i)
+        cards = load_week_cards_readonly(iso_week_key(wk_monday))
+        for area_key, card in cards.items():
+            ws = card.get("week_start")
+            if not ws:
+                continue
+            try:
+                ws_date = date.fromisoformat(ws)
+            except (ValueError, TypeError):
+                continue
+            ak = card.get("area_key", area_key)
+            for task in card.get("tasks", []):
+                name = task.get("name", "")
+                if not name:
+                    continue
+                key = f"{ak}::{name}"
+                for di, row in enumerate(task.get("days", [])):
+                    if not any(row):
+                        continue
+                    done_iso = (ws_date + timedelta(days=di)).isoformat()
+                    if done_iso > selected_iso:
+                        continue
+                    hist.setdefault(key, []).append(done_iso)
+    for k in list(hist.keys()):
+        hist[k] = sorted(set(hist[k]))
+    return hist
 
 
 def save_routine_card(week_key: str, area_key: str, card: dict):
@@ -1041,6 +1129,98 @@ def _name_to_weight_for_area(area_key: str) -> dict[str, float]:
         except (TypeError, ValueError):
             out[name] = 1.0
     return out
+
+
+def _normalize_hhmm(raw) -> str | None:
+    if raw is None or raw == "":
+        return None
+    s = str(raw).strip().replace(".", ":")
+    parts = s.split(":")
+    if len(parts) < 2:
+        return None
+    try:
+        h = max(0, min(23, int(parts[0])))
+        m = max(0, min(59, int(parts[1])))
+    except ValueError:
+        return None
+    return f"{h:02d}:{m:02d}"
+
+
+def _task_meta_from_routines(area_key: str) -> dict[str, dict]:
+    """name -> {time?, at_work?} from routines.yaml for one area."""
+    routines = load_routines()
+    area = routines.get("areas", {}).get(area_key) or {}
+    out: dict[str, dict] = {}
+    for t in area.get("tasks", []):
+        name = (t.get("name") or "").strip()
+        if not name:
+            continue
+        meta: dict = {}
+        hhmm = _normalize_hhmm(t.get("time"))
+        if hhmm:
+            meta["time"] = hhmm
+        if t.get("at_work"):
+            meta["at_work"] = True
+        out[name] = meta
+    return out
+
+
+def _sync_task_schedule_meta_from_routines(cards: dict[str, dict]) -> bool:
+    """Align YAML ``time`` / ``at_work`` onto card JSON (main tasks by name)."""
+    changed = False
+    for area_key, card in cards.items():
+        meta_map = _task_meta_from_routines(area_key)
+        for task in card.get("tasks", []):
+            name = task.get("name")
+            meta = meta_map.get(name) or {}
+            want_time = meta.get("time")
+            have_time = _normalize_hhmm(task.get("time"))
+            if want_time:
+                if have_time != want_time:
+                    task["time"] = want_time
+                    changed = True
+            elif "time" in task:
+                del task["time"]
+                changed = True
+            want_aw = bool(meta.get("at_work"))
+            have_aw = bool(task.get("at_work"))
+            if want_aw and not have_aw:
+                task["at_work"] = True
+                changed = True
+            elif have_aw and not want_aw:
+                del task["at_work"]
+                changed = True
+    return changed
+
+
+def default_daily_flex_slots() -> list[dict]:
+    return [
+        {"key": "morning", "time": "06:15", "label": "Morning flex", "pool": "home"},
+        {"key": "work", "time": "11:00", "label": "Work flex", "pool": "at_work"},
+        {"key": "evening", "time": "16:30", "label": "Evening flex", "pool": "home"},
+    ]
+
+
+def get_daily_flex_slots() -> list[dict]:
+    """Normalized flex-slot config from routines.yaml (with defaults)."""
+    routines = load_routines()
+    raw = routines.get("daily_flex_slots")
+    if not isinstance(raw, list) or not raw:
+        return default_daily_flex_slots()
+    out: list[dict] = []
+    for i, slot in enumerate(raw):
+        if not isinstance(slot, dict):
+            continue
+        hhmm = _normalize_hhmm(slot.get("time"))
+        if not hhmm:
+            continue
+        pool = str(slot.get("pool") or "home").strip().lower()
+        if pool not in ("home", "at_work"):
+            pool = "home"
+        key = str(slot.get("key") or f"flex{i}").strip() or f"flex{i}"
+        label = str(slot.get("label") or key).strip() or key
+        out.append({"key": key, "time": hhmm, "label": label, "pool": pool})
+    return out or default_daily_flex_slots()
 
 
 def _repair_task_grid_for_scheduled(task: dict) -> bool:

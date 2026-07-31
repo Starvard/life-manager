@@ -570,6 +570,162 @@ def compute_cashflow_series(ending_month: str, n_months: int = 12) -> list[dict[
     return out
 
 
+def _income_in_date_range(start_date: str, end_date: str) -> float:
+    """Sum positive real inflows in [start, end] (inclusive, YYYY-MM-DD).
+
+    Excludes credit-card payments and internal transfers so only money that
+    actually *came in* (take-home pay, refunds, etc.) is counted.
+    """
+    from services.budget_categorizer import get_display_category
+
+    total = 0.0
+    for tx in load_transactions():
+        if tx.get("is_duplicate"):
+            continue
+        d = str(tx.get("date") or "")[:10]
+        if not d or d < start_date or d > end_date:
+            continue
+        amt = float(tx.get("amount", 0))
+        if amt <= 0:
+            continue
+        cat = get_display_category(tx) or ""
+        if cat in (CREDIT_CARD_PAYMENT_CATEGORY, INTERNAL_TRANSFER_CATEGORY):
+            continue
+        total += amt
+    return round(total, 2)
+
+
+def compute_recent_income_basis(window_days: int = 14) -> dict | None:
+    """Estimate true earnings from the most recent ``window_days`` of inflows.
+
+    Anchored on the latest transaction date we have (not the wall clock), so it
+    reflects the user's actual recent pay. Designed for weekly earners: a 14-day
+    window normally captures ~2 paychecks, which we annualize as 52 weeks.
+    """
+    from datetime import datetime, timedelta
+
+    dates = [
+        str(t.get("date") or "")[:10]
+        for t in load_transactions()
+        if not t.get("is_duplicate") and t.get("date")
+    ]
+    if not dates:
+        return None
+    anchor = max(dates)
+    try:
+        a = datetime.strptime(anchor, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+    start = a - timedelta(days=max(1, window_days) - 1)
+    income = _income_in_date_range(start.isoformat(), anchor)
+    weeks = max(1, window_days) / 7.0
+    weekly = income / weeks if weeks else 0.0
+    return {
+        "window_days": int(window_days),
+        "weeks": round(weeks, 2),
+        "window_start": start.isoformat(),
+        "anchor_date": anchor,
+        "income_in_window": round(income, 2),
+        "weekly": round(weekly, 2),
+        "monthly": round(weekly * 52.0 / 12.0, 2),
+        "annual": round(weekly * 52.0, 2),
+    }
+
+
+def compute_money_outlook(month: str, lookback: int = 6) -> dict:
+    """Big-picture in/out flow plus monthly + yearly forward projections.
+
+    Combines the current month's real cash flow (money in vs money out, with
+    credit-card payoff transfers excluded so purchases aren't double counted)
+    with:
+      * a rolling average over recent **completed** months (for spending), and
+      * a recent-pay income estimate (last ~2 weeks annualized — best for
+        weekly earners),
+    to project next month's net and a full-year savings figure — i.e. whether
+    the household is on track to **save** or come up **short**. ``card_bill_due``
+    surfaces the typical credit-card payoff that usually decides it.
+    """
+    cur = aggregate_month_financials(month)
+    cur_in = max(0.0, float(cur["lifestyle_income"]))
+    cur_out = float(cur["purchases_spend"])
+    cur_net = round(cur_in - cur_out, 2)
+
+    all_m = get_available_months()
+    # Average over completed months (strictly before the selected month) so an
+    # in-progress month doesn't drag the projection artificially low.
+    prior = [m for m in all_m if m < month]
+    window = prior[-lookback:] if prior else [m for m in all_m if m <= month][-lookback:]
+    if not window:
+        window = [month]
+
+    sum_in = sum_out = sum_payoff = 0.0
+    per_month: list[dict] = []
+    for m in window:
+        a = aggregate_month_financials(m)
+        mi = max(0.0, float(a["lifestyle_income"]))
+        mo = float(a["purchases_spend"])
+        pf = float(a["card_payoff_total"])
+        sum_in += mi
+        sum_out += mo
+        sum_payoff += pf
+        per_month.append({"month": m, "in": round(mi, 2), "out": round(mo, 2), "net": round(mi - mo, 2)})
+
+    n = max(1, len(window))
+    avg_in = sum_in / n
+    avg_out = sum_out / n
+    avg_payoff = sum_payoff / n
+
+    # Predicted income: prefer the recent-pay estimate (best for weekly earners),
+    # falling back to the monthly average if the last two weeks had no inflow.
+    basis = compute_recent_income_basis(14)
+    if basis and basis.get("income_in_window", 0) > 0:
+        pred_in = round(float(basis["monthly"]), 2)
+        income_source = "recent_weekly"
+    else:
+        pred_in = round(avg_in, 2)
+        income_source = "monthly_avg"
+
+    pred_out = round(avg_out, 2)
+    pred_net = round(pred_in - pred_out, 2)
+
+    annual_income = round(pred_in * 12.0, 2)
+    annual_spend = round(pred_out * 12.0, 2)
+    annual_savings = round(pred_net * 12.0, 2)
+
+    return {
+        "current": {
+            "month": month,
+            "in": round(cur_in, 2),
+            "out": round(cur_out, 2),
+            "net": cur_net,
+        },
+        "averages": {
+            "in": round(avg_in, 2),
+            "out": round(avg_out, 2),
+            "net": round(avg_in - avg_out, 2),
+            "months": int(n),
+            "window": list(window),
+        },
+        "income_basis": basis or {},
+        "next_month": {
+            "key": _month_add(month, 1),
+            "predicted_in": pred_in,
+            "predicted_out": pred_out,
+            "predicted_net": pred_net,
+            "card_bill_due": round(avg_payoff, 2),
+            "income_source": income_source,
+            "outcome": "save" if pred_net >= 0 else "short",
+        },
+        "annual": {
+            "predicted_income": annual_income,
+            "predicted_spend": annual_spend,
+            "predicted_savings": annual_savings,
+            "outcome": "save" if annual_savings >= 0 else "short",
+        },
+        "per_month": per_month,
+    }
+
+
 def compute_monthly_report(month: str) -> dict:
     """Compute income/expense/net totals and category breakdown for a month."""
     cur = aggregate_month_financials(month)
@@ -772,6 +928,7 @@ def compute_monthly_report(month: str) -> dict:
             "card_payoff_vs_salary_pct": card_payoff_vs_salary,
         },
         "cash_flow_series": compute_cashflow_series(month, 12),
+        "money_outlook": compute_money_outlook(month),
         "category_average_spend": category_average_spend,
         "transaction_count": len([t for t in txns if not t.get("is_duplicate")]),
         "income_breakdown": income_breakdown,

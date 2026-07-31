@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 import threading
@@ -9,34 +10,37 @@ import threading
 import config
 
 _lock = threading.Lock()
+_cache: tuple[float | None, dict] | None = None
 
-# Keys must match data-nav-tab on links in base.html (except "edit" is the Routines page).
 NAV_TAB_KEYS: tuple[str, ...] = (
     "home",
     "cards",
     "baby",
+    "cleaning",
     "budget",
     "fantasy",
     "recipes",
     "research",
     "game",
-    "edit",
 )
+
+# Home is where hidden tabs can be restored, so it is intentionally not hideable.
+HIDEABLE_NAV_TAB_KEYS: tuple[str, ...] = tuple(k for k in NAV_TAB_KEYS if k != "home")
 
 NAV_TAB_LABELS: dict[str, str] = {
     "home": "Home",
-    "cards": "Cards",
+    "cards": "Routines",
     "baby": "Baby",
+    "cleaning": "Cleaning",
     "budget": "Budget",
     "fantasy": "Fantasy",
     "recipes": "Recipes",
     "research": "Research",
-    "game": "Pup Patrol Cat Dash",
-    "edit": "Edit (routines)",
+    "game": "Cat Dash",
 }
 
 DEFAULT_STATE: dict = {
-    "version": 1,
+    "version": 3,
     "hidden": [],
 }
 
@@ -50,31 +54,49 @@ def _normalize_hidden(raw: list | None) -> list[str]:
         if not isinstance(x, str):
             continue
         k = x.strip().lower()
-        if k in NAV_TAB_KEYS and k not in seen:
+        if k in HIDEABLE_NAV_TAB_KEYS and k not in seen:
             seen.add(k)
             out.append(k)
     return out
 
 
-def _load() -> dict:
-    path = config.NAV_PREFS_FILE
-    if not os.path.isfile(path):
-        return dict(DEFAULT_STATE)
+def _mtime(path: str) -> float | None:
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        if not isinstance(data, dict):
-            return dict(DEFAULT_STATE)
+        return os.path.getmtime(path)
+    except OSError:
+        return None
+
+
+def _copy_state(data: dict) -> dict:
+    out = copy.deepcopy(data)
+    out["hidden"] = _normalize_hidden(out.get("hidden"))
+    return out
+
+
+def _load() -> dict:
+    global _cache
+    path = config.NAV_PREFS_FILE
+    mtime = _mtime(path)
+    if _cache is not None and _cache[0] == mtime:
+        return _copy_state(_cache[1])
+
+    if not os.path.isfile(path):
         out = dict(DEFAULT_STATE)
-        out.update(data)
-        hidden = out.get("hidden")
-        if isinstance(hidden, list):
-            out["hidden"] = _normalize_hidden(hidden)
-        else:
-            out["hidden"] = []
-        return out
-    except (json.JSONDecodeError, OSError):
-        return dict(DEFAULT_STATE)
+    else:
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if not isinstance(data, dict):
+                out = dict(DEFAULT_STATE)
+            else:
+                out = dict(DEFAULT_STATE)
+                out.update(data)
+        except (json.JSONDecodeError, OSError):
+            out = dict(DEFAULT_STATE)
+
+    out = _copy_state(out)
+    _cache = (mtime, _copy_state(out))
+    return out
 
 
 def _save(data: dict) -> None:
@@ -92,13 +114,11 @@ def get_hidden_nav_tabs() -> list[str]:
 
 
 def set_hidden_nav_tabs(hidden: list[str]) -> list[str]:
-    """Replace hidden tab list. Unknown keys are dropped. Returns normalized list."""
+    global _cache
     norm = _normalize_hidden(hidden)
-    # Keep at least one tab visible so the app stays reachable (Edit restores visibility).
-    if len(norm) >= len(NAV_TAB_KEYS):
-        norm = norm[: len(NAV_TAB_KEYS) - 1]
     with _lock:
         data = _load()
         data["hidden"] = norm
         _save(data)
-        return norm
+        _cache = (_mtime(config.NAV_PREFS_FILE), _copy_state(data))
+        return list(norm)

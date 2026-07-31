@@ -97,4 +97,13 @@ def _install_routine_card_completion_patch() -> None:
     cs._collect_last_completed_before_week = collect_last_completed_before_week
 
 
+def _install_rare_recurring_patch() -> None:
+    """Carry missed long-interval routines forward until completed."""
+
+    from services.routine_recurring_patch import install
+
+    install()
+
+
 _install_routine_card_completion_patch()
+_install_rare_recurring_patch()

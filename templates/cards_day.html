@@ -1,15 +1,20 @@
 {% extends "base.html" %}
-{% block title %}{{ day_label }} - Life Manager{% endblock %}
+{% block title %}Routines - Life Manager{% endblock %}
 
 {% block content %}
+<style>
+    .notecard,
+    .area-tabs,
+    .cards-today-score,
+    .picker,
+    .view-toggle { display: none !important; }
+</style>
 <div class="page-header">
-    <h1>Routine Cards</h1>
-    <p class="subtitle">Tap dots to mark complete</p>
+    <h1>Routines</h1>
 </div>
 
 <div class="view-toggle">
-    <a href="{{ url_for('cards_page', week=cards_week_for_toggle) }}" class="view-toggle-btn">Week</a>
-    <a href="{{ url_for('cards_day_page', date=selected_date) }}" class="view-toggle-btn active">Day</a>
+    <a href="{{ url_for('cards_page', week=cards_week_for_toggle) }}" class="view-toggle-btn">Today</a>
 </div>
 
 <div class="picker">
@@ -103,7 +108,7 @@
 
 {% if not cards %}
 <div class="card" style="text-align:center; padding:2rem; color:var(--text-muted);">
-    No routine cards yet. <a href="{{ url_for('routines_page') }}">Configure routines</a> first.
+    No routine cards yet. <a href="{{ url_for('routines_page') }}">Manage routines</a> first.
 </div>
 {% endif %}
 
@@ -115,4 +120,10 @@ function dayNav(offset) {
     location.href = "?date=" + iso;
 }
 </script>
+{% endblock %}
+
+{% block body_scripts %}
+<script src="{{ url_for('static', filename='js/routine-performance-fix.js') }}?v={{ cache_bust }}"></script>
+<script src="{{ url_for('static', filename='js/routine-effective-stack.js') }}?v={{ cache_bust }}"></script>
+<script src="{{ url_for('static', filename='js/nav-dashboard-polish.js') }}?v={{ cache_bust }}"></script>
 {% endblock %}
