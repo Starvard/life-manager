@@ -219,9 +219,9 @@ def _ordered_routine_areas_for_forms() -> dict:
 def _today_focus_summary(cards: dict, today_idx: int | None) -> tuple[dict | None, int]:
     """(up_next, open_count) for the dashboard's Today strip.
 
-    up_next mirrors the Today page's ordering: the first non-daily task with an
-    unfilled scheduled dot today (those are the ones that slip), falling back
-    to the first open daily task. open_count is tasks, not dots."""
+    Prefer the earliest incomplete timed task (day-plan order). Fall back to
+    any open scheduled task today. open_count is tasks, not dots.
+    """
     if today_idx is None:
         return None, 0
     candidates: list[dict] = []
@@ -245,14 +245,19 @@ def _today_focus_summary(cards: dict, today_idx: int | None) -> tuple[dict | Non
                 freq = float(task.get("freq") or 0)
             except (TypeError, ValueError):
                 freq = 0.0
+            time_raw = task.get("time")
+            time_s = ""
+            if time_raw is not None:
+                time_s = str(time_raw).strip()
             candidates.append({
                 "name": task.get("name", ""),
                 "area": card.get("area_name", key),
                 "daily": freq >= 7,
+                "time": time_s,
             })
-    up_next = next((c for c in candidates if not c["daily"]), None)
-    if up_next is None and candidates:
-        up_next = candidates[0]
+    timed = [c for c in candidates if c.get("time")]
+    timed.sort(key=lambda c: c["time"])
+    up_next = timed[0] if timed else (candidates[0] if candidates else None)
     return up_next, len(candidates)
 
 
@@ -392,29 +397,6 @@ def cards_day_page():
     )
 
 
-def _routine_task_names_match(cards: dict, areas: dict) -> bool:
-    """True when each area's card task names match routines.yaml order/names."""
-    for area_key, area in areas.items():
-        yaml_names = [
-            (t.get("name") or "").strip()
-            for t in area.get("tasks", [])
-            if isinstance(t, dict) and (t.get("name") or "").strip()
-        ]
-        if not yaml_names:
-            continue
-        card = cards.get(area_key)
-        if card is None:
-            return False
-        card_names = [
-            (t.get("name") or "").strip()
-            for t in card.get("tasks", [])
-            if isinstance(t, dict)
-        ]
-        if card_names != yaml_names:
-            return False
-    return True
-
-
 @app.route("/today")
 def today_page():
     """ADHD-friendly daily focus view. Data is bootstrapped server-side so the
@@ -427,12 +409,8 @@ def today_page():
         day_str = sel.isoformat()
     monday = sel - timedelta(days=sel.weekday())
     wk = iso_week_key(monday)
-    cards = get_routine_cards(wk)
-    # YAML rewrites (new timed tasks / renamed rows) need a regenerate so the
-    # day plan sees the new names; fills are preserved by matching name.
-    if not _routine_task_names_match(cards, load_routines().get("areas", {})):
-        cards = regenerate_routine_cards(wk)
-    cards = _ordered_cards(cards)
+    # get_routine_cards regenerates when YAML task names diverge (timed rewrite).
+    cards = _ordered_cards(get_routine_cards(wk))
     history = routine_completion_history(day_str, 20)
     bootstrap = {
         "today": day_str,

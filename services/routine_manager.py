@@ -22,6 +22,7 @@ _cached_mtime: float | None = None
 _cached_data: dict | None = None
 
 RESTORE_HOME_RECURRING_MIGRATION = "restore_home_recurring_tasks_2026_04_29"
+TIMED_DAILY_ROUTINES_MIGRATION = "timed_daily_routines_2026_07_31"
 RESTORED_HOME_RECURRING_TASKS = [
     {"name": "Deep Clean Upstairs", "weight": 2.0, "freq": 0.5},
     {"name": "Deep Clean Downstairs", "weight": 2.0, "freq": 0.5},
@@ -60,6 +61,19 @@ def _write_to_disk(data: dict) -> None:
         yaml.dump(data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
 
 
+def _volume_lacks_timed_daily_schedule(data: dict) -> bool:
+    """True when persistent YAML predates the timed day-plan rewrite."""
+    if not isinstance(data.get("daily_flex_slots"), list) or not data.get("daily_flex_slots"):
+        return True
+    for area in (data.get("areas") or {}).values():
+        if not isinstance(area, dict):
+            continue
+        for task in area.get("tasks") or []:
+            if isinstance(task, dict) and task.get("time"):
+                return False
+    return True
+
+
 def _apply_one_time_routine_repairs(data: dict) -> bool:
     """Apply small, one-time data repairs to the persistent routine config.
 
@@ -68,6 +82,35 @@ def _apply_one_time_routine_repairs(data: dict) -> bool:
     """
     migrations = data.setdefault("_migrations", [])
     changed = False
+
+    # Production keeps an editable copy of routines.yaml on the Fly volume.
+    # That copy is seeded once and never refreshed, so deploys of the timed
+    # day-plan rewrite left the volume on the old task list — Today then had
+    # only three flex slots and promoted overdue Trash as Up Next.
+    if TIMED_DAILY_ROUTINES_MIGRATION not in migrations:
+        if (
+            ROUTINES_FILE != ROUTINES_BUNDLED_FILE
+            and os.path.exists(ROUTINES_BUNDLED_FILE)
+            and _volume_lacks_timed_daily_schedule(data)
+        ):
+            with open(ROUTINES_BUNDLED_FILE, "r") as f:
+                bundled = yaml.safe_load(f) or {}
+            if isinstance(bundled, dict) and bundled.get("areas"):
+                prev_migrations = list(migrations)
+                data.clear()
+                data.update(copy.deepcopy(bundled))
+                merged = list(data.get("_migrations") or [])
+                for m in prev_migrations:
+                    if m not in merged:
+                        merged.append(m)
+                if TIMED_DAILY_ROUTINES_MIGRATION not in merged:
+                    merged.append(TIMED_DAILY_ROUTINES_MIGRATION)
+                data["_migrations"] = merged
+                migrations = data["_migrations"]
+                changed = True
+        if TIMED_DAILY_ROUTINES_MIGRATION not in migrations:
+            migrations.append(TIMED_DAILY_ROUTINES_MIGRATION)
+            changed = True
 
     if RESTORE_HOME_RECURRING_MIGRATION not in migrations:
         areas = data.setdefault("areas", {})

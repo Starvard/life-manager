@@ -706,6 +706,33 @@ def _generate_routine_cards(week_key: str, target_date: date) -> dict[str, dict]
     return cards
 
 
+def _routine_task_names_match(cards: dict[str, dict], areas: dict | None = None) -> bool:
+    """True when every YAML area's main task names match the card (order-sensitive)."""
+    if areas is None:
+        areas = load_routines().get("areas", {})
+    for area_key, area in (areas or {}).items():
+        if not isinstance(area, dict):
+            continue
+        yaml_names = [
+            (t.get("name") or "").strip()
+            for t in area.get("tasks", [])
+            if isinstance(t, dict) and (t.get("name") or "").strip()
+        ]
+        if not yaml_names:
+            continue
+        card = cards.get(area_key)
+        if card is None:
+            return False
+        card_names = [
+            (t.get("name") or "").strip()
+            for t in card.get("tasks", [])
+            if isinstance(t, dict)
+        ]
+        if card_names != yaml_names:
+            return False
+    return True
+
+
 def get_routine_cards(week_key: str) -> dict[str, dict]:
     """Load all area cards for a week, auto-generating if needed."""
     week_dir = _routine_dir(week_key)
@@ -746,6 +773,10 @@ def get_routine_cards(week_key: str) -> dict[str, dict]:
         parts = week_key.split("-W")
         year, wn = int(parts[0]), int(parts[1])
         return _generate_routine_cards(week_key, date.fromisocalendar(year, wn, 1))
+    # YAML rewrites (timed daily rename/split) — rebuild so Today sees new rows.
+    # Fills are preserved by matching task name.
+    if not _routine_task_names_match(cards):
+        return regenerate_routine_cards(week_key)
     synced = _sync_task_weights_from_routines(cards)
     synced = _sync_task_schedule_meta_from_routines(cards) or synced
     if synced:
