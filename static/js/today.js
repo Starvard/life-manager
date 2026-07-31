@@ -1,12 +1,8 @@
-/* Today — an ADHD-friendly daily focus view.
+/* Today — timed daily plan + flex slots + bonus.
  *
- * Design goals (from research): reward the moment not the outcome, immediate
- * visual + haptic feedback on every tap, two-taps-max, cumulative XP instead of
- * shame-based streaks, one clear focus, calm by default, respect Reduce Motion.
- *
- * Data is bootstrapped server-side in window.__TODAY__ (current week's cards +
- * past completion history), so first paint needs zero network calls. Taps update
- * the UI optimistically and PATCH the existing /set-dot API in the background.
+ * Day plan = timed tasks for today (sorted by time) plus up to three flex
+ * slots that each pull one due non-daily from the right pool. Bonus holds
+ * remaining non-dailies and does not count toward the progress ring.
  */
 (function () {
   const BOOT = window.__TODAY__ || {};
@@ -14,28 +10,25 @@
   const WEEK_KEY = BOOT.week_key;
   const DAY_INDEX = Number(BOOT.day_index || 0);
   const cards = BOOT.cards || {};
+  const FLEX_SLOTS = Array.isArray(BOOT.daily_flex_slots) ? BOOT.daily_flex_slots : [];
   const MS_DAY = 86400000;
   const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // ---- preferences (localStorage) ----
   const PREF_SOUND = 'lm:today:sound';
   const PREF_HAPTICS = 'lm:today:haptics';
   let soundOn = localStorage.getItem(PREF_SOUND) === '1';
   let hapticsOn = localStorage.getItem(PREF_HAPTICS) !== '0';
 
-  // ---- gamification state (localStorage) ----
   const XP_KEY = 'lm:today:xp';
   const CELEB_KEY = 'lm:today:celebrated';
   function getXp() { return Math.max(0, parseInt(localStorage.getItem(XP_KEY) || '0', 10) || 0); }
   function setXp(v) { localStorage.setItem(XP_KEY, String(Math.max(0, v))); }
 
-  // ---- skip (this session only) + plan-a-date (persisted) ----
   const skipped = new Set();
   const PLAN_KEY = 'lm:today:plans';
   function getPlans() {
     let p = {};
     try { p = JSON.parse(localStorage.getItem(PLAN_KEY) || '{}') || {}; } catch (e) { p = {}; }
-    // Once the planned date arrives (or passes), drop it so the task returns to today.
     let changed = false;
     Object.keys(p).forEach((k) => { if (!p[k] || p[k] <= SEL) { delete p[k]; changed = true; } });
     if (changed) localStorage.setItem(PLAN_KEY, JSON.stringify(p));
@@ -45,7 +38,6 @@
   function clearPlan(key) { const p = getPlans(); delete p[key]; localStorage.setItem(PLAN_KEY, JSON.stringify(p)); }
   function planKeyOf(r) { return r.areaKey + '::' + r.name; }
 
-  // ---- date / freq helpers (ported from the proven routine logic) ----
   function parseIso(s) { return new Date(String(s || '').slice(0, 10) + 'T00:00:00'); }
   function iso(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
@@ -55,19 +47,26 @@
   function intervalDays(freq) { const f = Number(freq || 0); if (!Number.isFinite(f) || f <= 0) return 9999; if (f >= 7) return 1; return Math.max(1, Math.round(7 / f)); }
   function keyOf(areaKey, name) { return areaKey + '::' + name; }
   function dateLabel(dIso) { return parseIso(dIso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }); }
-
-  function dailyBucket(name) {
-    const n = String(name || '').toLowerCase();
-    if (n.includes('brush') || n.includes('floss') || n.includes('coffee') || n.includes('breakfast') || n.includes('vitamin') || n.includes('med') || n.includes('morning')) return 'Morning';
-    if (n.includes('dinner') || n.includes('evening') || n.includes('bed') || n.includes('trash') || n.includes('dish') || n.includes('night')) return 'Evening';
-    return 'Midday';
+  function normTime(t) {
+    if (!t) return null;
+    const s = String(t).trim();
+    const m = s.match(/^(\d{1,2}):(\d{2})/);
+    if (!m) return null;
+    return String(Math.max(0, Math.min(23, parseInt(m[1], 10)))).padStart(2, '0') + ':' + String(Math.max(0, Math.min(59, parseInt(m[2], 10)))).padStart(2, '0');
+  }
+  function formatTime(hhmm) {
+    const t = normTime(hhmm);
+    if (!t) return '';
+    let h = parseInt(t.slice(0, 2), 10);
+    const m = t.slice(3);
+    const ap = h >= 12 ? 'pm' : 'am';
+    h = h % 12; if (h === 0) h = 12;
+    return h + ':' + m + ap;
   }
 
-  // ---- build the model from bootstrapped cards + history ----
   function buildHistory() {
     const hist = {};
     Object.keys(BOOT.history || {}).forEach((k) => { hist[k] = (BOOT.history[k] || []).slice(); });
-    // Overlay current week completions from the live cards (kept fresh on every tap).
     Object.keys(cards).forEach((ak) => {
       const card = cards[ak];
       const ws = card.week_start;
@@ -91,6 +90,11 @@
     const scheduledMax = Math.max(0, ...((task.scheduled || []).map((n) => Number(n || 0))));
     const rowMax = Math.max(0, ...((task.days || []).map((r) => (Array.isArray(r) ? r.length : 0))));
     return Math.max(1, freqCount, scheduledMax, rowMax);
+  }
+
+  function scheduledToday(task) {
+    const sched = task.scheduled || [];
+    return Number(sched[DAY_INDEX] || 0) > 0;
   }
 
   function recurringStatus(task, areaKey, hist) {
@@ -123,15 +127,32 @@
       const areaName = card.area_name || areaKey;
       (card.tasks || []).forEach((task, taskIndex) => {
         const id = (isDaily(task.freq) ? 'd' : 'r') + ':' + areaKey + ':' + taskIndex;
-        if (isDaily(task.freq)) {
-          const total = dailyCount(task);
+        const time = normTime(task.time);
+        const atWork = !!task.at_work;
+        const schedToday = scheduledToday(task);
+        // Timed + scheduled today (incl. weekday work via freq 5 + on_days):
+        // treat like a daily slot so completion is today's dots, not history.
+        if (isDaily(task.freq) || (time && schedToday)) {
+          const total = isDaily(task.freq) ? dailyCount(task) : Math.max(1, Number((task.scheduled || [])[DAY_INDEX] || 1));
           const row = (task.days && task.days[DAY_INDEX]) || [];
           let done = 0;
           for (let i = 0; i < total; i++) if (row[i]) done++;
-          rows.push({ id, kind: 'daily', areaKey, areaName, task, taskIndex, name: task.name || '', bucket: dailyBucket(task.name), total, done, complete: done >= total });
+          rows.push({
+            id, kind: 'daily', areaKey, areaName, task, taskIndex,
+            name: task.name || '', time, atWork, total, done,
+            complete: done >= total,
+            onPlan: !!time && (isDaily(task.freq) || schedToday),
+          });
         } else {
           const st = recurringStatus(task, areaKey, hist);
-          rows.push({ id, kind: 'recurring', areaKey, areaName, task, taskIndex, name: task.name || '', status: st.status, label: st.label, dueIso: st.dueIso, complete: st.status === 'done' });
+          const onTimeline = !!time && (st.status === 'overdue' || st.status === 'due' || st.status === 'done' || schedToday);
+          rows.push({
+            id, kind: 'recurring', areaKey, areaName, task, taskIndex,
+            name: task.name || '', time, atWork,
+            status: st.status, label: st.label, dueIso: st.dueIso,
+            complete: st.status === 'done',
+            onPlan: onTimeline,
+          });
         }
       });
     });
@@ -140,18 +161,72 @@
     return rows;
   }
 
-  // ---- progress / goal ----
-  function computeProgress(rows) {
-    let total = 0, done = 0;
+  function flexPriority(r) {
+    if (r.complete || r.plannedDate) return 99;
+    if (r.kind !== 'recurring') return 99;
+    if (r.status === 'overdue') return 0;
+    if (r.status === 'due') return 1;
+    if (r.status === 'upcoming') return 2;
+    return 3;
+  }
+
+  function pickFlex(rows, pool, usedIds) {
+    const cand = rows.filter((r) => {
+      if (usedIds.has(r.id) || r.complete || r.plannedDate || skipped.has(r.id)) return false;
+      if (r.kind !== 'recurring') return false;
+      if (r.onPlan && r.time) return false; // already on the timed timeline
+      if (pool === 'at_work') return !!r.atWork;
+      return !r.atWork; // home pool
+    }).sort((a, b) => flexPriority(a) - flexPriority(b) || (a.dueIso || '').localeCompare(b.dueIso || ''));
+    return cand[0] || null;
+  }
+
+  function buildDayPlan(rows) {
+    const used = new Set();
+    const items = [];
+
     rows.forEach((r) => {
-      if (r.plannedDate) return; // deferred to a future day; not part of today's goal
+      if (!r.onPlan || !r.time || r.plannedDate) return;
+      items.push({ sortTime: r.time, row: r, flex: null });
+      used.add(r.id);
+    });
+
+    FLEX_SLOTS.forEach((slot) => {
+      const t = normTime(slot.time);
+      if (!t) return;
+      const pick = pickFlex(rows, slot.pool || 'home', used);
+      if (!pick) {
+        items.push({
+          sortTime: t,
+          row: null,
+          flex: { key: slot.key, label: slot.label || 'Flex', empty: true, pool: slot.pool },
+        });
+        return;
+      }
+      used.add(pick.id);
+      items.push({
+        sortTime: t,
+        row: pick,
+        flex: { key: slot.key, label: slot.label || 'Flex', empty: false, pool: slot.pool },
+      });
+    });
+
+    items.sort((a, b) => a.sortTime.localeCompare(b.sortTime));
+    return { items, usedIds: used };
+  }
+
+  function computeProgress(dayItems) {
+    let total = 0, done = 0;
+    dayItems.forEach((it) => {
+      if (it.flex && it.flex.empty) return; // empty flex does not inflate the goal
+      const r = it.row;
+      if (!r || r.plannedDate) return;
       if (r.kind === 'daily') { total += r.total; done += r.done; }
-      else if (r.status === 'overdue' || r.status === 'due' || r.status === 'done') { total += 1; if (r.complete) done += 1; }
+      else { total += 1; if (r.complete) done += 1; }
     });
     return { total, done, pct: total ? Math.round((done / total) * 100) : 100 };
   }
 
-  // ---- streak (forgiving: 1 completion = active day, one grace gap allowed) ----
   function computeStreak(hist) {
     const counts = {};
     Object.keys(hist).forEach((k) => (hist[k] || []).forEach((d) => { counts[d] = (counts[d] || 0) + 1; }));
@@ -159,7 +234,7 @@
     const last7 = [];
     for (let i = 6; i >= 0; i--) { const d = iso(addDays(parseIso(SEL), -i)); last7.push({ d, on: active(d), today: d === SEL }); }
     let streak = 0, grace = 1;
-    let cursor = active(SEL) ? 0 : 1; // if today not done yet, count from yesterday so it doesn't read 0 mid-day
+    let cursor = active(SEL) ? 0 : 1;
     for (let i = cursor; i < 400; i++) {
       const d = iso(addDays(parseIso(SEL), -i));
       if (active(d)) streak++;
@@ -169,7 +244,6 @@
     return { streak, last7 };
   }
 
-  // ---- feedback: haptics, sound, xp float, confetti ----
   function haptic(pattern) { if (hapticsOn && navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) {} } }
   let audioCtx = null;
   function beep(freqs) {
@@ -221,13 +295,12 @@
     cancelAnimationFrame(raf); frame();
   }
 
-  // ---- celebration ----
   const CELEBRATE_MSGS = [
     "Every single thing — done. Your brain earned this.",
     "Full clear. That momentum is yours to keep.",
     "You showed up and finished. That's the whole game.",
     "Done and dusted. Future-you is grateful.",
-    "Nailed the day. Go enjoy the dopamine. 🧠",
+    "Nailed the day. Go enjoy the dopamine.",
   ];
   function celebrate() {
     if (localStorage.getItem(CELEB_KEY) === SEL) return;
@@ -237,29 +310,21 @@
     document.getElementById('celebrate-msg').textContent = CELEBRATE_MSGS[Math.floor(Math.random() * CELEBRATE_MSGS.length)];
     overlay.classList.add('show');
     haptic([0, 50, 40, 80]); beep([523, 659, 784, 1047]); confettiBurst(true);
-    renderHero(lastRows);
+    renderHero(lastDayItems);
   }
   function closeCelebrate() { document.getElementById('celebrate').classList.remove('show'); }
 
-  // ---- headlines (novelty) ----
   const HEADLINES = [
     "Let's make today count", "One tap at a time", "You've got this", "Small wins stack up",
     "Pick one thing. Start there.", "Progress over perfect", "Future-you says thanks", "Tiny steps, real momentum",
   ];
-  const NICE = ["Nice.", "Boom.", "Got it.", "Yes!", "Clean.", "Done.", "Sweet.", "Crushed it."];
 
-  // ---- rendering ----
   let lastRows = [];
+  let lastDayItems = [];
   let lastUpNext = null;
 
-  function plannedCardHtml(r) {
-    return '<button type="button" class="tk planned" data-unplan="' + esc(planKeyOf(r)) + '">' +
-      '<span class="tk-check">📅</span>' +
-      '<span class="tk-body"><span class="tk-name">' + esc(r.name) + '</span><span class="tk-sub">Planned for ' + esc(dateLabel(r.plannedDate)) + ' · tap to bring back · ' + esc(r.areaName) + '</span></span>' +
-      '</button>';
-  }
-  function renderHero(rows) {
-    const prog = computeProgress(rows);
+  function renderHero(dayItems) {
+    const prog = computeProgress(dayItems);
     const ring = document.getElementById('ring');
     const C = 2 * Math.PI * 82;
     document.getElementById('ring-fg').setAttribute('stroke-dashoffset', String(C * (1 - prog.pct / 100)));
@@ -278,75 +343,109 @@
     return prog;
   }
 
-  function taskCardHtml(r) {
+  function taskCardHtml(r, opts) {
+    opts = opts || {};
     let cls = 'tk', icon = '○', sub = '', pill = '';
     if (r.kind === 'daily') {
       cls += ' daily' + (r.complete ? ' done' : '');
       icon = r.complete ? '✓' : '○';
-      sub = r.bucket + ' · ' + r.areaName;
+      sub = r.areaName;
       if (r.total > 1) pill = '<span class="tk-pill">' + r.done + '/' + r.total + '</span>';
     } else {
       cls += ' ' + (r.complete ? 'done' : r.status);
       icon = r.complete ? '✓' : (r.status === 'overdue' ? '!' : '○');
-      sub = r.label + ' · ' + r.areaName;
+      sub = (r.label || '') + ' · ' + r.areaName;
     }
+    if (r.atWork) cls += ' at-work';
+    if (opts.flexLabel) cls += ' flex-slot';
+    const timeBit = opts.timeLabel
+      ? '<span class="tk-time">' + esc(opts.timeLabel) + '</span>'
+      : (r.time ? '<span class="tk-time">' + esc(formatTime(r.time)) + '</span>' : '');
+    const flexBit = opts.flexLabel
+      ? '<span class="tk-flex-tag">' + esc(opts.flexLabel) + '</span>'
+      : '';
     return '<button type="button" class="' + cls + '" data-id="' + esc(r.id) + '">' +
+      timeBit +
       '<span class="tk-check">' + icon + '</span>' +
-      '<span class="tk-body"><span class="tk-name">' + esc(r.name) + '</span><span class="tk-sub">' + esc(sub) + '</span></span>' +
+      '<span class="tk-body"><span class="tk-name">' + esc(r.name) + flexBit + '</span><span class="tk-sub">' + esc(sub) + '</span></span>' +
       pill + '</button>';
   }
 
-  function sectionHtml(title, list, extraClass) {
-    if (!list.length) return '';
-    return '<div class="section ' + (extraClass || '') + '"><div class="section-title"><h2>' + esc(title) + '</h2><span class="count">' + list.length + '</span></div>' +
-      list.map(taskCardHtml).join('') + '</div>';
+  function emptyFlexHtml(it) {
+    return '<div class="tk flex-slot flex-empty">' +
+      '<span class="tk-time">' + esc(formatTime(it.sortTime)) + '</span>' +
+      '<span class="tk-check">·</span>' +
+      '<span class="tk-body"><span class="tk-name">' + esc(it.flex.label) + '</span>' +
+      '<span class="tk-sub">Nothing due in this pool — enjoy the buffer</span></span></div>';
   }
 
-  function pickUpNext(rows) {
-    const order = (r) => {
-      if (r.complete) return 99;
-      if (r.kind === 'recurring' && r.status === 'overdue') return 0;
-      if (r.kind === 'recurring' && r.status === 'due') return 1;
-      if (r.kind === 'daily' && r.bucket === 'Morning') return 2;
-      if (r.kind === 'daily' && r.bucket === 'Midday') return 3;
-      if (r.kind === 'daily' && r.bucket === 'Evening') return 4;
-      if (r.kind === 'recurring' && r.status === 'upcoming') return 6;
-      return 7;
-    };
-    const cand = rows.filter((r) => !r.complete && !r.plannedDate && !skipped.has(r.id)).sort((a, b) => order(a) - order(b));
-    return cand[0] || null;
+  function plannedCardHtml(r) {
+    return '<button type="button" class="tk planned" data-unplan="' + esc(planKeyOf(r)) + '">' +
+      '<span class="tk-check">📅</span>' +
+      '<span class="tk-body"><span class="tk-name">' + esc(r.name) + '</span><span class="tk-sub">Planned for ' + esc(dateLabel(r.plannedDate)) + ' · tap to bring back · ' + esc(r.areaName) + '</span></span>' +
+      '</button>';
+  }
+
+  function pickUpNext(dayItems) {
+    for (let i = 0; i < dayItems.length; i++) {
+      const it = dayItems[i];
+      if (it.flex && it.flex.empty) continue;
+      const r = it.row;
+      if (!r || r.complete || r.plannedDate || skipped.has(r.id)) continue;
+      return { row: r, item: it };
+    }
+    return null;
   }
 
   function render(justId) {
     const rows = buildRows();
     lastRows = rows;
-    const prog = renderHero(rows);
+    const { items, usedIds } = buildDayPlan(rows);
+    lastDayItems = items;
+    const prog = renderHero(items);
 
-    // Up Next
     const upWrap = document.getElementById('up-next');
-    const next = pickUpNext(rows);
-    lastUpNext = next;
+    const next = pickUpNext(items);
+    lastUpNext = next ? next.row : null;
     if (!next) {
-      upWrap.innerHTML = '<div class="upnext alldone"><div class="un-label">All done</div><div class="un-name">Nothing left for today 🎉</div><div class="un-sub">Everything due is checked off. Rest is productive too.</div></div>';
+      upWrap.innerHTML = '<div class="upnext alldone"><div class="un-label">All done</div><div class="un-name">Day plan clear</div><div class="un-sub">Everything on today\'s timeline is checked off. Bonus is optional.</div></div>';
     } else {
-      const sub = next.kind === 'daily' ? (next.bucket + ' · ' + next.areaName + (next.total > 1 ? ' · ' + next.done + '/' + next.total : '')) : (next.label + ' · ' + next.areaName);
-      const planDefault = (next.dueIso && next.dueIso > SEL) ? next.dueIso : iso(addDays(parseIso(SEL), 1));
-      upWrap.innerHTML = '<div class="upnext"><div class="un-label">Up next</div><div class="un-name">' + esc(next.name) + '</div><div class="un-sub">' + esc(sub) + '</div>' +
-        '<button type="button" class="un-btn" data-id="' + esc(next.id) + '">Do it ✓</button>' +
+      const r = next.row;
+      const flexLabel = next.item.flex ? next.item.flex.label : null;
+      const sub = (flexLabel ? flexLabel + ' · ' : '') +
+        (r.kind === 'daily'
+          ? (r.areaName + (r.total > 1 ? ' · ' + r.done + '/' + r.total : ''))
+          : ((r.label || '') + ' · ' + r.areaName));
+      const planDefault = (r.dueIso && r.dueIso > SEL) ? r.dueIso : iso(addDays(parseIso(SEL), 1));
+      upWrap.innerHTML = '<div class="upnext"><div class="un-label">Up next' +
+        (next.item.sortTime ? ' · ' + esc(formatTime(next.item.sortTime)) : '') +
+        '</div><div class="un-name">' + esc(r.name) + '</div><div class="un-sub">' + esc(sub) + '</div>' +
+        '<button type="button" class="un-btn" data-id="' + esc(r.id) + '">Do it ✓</button>' +
         '<div class="un-actions"><button type="button" data-act="skip">Skip for now</button><button type="button" data-act="plan">📅 Plan a date</button></div>' +
         '<input type="date" class="un-plan-input" data-plan-input min="' + esc(iso(addDays(parseIso(SEL), 1))) + '" value="' + esc(planDefault) + '">' +
         '<div class="un-plan-hint">Pick the day you\'ll actually do it — it\'ll wait in “Planned” until then.</div></div>';
     }
 
-    // Sections
-    const daily = rows.filter((r) => r.kind === 'daily');
-    const rec = rows.filter((r) => r.kind === 'recurring');
-    const buckets = ['Morning', 'Midday', 'Evening'];
-    let html = '';
-    const dailyOpen = daily.filter((r) => !r.complete && !r.plannedDate);
-    buckets.forEach((b) => { html += sectionHtml(b, dailyOpen.filter((r) => r.bucket === b)); });
-    const due = rec.filter((r) => (r.status === 'overdue' || r.status === 'due') && !r.plannedDate);
-    html += sectionHtml('Due', due.sort((a, b) => (a.status === 'overdue' ? 0 : 1) - (b.status === 'overdue' ? 0 : 1)));
+    let html = '<div class="section"><div class="section-title"><h2>Day plan</h2><span class="count">' +
+      items.filter((it) => !(it.flex && it.flex.empty)).length + '</span></div>';
+    items.forEach((it) => {
+      if (it.flex && it.flex.empty) { html += emptyFlexHtml(it); return; }
+      html += taskCardHtml(it.row, {
+        timeLabel: formatTime(it.sortTime),
+        flexLabel: it.flex ? it.flex.label : null,
+      });
+    });
+    html += '</div>';
+
+    const bonus = rows.filter((r) =>
+      !r.complete && !r.plannedDate && r.kind === 'recurring' && !usedIds.has(r.id) &&
+      (r.status === 'overdue' || r.status === 'due' || r.status === 'upcoming')
+    ).sort((a, b) => flexPriority(a) - flexPriority(b) || (a.dueIso || '').localeCompare(b.dueIso || ''));
+    if (bonus.length) {
+      html += '<div class="section"><div class="section-title"><h2>Bonus</h2><span class="count">' + bonus.length + '</span></div>' +
+        '<div id="bonus-list" style="display:none">' + bonus.map((r) => taskCardHtml(r)).join('') + '</div>' +
+        '<button type="button" class="show-more" id="show-bonus">Show ' + bonus.length + ' bonus</button></div>';
+    }
 
     const planned = rows.filter((r) => r.plannedDate).sort((a, b) => (a.plannedDate || '').localeCompare(b.plannedDate || ''));
     if (planned.length) {
@@ -354,15 +453,11 @@
         planned.map(plannedCardHtml).join('') + '</div>';
     }
 
-    const coming = rec.filter((r) => (r.status === 'upcoming' || r.status === 'later') && !r.plannedDate).sort((a, b) => (a.dueIso || '').localeCompare(b.dueIso || ''));
-    if (coming.length) {
-      html += '<div class="section"><div class="section-title"><h2>Coming up</h2><span class="count">' + coming.length + '</span></div>' +
-        '<div id="coming-list" style="display:none">' + coming.map(taskCardHtml).join('') + '</div>' +
-        '<button type="button" class="show-more" id="show-coming">Show ' + coming.length + ' upcoming</button></div>';
-    }
-
     const done = rows.filter((r) => r.complete);
-    if (done.length) html += sectionHtml('Done today', done, 'done-section');
+    if (done.length) {
+      html += '<div class="section done-section"><div class="section-title"><h2>Done today</h2><span class="count">' + done.length + '</span></div>' +
+        done.map((r) => taskCardHtml(r)).join('') + '</div>';
+    }
 
     if (!rows.length) html += '<div class="empty">No routines set up yet. Add some in the <a href="/cards">classic view</a>.</div>';
     document.getElementById('sections').innerHTML = html;
@@ -375,11 +470,9 @@
     if (prog.total > 0 && prog.done >= prog.total) celebrate();
   }
 
-  // ---- tap handling (optimistic) ----
   function findRow(id) { return lastRows.find((r) => r.id === id); }
 
   function applyToggle(r) {
-    // Decide which dot to flip for the selected day, and the new value.
     const card = cards[r.areaKey];
     if (!card) return null;
     const task = card.tasks[r.taskIndex];
@@ -414,12 +507,10 @@
 
     render(id);
 
-    // Persist in the background; revert on hard failure.
     fetch('/api/routine-cards/' + encodeURIComponent(WEEK_KEY) + '/' + encodeURIComponent(r.areaKey) + '/set-dot', {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ task: r.taskIndex, day: DAY_INDEX, dot: res.dot, value: res.value, list: 'tasks' }),
     }).then((resp) => { if (!resp.ok) throw new Error('save failed'); }).catch(() => {
-      // revert
       const card = cards[r.areaKey];
       if (card && card.tasks[r.taskIndex] && card.tasks[r.taskIndex].days[DAY_INDEX]) {
         card.tasks[r.taskIndex].days[DAY_INDEX][res.dot] = !res.value;
@@ -429,7 +520,6 @@
     });
   }
 
-  // ---- wire up ----
   function setHeadline() {
     const idx = Math.abs(parseIso(SEL).getTime() / MS_DAY | 0) % HEADLINES.length;
     document.getElementById('headline').textContent = BOOT.is_today ? HEADLINES[idx] : 'Catching up on ' + dateLabel(SEL);
@@ -456,12 +546,11 @@
     document.getElementById('sections').addEventListener('click', handler);
     document.getElementById('up-next').addEventListener('click', handler);
     document.getElementById('sections').addEventListener('click', (e) => {
-      if (e.target.id === 'show-coming') { const l = document.getElementById('coming-list'); if (l) l.style.display = 'block'; e.target.style.display = 'none'; return; }
+      if (e.target.id === 'show-bonus') { const l = document.getElementById('bonus-list'); if (l) l.style.display = 'block'; e.target.style.display = 'none'; return; }
       const un = e.target.closest('[data-unplan]');
       if (un) { clearPlan(un.getAttribute('data-unplan')); render(); }
     });
 
-    // Up next: Skip (surface a different task this session) / Plan a date (defer).
     document.getElementById('up-next').addEventListener('click', (e) => {
       const act = e.target.closest('[data-act]');
       if (!act || !lastUpNext) return;

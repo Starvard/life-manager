@@ -1,3 +1,16 @@
+daily_flex_slots:
+- key: morning
+  time: "06:15"
+  label: Morning flex
+  pool: home
+- key: work
+  time: "11:00"
+  label: Work flex
+  pool: at_work
+- key: evening
+  time: "16:30"
+  label: Evening flex
+  pool: home
 area_order:
 - hygiene
 - home
@@ -12,16 +25,20 @@ areas:
     tasks:
     - name: Floss
       weight: 2.0
-      freq: 14.0
+      freq: 7.0
+      time: "06:00"
     - name: Brush
       weight: 2.0
-      freq: 14.0
+      freq: 7.0
+      time: "06:02"
     - name: Shower
       weight: 2.0
-      freq: 4.0
+      freq: 7.0
+      time: "16:15"
     - name: Moisturize
       weight: 1.5
       freq: 7.0
+      time: "21:00"
     - name: Trim Nails
       weight: 1.0
       freq: 1.0
@@ -31,41 +48,68 @@ areas:
   self_care:
     name: Self-Care
     tasks:
+    - name: Vitamin D Rowan
+      weight: 1.5
+      freq: 7.0
+      time: "07:05"
+    - name: Drink Water (mid-morning)
+      weight: 1.0
+      freq: 7.0
+      time: "10:00"
+    - name: Drink Water (midday)
+      weight: 1.0
+      freq: 7.0
+      time: "12:00"
+    - name: Drink Water (afternoon)
+      weight: 1.0
+      freq: 7.0
+      time: "14:00"
+    - name: Drink Water (after work)
+      weight: 1.0
+      freq: 7.0
+      time: "17:00"
+    - name: Drink Water (evening)
+      weight: 1.0
+      freq: 7.0
+      time: "21:15"
+    - name: Meditate
+      weight: 2.0
+      freq: 2.0
+      at_work: true
     - name: Play Basketball
       weight: 2.5
       freq: 2.0
     - name: Run 5k
       weight: 2.5
       freq: 2.0
-    - name: Meditate
-      weight: 2.0
-      freq: 2.0
-    - name: Drink Water
-      weight: 1.0
-      freq: 35.0
     - name: Physical Therapy
       weight: 2.5
       freq: 3.0
     - name: Strength Train
       weight: 2.5
       freq: 3.0
-    - name: Take Vitamins
-      weight: 1.5
-      freq: 14.0
-    - name: Vitamin D Rowan
-      freq: 7.0
+    - name: Light workout
+      weight: 2.0
+      freq: 2.5
   family:
     name: Family
     tasks:
+    - name: Rowan nap
+      weight: 3.0
+      freq: 7.0
+      time: "07:30"
     - name: Jenna Night Routine
       weight: 4.0
       freq: 7.0
+      time: "19:30"
     - name: Rosemary Night Routine
       weight: 4.0
       freq: 7.0
+      time: "20:00"
     - name: Rowan Night Routine
       weight: 4.0
       freq: 7.0
+      time: "20:30"
     - name: Jenna 1:1 Date
       weight: 3.5
       freq: 0.25
@@ -87,21 +131,46 @@ areas:
   home:
     name: Home
     tasks:
-    - name: Plant Care
-      weight: 1.5
-      freq: 3.0
-    - name: Budget
-      weight: 2.5
-      freq: 4.0
-    - name: Walk Jasper
-      weight: 2.5
-      freq: 3.0
-    - name: Dishes
+    - name: Dishes (morning)
       weight: 2.0
-      freq: 14.0
+      freq: 7.0
+      time: "06:45"
+    - name: Make breakfast
+      weight: 2.0
+      freq: 7.0
+      time: "06:55"
     - name: Tidy Up
       weight: 2.0
       freq: 7.0
+      time: "16:45"
+    - name: Dishes (evening)
+      weight: 2.0
+      freq: 7.0
+      time: "18:30"
+    - name: Take out Trash
+      weight: 2.0
+      freq: 1.0
+      time: "19:00"
+      on_days:
+      - 1
+    - name: Plant Care
+      weight: 1.5
+      freq: 3.0
+    - name: Walk Jasper
+      weight: 2.5
+      freq: 3.0
+    - name: Laundry
+      weight: 2.0
+      freq: 2.0
+    - name: Meal Plan
+      weight: 2.0
+      freq: 1.0
+    - name: Mow Lawn
+      weight: 1.5
+      freq: 1.0
+    - name: Grocery shop
+      weight: 2.5
+      freq: 1.5
     - name: Deep Clean Upstairs
       weight: 2.0
       freq: 0.5
@@ -114,41 +183,83 @@ areas:
     - name: Knife Sharpening
       weight: 1.0
       freq_per_year: 4.0
-    - name: Meal Plan
-      weight: 2.0
-      freq: 1.0
-    - name: Laundry
-      weight: 2.0
-      freq: 2.0
-    - name: Mow Lawn
-      weight: 1.5
-      freq: 1.0
-    - name: Take out Trash
-      weight: 2.0
-      freq: 1.0
-      on_days:
-      - 1
   homeschool:
     name: Homeschool
     tasks:
     - name: Lesson Plan
       weight: 2.0
       freq: 1.0
+      at_work: true
     - name: Teach
       weight: 3.5
       freq: 4.0
   work:
     name: Work
     tasks:
-    - name: Emails
+    - name: Leave for work
+      weight: 1.5
+      freq: 5.0
+      time: "07:50"
+      on_days:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+    - name: Emails (start)
       weight: 2.0
       freq: 5.0
-    - name: Plan
+      time: "08:00"
+      on_days:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+    - name: Plan day
       weight: 2.5
       freq: 5.0
-    - name: Focus Work
+      time: "08:15"
+      on_days:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+    - name: Focus work
       weight: 3.0
       freq: 5.0
+      time: "09:00"
+      on_days:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+    - name: Emails (end)
+      weight: 2.0
+      freq: 5.0
+      time: "15:50"
+      on_days:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+    - name: Leave work
+      weight: 1.5
+      freq: 5.0
+      time: "16:00"
+      on_days:
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+    - name: Budget
+      weight: 2.5
+      freq: 2.5
+      at_work: true
   car_maintenance:
     name: Car Maintenance
     tasks: []

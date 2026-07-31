@@ -87,6 +87,11 @@
   .tk-name { font-weight: 700; font-size: 1rem; }
   .tk-sub { font-size: .76rem; color: var(--text-muted); margin-top: .12rem; }
   .tk-pill { flex: 0 0 auto; font-size: .72rem; font-weight: 700; color: var(--text-muted); padding: .22rem .5rem; border-radius: 999px; background: rgba(255,255,255,.06); }
+  .tk-time { flex: 0 0 3.4rem; font-size: .72rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .tk-flex-tag { display: inline-block; margin-left: .4rem; font-size: .65rem; font-weight: 700; color: var(--text-muted); padding: .1rem .4rem; border-radius: 999px; background: rgba(255,255,255,.08); vertical-align: middle; }
+  .tk.flex-slot { border-left-color: #c084fc; }
+  .tk.flex-empty { opacity: .7; cursor: default; border-style: dashed; }
+  .tk.at-work .tk-name::after { content: none; }
   .tk.pop { animation: tkpop .42s cubic-bezier(.22,1.4,.4,1); }
   @keyframes tkpop { 0%{transform:scale(1)} 35%{transform:scale(1.04)} 100%{transform:scale(1)} }
 
