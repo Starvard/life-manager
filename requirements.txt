@@ -7,3 +7,4 @@ pywebpush
 apscheduler
 cryptography
 beautifulsoup4
+plaid-python

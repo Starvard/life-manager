@@ -2,15 +2,22 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system deps for reportlab/pillow
+# Install system deps for reportlab/pillow.
+# tzdata is needed so Python's zoneinfo can resolve the LM_TIMEZONE /
+# TZ setting (e.g. "America/New_York"); without it the container runs in
+# UTC and the routine rollover happens 4–5 hours early on the East Coast.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libjpeg62-turbo-dev zlib1g-dev libfreetype6-dev \
+    gcc libjpeg62-turbo-dev zlib1g-dev libfreetype6-dev tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+
+# Set at deploy time by CI to the merged PR (e.g. pr42); baked into the image for Home / healthz.
+ARG LM_APP_VERSION=
+ENV LM_APP_VERSION=${LM_APP_VERSION}
 
 # Data directory — mounted as persistent volume in production
 # Falls back to local ./data if no volume is mounted
@@ -34,4 +41,4 @@ CMD ["gunicorn", \
      "--max-requests", "500", \
      "--max-requests-jitter", "75", \
      "--timeout", "120", \
-     "app:app"]
+     "cleaning_app:app"]

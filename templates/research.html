@@ -18,6 +18,12 @@
             </a>
         </li>
         {% endfor %}
+        <li>
+            <a href="{{ url_for('static', filename='research/metal-printer-decision.html') }}" class="research-toc-link">
+                <span class="research-toc-title">Metal Printer Decision: EOS M290 vs SLM 280 vs Used Machine</span>
+                <span class="research-toc-summary">Decision matrix, meeting questions, August production path, used-machine risk review, and printable sheets for choosing the first two LPBF machines.</span>
+            </a>
+        </li>
     </ol>
     {% if not topics %}
     <p class="research-empty">No research topics yet.</p>

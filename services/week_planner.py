@@ -21,6 +21,8 @@ tasks still ignore ``on_days``).
 import math
 from datetime import date, timedelta
 
+from services.local_time import local_today
+
 # Optional (area_key, task_name) -> most recent calendar day any scheduled dot was completed.
 LastCompletedMap = dict[tuple[str, str], date]
 
@@ -58,14 +60,39 @@ def effective_weekly_freq(task: dict) -> float:
     return 0
 
 
-def should_appear_this_week(task: dict, week_date: date) -> bool:
-    """For sub-weekly tasks (freq < 1), decide if this is a 'due' week."""
+def should_appear_this_week(
+    task: dict,
+    week_date: date,
+    *,
+    last_completed: date | None = None,
+) -> bool:
+    """For sub-weekly tasks (freq < 1), decide if this is a 'due' week.
+
+    When ``last_completed`` is known, the next due window is anchored to it —
+    so completing a task early actually pushes the next reminder forward.
+    (E.g. Knife Sharpening at ``freq_per_year: 4`` = every ~13 weeks: if you
+    sharpen 2 months early, the task stays quiet for the next ~13 weeks from
+    that completion instead of rearming on the original name-hash cadence.)
+
+    Without ``last_completed`` we fall back to the deterministic
+    ``week_num % period`` pattern so brand-new calendars still surface every
+    sub-weekly task on *some* week.
+    """
     freq = effective_weekly_freq(task)
     if freq <= 0:
         return False
     if freq >= 1:
         return True
     period = max(1, round(1.0 / freq))
+
+    if last_completed is not None:
+        monday = week_start_date(week_date)
+        done_monday = week_start_date(last_completed)
+        weeks_since = (monday - done_monday).days // 7
+        if weeks_since < 0:
+            return False
+        return weeks_since >= period
+
     week_num = week_date.isocalendar()[1]
     offset = sum(ord(c) for c in task["name"]) % period
     return (week_num % period) == offset
@@ -294,11 +321,11 @@ def plan_week(
     have 0 dots this week (so the user can record unscheduled completions).
     """
     if target_date is None:
-        target_date = date.today()
+        target_date = local_today()
 
     monday = week_start_date(target_date)
     wk = iso_week_key(target_date)
-    as_of = as_of_date if as_of_date is not None else date.today()
+    as_of = as_of_date if as_of_date is not None else local_today()
 
     # Collect every task, tag with scheduling metadata
     all_tasks = []
@@ -307,12 +334,15 @@ def plan_week(
             freq = effective_weekly_freq(task)
             if freq <= 0:
                 continue
+            lc = last_completed.get((key, task["name"])) if last_completed else None
             all_tasks.append({
                 "area_key": key,
                 "name": task["name"],
                 "freq": freq,
                 "weight": task_weight_value(task),
-                "is_due": should_appear_this_week(task, target_date),
+                "is_due": should_appear_this_week(
+                    task, target_date, last_completed=lc
+                ),
                 "on_days": _normalize_on_days(task.get("on_days")),
             })
 

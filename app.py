@@ -9,6 +9,7 @@ from flask import (
 )
 
 import config
+from services.local_time import local_today
 
 _CACHE_BUST = str(int(time.time()))
 from services.routine_manager import load_routines, save_routines
@@ -28,12 +29,15 @@ from services.card_store import (
     regenerate_routine_cards,
     add_extra_task, remove_extra_task,
     complete_routine_day_scheduled,
+    routine_completion_history,
+    get_daily_flex_slots,
     get_baby_card, save_baby_card, update_baby_track, list_baby_days,
 )
 from services import push_subscriptions
 from services import vapid_keys
 from services.push_reminders import (
     refresh_reminder_state_after_dot_change,
+    run_reminder_scan,
     send_test_push_to_all,
 )
 from services.card_generator import generate_cards_pdf
@@ -55,6 +59,8 @@ from services.budget_categorizer import (
     BUDGET_CATEGORIES, infer_category, recategorize_all,
     list_keyword_rules, upsert_keyword_rule, delete_keyword_rule,
     learn_rule_from_override,
+    bulk_set_category,
+    replace_budget_category_globally,
 )
 from services.budget_csv_import import parse_csv_text
 from services import plaid_client, plaid_credentials
@@ -68,9 +74,13 @@ from services.fantasy_store import (
     remove_trade_idea as fantasy_remove_trade_idea,
     apply_sync_snapshot as fantasy_apply_sync_snapshot,
 )
+from services.fantasy_sleeper import search_nfl_rookies_for_draft
 from services.fantasy_sleeper import sync_team as fantasy_sync_team
 from services.fantasy_trade_jobs import refresh_trade_suggestions as fantasy_refresh_trades
 from services import recipes_store, recipes_search
+from services import ui_prefs
+from services import game_store
+from services.app_version import get_app_version
 
 # Seed persistent volume on first cloud deploy
 from seed_data import seed as _seed_data
@@ -78,6 +88,15 @@ _seed_data()
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("LM_SECRET_KEY", "life-manager-local-key")
+
+# Cache static assets (CSS/JS/icons) for a year. Every static URL is requested
+# with a "?v=<cache_bust>" query string (see inject_cache_bust); cache_bust is
+# the process start time, so it changes on every deploy/restart and forces a
+# fresh fetch then. Without this, Werkzeug defaults to "Cache-Control: no-cache",
+# which made the browser revalidate ~14 JS/CSS files on EVERY page navigation —
+# a dozen+ round-trips per page against a single-worker server. This is the
+# single biggest fix for the app feeling "very very slow" on a phone.
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = timedelta(days=365)
 
 for d in [config.PHOTOS_DIR, config.CARDS_DIR,
           config.ROUTINE_CARDS_DIR, config.BABY_CARDS_DIR,
@@ -122,26 +141,25 @@ def inject_network_url():
     return {
         "network_base_url": _network_base_url_for_phone(),
         "browser_on_loopback_host": loopback,
-        "default_notify_time": config.DEFAULT_NOTIFY_TIME,
     }
 
 
 def _default_week_key():
     """ISO week containing today (Mon–Sun). Matches /cards/day with no date param."""
-    return iso_week_key(week_start_date(date.today()))
+    return iso_week_key(week_start_date(local_today()))
 
 
 def _anchor_date_iso_for_week(week_key: str) -> str:
     """Pick a calendar date in week_key for Day-view links (prefer today if in-range)."""
     parts = week_key.split("-W")
     if len(parts) != 2:
-        return date.today().isoformat()
+        return local_today().isoformat()
     try:
         y, wn = int(parts[0]), int(parts[1])
         monday = date.fromisocalendar(y, wn, 1)
     except ValueError:
-        return date.today().isoformat()
-    today = date.today()
+        return local_today().isoformat()
+    today = local_today()
     sunday = monday + timedelta(days=6)
     if monday <= today <= sunday:
         return today.isoformat()
@@ -154,8 +172,26 @@ def _anchor_date_iso_for_week(week_key: str) -> str:
 def routine_nav_defaults():
     return {
         "routine_default_week": _default_week_key(),
-        "routine_today_iso": date.today().isoformat(),
+        "routine_today_iso": local_today().isoformat(),
     }
+
+
+@app.context_processor
+def inject_nav_visibility():
+    hidden = ui_prefs.get_hidden_nav_tabs()
+    return {
+        "hidden_nav_tabs": hidden,
+        "nav_tabs_catalog": [
+            {"key": k, "label": ui_prefs.NAV_TAB_LABELS[k]}
+            for k in ui_prefs.NAV_TAB_KEYS
+        ],
+    }
+
+
+@app.context_processor
+def inject_app_version():
+    v, _src = get_app_version()
+    return {"app_version": v}
 
 
 def _ordered_cards(cards: dict) -> dict:
@@ -166,7 +202,59 @@ def _ordered_cards(cards: dict) -> dict:
     return dict(sorted(cards.items(), key=lambda kv: order_map.get(kv[0], 999)))
 
 
+def _ordered_routine_areas_for_forms() -> dict:
+    """Routine areas in display order for the embedded save form."""
+    data = load_routines()
+    order = data.get("area_order", [])
+    all_areas = data.get("areas", {})
+    ordered_areas = {k: all_areas[k] for k in order if k in all_areas}
+    for k, v in all_areas.items():
+        if k not in ordered_areas:
+            ordered_areas[k] = v
+    return ordered_areas
+
+
 # \u2500\u2500 HTML Pages \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+def _today_focus_summary(cards: dict, today_idx: int | None) -> tuple[dict | None, int]:
+    """(up_next, open_count) for the dashboard's Today strip.
+
+    up_next mirrors the Today page's ordering: the first non-daily task with an
+    unfilled scheduled dot today (those are the ones that slip), falling back
+    to the first open daily task. open_count is tasks, not dots."""
+    if today_idx is None:
+        return None, 0
+    candidates: list[dict] = []
+    for key, card in cards.items():
+        for task in list(card.get("tasks", [])) + list(card.get("extra_tasks", [])):
+            sched = list(task.get("scheduled") or [])
+            while len(sched) < 7:
+                sched.append(0)
+            try:
+                n = max(0, int(sched[today_idx]))
+            except (TypeError, ValueError):
+                n = 0
+            if n <= 0:
+                continue
+            days = task.get("days") or []
+            row = days[today_idx] if today_idx < len(days) else []
+            done = sum(1 for i in range(min(n, len(row))) if row[i])
+            if done >= n:
+                continue
+            try:
+                freq = float(task.get("freq") or 0)
+            except (TypeError, ValueError):
+                freq = 0.0
+            candidates.append({
+                "name": task.get("name", ""),
+                "area": card.get("area_name", key),
+                "daily": freq >= 7,
+            })
+    up_next = next((c for c in candidates if not c["daily"]), None)
+    if up_next is None and candidates:
+        up_next = candidates[0]
+    return up_next, len(candidates)
+
 
 @app.route("/")
 def dashboard():
@@ -181,11 +269,72 @@ def dashboard():
     today_score_pct = None
     if today_idx is not None:
         _, _, today_score_pct = weighted_day_score(cards, today_idx)
+    today_up_next, today_open_count = _today_focus_summary(cards, today_idx)
     day_metrics = week_day_summary(cards)
     score_bests = update_and_return_bests(wk, cards)
+    routine_menu_week = wk
+    if today_idx is not None and today_idx > 0:
+        routine_menu_week = _default_week_key()
+    anchor_day = _anchor_date_iso_for_week(routine_menu_week)
+    hidden_tabs = ui_prefs.get_hidden_nav_tabs()
+    dashboard_sections = [
+        {
+            "key": "cards",
+            "label": "Cards",
+            "description": "Interactive routine notecards for the week.",
+            "href": url_for("cards_page", week=routine_menu_week),
+            "secondary": {
+                "label": "Day view",
+                "href": url_for("cards_day_page", date=anchor_day),
+            },
+        },
+        {
+            "key": "baby",
+            "label": "Baby",
+            "description": "Daily baby tracker and history.",
+            "href": url_for("baby_page"),
+        },
+        {
+            "key": "budget",
+            "label": "Budget",
+            "description": "Transactions, categories, and monthly plans.",
+            "href": url_for("budget_page"),
+        },
+        {
+            "key": "fantasy",
+            "label": "Dynasty",
+            "description": "Sleeper dynasty tools and trade ideas.",
+            "href": url_for("fantasy_page"),
+        },
+        {
+            "key": "recipes",
+            "label": "Recipes",
+            "description": "Menu, saved recipes, grocery, and inventory.",
+            "href": url_for("recipes_page"),
+        },
+        {
+            "key": "research",
+            "label": "Research",
+            "description": "Reference pages and quick calculators.",
+            "href": url_for("research_page"),
+        },
+        {
+            "key": "game",
+            "label": "Cat Dash",
+            "description": "Quick distraction game and scores.",
+            "href": url_for("game_page"),
+        },
+    ]
+    dashboard_sections = [
+        s
+        for s in dashboard_sections
+        if s["key"] == "home" or s["key"] not in hidden_tabs
+    ]
     return render_template(
         "dashboard.html",
         week_key=wk,
+        routine_menu_week=routine_menu_week,
+        dashboard_sections=dashboard_sections,
         cards=cards,
         weeks=weeks,
         baby_days=baby_days,
@@ -193,6 +342,8 @@ def dashboard():
         daily_score_row=daily_row,
         today_weekday_idx=today_idx,
         today_score_pct=today_score_pct,
+        today_up_next=today_up_next,
+        today_open_count=today_open_count,
         day_metrics=day_metrics,
         score_bests=score_bests,
     )
@@ -217,11 +368,11 @@ def cards_page():
 
 @app.route("/cards/day")
 def cards_day_page():
-    day_str = request.args.get("date", date.today().isoformat())
+    day_str = request.args.get("date", local_today().isoformat())
     try:
         selected_date = date.fromisoformat(day_str)
     except ValueError:
-        selected_date = date.today()
+        selected_date = local_today()
         day_str = selected_date.isoformat()
     monday = selected_date - timedelta(days=selected_date.weekday())
     wk = iso_week_key(monday)
@@ -241,9 +392,64 @@ def cards_day_page():
     )
 
 
+def _routine_task_names_match(cards: dict, areas: dict) -> bool:
+    """True when each area's card task names match routines.yaml order/names."""
+    for area_key, area in areas.items():
+        yaml_names = [
+            (t.get("name") or "").strip()
+            for t in area.get("tasks", [])
+            if isinstance(t, dict) and (t.get("name") or "").strip()
+        ]
+        if not yaml_names:
+            continue
+        card = cards.get(area_key)
+        if card is None:
+            return False
+        card_names = [
+            (t.get("name") or "").strip()
+            for t in card.get("tasks", [])
+            if isinstance(t, dict)
+        ]
+        if card_names != yaml_names:
+            return False
+    return True
+
+
+@app.route("/today")
+def today_page():
+    """ADHD-friendly daily focus view. Data is bootstrapped server-side so the
+    page renders instantly with no client round-trips."""
+    day_str = request.args.get("date", local_today().isoformat())
+    try:
+        sel = date.fromisoformat(day_str)
+    except ValueError:
+        sel = local_today()
+        day_str = sel.isoformat()
+    monday = sel - timedelta(days=sel.weekday())
+    wk = iso_week_key(monday)
+    cards = get_routine_cards(wk)
+    # YAML rewrites (new timed tasks / renamed rows) need a regenerate so the
+    # day plan sees the new names; fills are preserved by matching name.
+    if not _routine_task_names_match(cards, load_routines().get("areas", {})):
+        cards = regenerate_routine_cards(wk)
+    cards = _ordered_cards(cards)
+    history = routine_completion_history(day_str, 20)
+    bootstrap = {
+        "today": day_str,
+        "is_today": day_str == local_today().isoformat(),
+        "week_key": wk,
+        "week_start": monday.isoformat(),
+        "day_index": (sel - monday).days,
+        "cards": cards,
+        "history": history,
+        "daily_flex_slots": get_daily_flex_slots(),
+    }
+    return render_template("today.html", bootstrap=bootstrap)
+
+
 @app.route("/baby")
 def baby_page():
-    d = request.args.get("date", date.today().isoformat())
+    d = request.args.get("date", local_today().isoformat())
     card = get_baby_card(d)
     days = list_baby_days()
     return render_template("baby.html", card_date=d, card=card, days=days)
@@ -251,14 +457,14 @@ def baby_page():
 
 @app.route("/routines")
 def routines_page():
-    data = load_routines()
-    order = data.get("area_order", [])
-    all_areas = data.get("areas", {})
-    ordered_areas = {k: all_areas[k] for k in order if k in all_areas}
-    for k, v in all_areas.items():
-        if k not in ordered_areas:
-            ordered_areas[k] = v
-    return render_template("routines.html", areas=ordered_areas)
+    """Legacy URL: full-page routine editor and calendar view were retired."""
+    return redirect(url_for("cards_page", week=_default_week_key()), code=302)
+
+
+@app.route("/routines/embed")
+def routines_embed_page():
+    """Minimal routine form HTML for programmatic saves (long-press editor on /cards)."""
+    return render_template("routines_embed.html", areas=_ordered_routine_areas_for_forms())
 
 
 @app.route("/routines/save", methods=["POST"])
@@ -316,6 +522,11 @@ def save_routines_form():
                 task["on_days"] = sorted(set(od))
             nt = request.form.get(f"task_notify_time_{area_key}_{i}", "").strip()
             task["notify_time"] = nt
+            tt = request.form.get(f"task_time_{area_key}_{i}", "").strip()
+            if tt:
+                task["time"] = tt
+            if request.form.get(f"task_at_work_{area_key}_{i}"):
+                task["at_work"] = True
             updated_tasks.append(task)
             i += 1
 
@@ -356,6 +567,11 @@ def save_routines_form():
                 new_task["on_days"] = sorted(set(od))
             ntn = request.form.get(f"new_task_notify_time_{area_key}", "").strip()
             new_task["notify_time"] = ntn
+            ntt = request.form.get(f"new_task_time_{area_key}", "").strip()
+            if ntt:
+                new_task["time"] = ntt
+            if request.form.get(f"new_task_at_work_{area_key}"):
+                new_task["at_work"] = True
             updated_tasks.append(new_task)
 
         area["tasks"] = updated_tasks
@@ -369,7 +585,7 @@ def save_routines_form():
     save_routines(data)
     regenerate_routine_cards(_default_week_key())
     flash("Routines saved!", "success")
-    return redirect(url_for("routines_page"))
+    return redirect(url_for("cards_page", week=_default_week_key()))
 
 
 @app.route("/routines/delete-area/<area_key>", methods=["POST"])
@@ -381,7 +597,7 @@ def delete_area(area_key):
         order.remove(area_key)
     save_routines(data)
     flash(f"Area '{area_key}' deleted.", "success")
-    return redirect(url_for("routines_page"))
+    return redirect(url_for("cards_page", week=_default_week_key()))
 
 
 @app.route("/api/routines/reorder", methods=["PATCH"])
@@ -401,6 +617,33 @@ def api_reorder_area():
     data["area_order"] = order
     save_routines(data)
     return jsonify({"ok": True, "order": order})
+
+
+@app.route("/api/ui/nav-tabs", methods=["GET"])
+def api_get_nav_tabs():
+    hidden = ui_prefs.get_hidden_nav_tabs()
+    return jsonify(
+        {
+            "ok": True,
+            "hidden": hidden,
+            "tabs": [
+                {"key": k, "label": ui_prefs.NAV_TAB_LABELS[k]}
+                for k in ui_prefs.NAV_TAB_KEYS
+            ],
+        }
+    )
+
+
+@app.route("/api/ui/nav-tabs", methods=["PUT"])
+def api_put_nav_tabs():
+    body = request.get_json(force=True) or {}
+    raw = body.get("hidden")
+    if raw is None:
+        return jsonify({"ok": False, "error": "missing hidden"}), 400
+    if not isinstance(raw, list):
+        return jsonify({"ok": False, "error": "hidden must be a list"}), 400
+    hidden = ui_prefs.set_hidden_nav_tabs(raw)
+    return jsonify({"ok": True, "hidden": hidden})
 
 
 # \u2500\u2500 API: Routine Cards \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -511,6 +754,21 @@ def api_list_weeks():
     return jsonify({"weeks": list_routine_weeks()})
 
 
+@app.route("/api/routine-history")
+def api_routine_history():
+    """Completion history for past weeks, computed in one read-only call.
+
+    Replaces the routines page fetching dozens of weeks one-by-one (which also
+    triggered the server to auto-generate empty week files for every request).
+    """
+    sel = request.args.get("date", local_today().isoformat())
+    try:
+        weeks = int(request.args.get("weeks", 8))
+    except (TypeError, ValueError):
+        weeks = 8
+    return jsonify({"history": routine_completion_history(sel, weeks)})
+
+
 # \u2500\u2500 Web Push \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route("/api/push/vapid-public-key")
@@ -542,6 +800,15 @@ def api_push_unsubscribe():
 def api_push_test():
     sent, registered = send_test_push_to_all()
     return jsonify({"ok": True, "sent": sent, "registered": registered})
+
+
+@app.route("/api/push/run-reminders", methods=["POST"])
+def api_push_run_reminders():
+    """Run a reminder scan right now. The external cron workflow calls this so
+    reminders still fire when the in-process scheduler was asleep (stopped Fly
+    machine). Idempotent — each nudge slot / per-task reminder sends once.
+    POST only: browsers prefetch GET URLs, which would consume the send."""
+    return jsonify({"ok": True, **run_reminder_scan()})
 
 
 # \u2500\u2500 API: Baby Cards \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -578,9 +845,14 @@ def budget_page():
     txns = get_transactions_by_month(current_month)
     report = compute_monthly_report(current_month)
     plan = load_plan(current_month)
-    categories = get_all_categories(load_transactions())
-    overview = load_overview(current_month) or {}
     budgets = load_budgets().get("limits") or {}
+    categories = get_all_categories(load_transactions())
+    _seen = set(categories)
+    for _k in sorted(budgets.keys()):
+        if _k and _k not in _seen:
+            categories.append(_k)
+            _seen.add(_k)
+    overview = load_overview(current_month) or {}
     plaid_items = plaid_client.list_items_public()
     _creds = plaid_credentials.get_credentials()
     plaid_status = {
@@ -592,8 +864,10 @@ def budget_page():
         "client_id_preview": (_creds["client_id"][:6] + "…") if _creds["client_id"] else "",
         "redirect_uri": _creds["redirect_uri"],
         "sources": plaid_credentials.credential_source(),
+        "auto_sync": plaid_client.get_auto_sync_settings(),
     }
-    return render_template(
+    v, _vsrc = get_app_version()
+    html = render_template(
         "budget.html",
         months=months,
         current_month=current_month,
@@ -607,7 +881,13 @@ def budget_page():
         plaid_items=plaid_items,
         plaid_configured=plaid_client.is_configured(),
         plaid_status=plaid_status,
+        budget_page_version=v,
     )
+    resp = make_response(html)
+    # Avoid stale PWA / proxy caches serving old income math or help text
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 
 # \u2500\u2500 API: Budget \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -687,6 +967,24 @@ def api_budget_update_category(tx_id):
     return jsonify({"ok": False, "error": "Transaction not found"}), 404
 
 
+@app.route("/api/budget/transactions/bulk-category", methods=["POST"])
+def api_budget_bulk_category():
+    """Set the same category on many transactions (e.g. after multi-select)."""
+    body = request.get_json(force=True) or {}
+    new_cat = (body.get("category") or "").strip()
+    learn = bool(body.get("learn", True))
+    ids = body.get("ids")
+    if not new_cat:
+        return jsonify({"ok": False, "error": "Missing category"}), 400
+    if not isinstance(ids, list) or not ids:
+        return jsonify({"ok": False, "error": "Missing or empty ids"}), 400
+    txns = load_transactions()
+    n = bulk_set_category(txns, ids, new_cat, learn=learn)
+    if n:
+        save_transactions(txns)
+    return jsonify({"ok": True, "updated": n})
+
+
 @app.route("/api/budget/transactions/<tx_id>/duplicate", methods=["PATCH"])
 def api_budget_resolve_duplicate(tx_id):
     body = request.get_json(force=True)
@@ -710,7 +1008,10 @@ def api_budget_report():
     if not month:
         from datetime import date as _date
         month = _date.today().strftime("%Y-%m")
-    return jsonify(compute_monthly_report(month))
+    r = make_response(jsonify(compute_monthly_report(month)))
+    r.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    r.headers["Pragma"] = "no-cache"
+    return r
 
 
 @app.route("/api/budget/plan/<month>")
@@ -736,10 +1037,29 @@ def api_budget_months():
 @app.route("/api/budget/categories")
 def api_budget_categories():
     txns = load_transactions()
+    lims = load_budgets().get("limits") or {}
+    cats = get_all_categories(txns)
+    _seen = set(cats)
+    for _k in sorted(lims.keys()):
+        if _k and _k not in _seen:
+            cats.append(_k)
+            _seen.add(_k)
     return jsonify({
-        "categories": get_all_categories(txns),
+        "categories": cats,
         "defaults": BUDGET_CATEGORIES,
     })
+
+
+@app.route("/api/budget/categories/replace", methods=["POST"])
+def api_budget_replace_category():
+    """Rename or merge a category across transactions, rules, and budget limits."""
+    body = request.get_json(force=True) or {}
+    old_cat = (body.get("from") or body.get("old") or "").strip()
+    new_cat = (body.get("to") or body.get("new") or "").strip()
+    result = replace_budget_category_globally(old_cat, new_cat)
+    if not result.get("ok"):
+        return jsonify(result), 400
+    return jsonify(result)
 
 
 # ── CSV upload (bank-agnostic fallback) ─────────────────────────
@@ -824,6 +1144,7 @@ def api_budget_plaid_status():
         "has_redirect_uri": bool(creds["redirect_uri"]),
         "sources": sources,
         "items": plaid_client.list_items_public(),
+        "auto_sync": plaid_client.get_auto_sync_settings(),
     })
 
 
@@ -867,10 +1188,20 @@ def api_budget_plaid_save_credentials():
 
 @app.route("/api/budget/plaid/credentials", methods=["DELETE"])
 def api_budget_plaid_clear_credentials():
-    plaid_credentials.clear_credentials()
+    """Clear specific fields (?field=PLAID_SECRET) or everything if no field."""
+    field = (request.args.get("field") or "").strip()
+    if field:
+        updated = plaid_credentials.clear_field(field)
+    else:
+        plaid_credentials.clear_credentials()
+        updated = plaid_credentials.get_credentials()
     return jsonify({
         "ok": True,
-        "configured": plaid_client.is_configured(),
+        "configured": bool(updated["client_id"] and updated["secret"]),
+        "env": updated["env"],
+        "has_client_id": bool(updated["client_id"]),
+        "has_secret": bool(updated["secret"]),
+        "has_redirect_uri": bool(updated["redirect_uri"]),
         "sources": plaid_credentials.credential_source(),
     })
 
@@ -898,7 +1229,9 @@ def api_budget_plaid_exchange():
 
 @app.route("/api/budget/plaid/sync", methods=["POST"])
 def api_budget_plaid_sync():
-    result = plaid_client.sync_all_items()
+    body = request.get_json(silent=True) or {}
+    full_rebuild = bool(body.get("full_rebuild") or request.args.get("full"))
+    result = plaid_client.sync_all_items(full_rebuild=full_rebuild)
     if not result.get("ok"):
         return jsonify(result), 400
     # Re-categorize to apply up-to-date rules
@@ -906,6 +1239,33 @@ def api_budget_plaid_sync():
     recategorize_all(txns)
     save_transactions(txns)
     return jsonify(result)
+
+
+@app.route("/api/budget/plaid/auto-sync", methods=["POST"])
+def api_budget_plaid_auto_sync():
+    """Throttled background sync. Called on Budget page load; self-throttles."""
+    body = request.get_json(silent=True) or {}
+    result = plaid_client.auto_sync_if_due(force=bool(body.get("force")))
+    if result.get("ran"):
+        txns = load_transactions()
+        recategorize_all(txns)
+        save_transactions(txns)
+    return jsonify(result)
+
+
+@app.route("/api/budget/plaid/auto-sync/settings", methods=["GET"])
+def api_budget_plaid_auto_sync_settings():
+    return jsonify(plaid_client.get_auto_sync_settings())
+
+
+@app.route("/api/budget/plaid/auto-sync/settings", methods=["PUT"])
+def api_budget_plaid_save_auto_sync_settings():
+    body = request.get_json(force=True) or {}
+    updated = plaid_client.set_auto_sync_settings(
+        enabled=body.get("enabled") if "enabled" in body else None,
+        interval_hours=body.get("interval_hours") if "interval_hours" in body else None,
+    )
+    return jsonify({"ok": True, **updated})
 
 
 @app.route("/api/budget/plaid/items/<item_id>", methods=["DELETE"])
@@ -996,6 +1356,32 @@ def research_am_facility_cost():
     return render_template("research/am_facility_cost.html")
 
 
+# ── Pup Patrol Cat Dash (kid-friendly arcade) ─────────────────
+
+@app.route("/game")
+def game_page():
+    return render_template(
+        "game.html",
+        top_scores=game_store.list_top_scores(limit=10),
+    )
+
+
+@app.route("/api/game/scores", methods=["GET"])
+def api_game_scores_get():
+    return jsonify({"top": game_store.list_top_scores(limit=10)})
+
+
+@app.route("/api/game/scores", methods=["POST"])
+def api_game_scores_post():
+    body = request.get_json(silent=True) or {}
+    name = body.get("name", "")
+    score = body.get("score", 0)
+    result = game_store.add_score(name, score)
+    if not result.get("ok"):
+        return jsonify(result), 400
+    return jsonify(result)
+
+
 # \u2500\u2500 Fantasy (Sleeper) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 @app.route("/fantasy")
@@ -1010,6 +1396,17 @@ def fantasy_page():
 @app.route("/api/fantasy/state")
 def api_fantasy_state():
     return jsonify(fantasy_state_for_client(fantasy_load_state()))
+
+
+@app.route("/api/fantasy/players", methods=["GET"])
+def api_fantasy_players():
+    """Rookie (years_exp=0) QB/RB/WR/TE name search for draft planning. q may be empty for a short list."""
+    q = (request.args.get("q") or "").strip()
+    try:
+        lim = int(request.args.get("limit") or 12)
+    except (TypeError, ValueError):
+        lim = 12
+    return jsonify({"ok": True, "players": search_nfl_rookies_for_draft(q, limit=lim)})
 
 
 @app.route("/api/fantasy/settings", methods=["PUT"])
@@ -1095,16 +1492,19 @@ def api_fantasy_trade_refresh():
 
 @app.route("/recipes")
 def recipes_page():
+    week_key = recipes_store.current_week_key()
     return render_template(
         "recipes.html",
         recipes_bootstrap={
             "recipes": recipes_store.list_recipes(),
             "grocery": recipes_store.list_grocery(),
             "inventory": recipes_store.list_inventory(),
-            "meal_plan": recipes_store.get_meal_plan(),
+            "menu": recipes_store.get_week_menu(week_key),
             "categories": recipes_store.DEFAULT_CATEGORIES,
-            "meal_slots": recipes_store.MEAL_SLOTS,
-            "today": date.today().isoformat(),
+            "menu_slots": recipes_store.MENU_SLOTS,
+            "menu_targets": recipes_store.MENU_SLOT_TARGETS,
+            "current_week": week_key,
+            "today": local_today().isoformat(),
         },
     )
 
@@ -1257,34 +1657,59 @@ def api_inventory_delete(item_id):
     return jsonify({"ok": ok})
 
 
-# Meal plan -------------------------------------------------------
+# Weekly menu -----------------------------------------------------
 
-@app.route("/api/recipes/meal-plan")
-def api_meal_plan_get():
-    return jsonify(recipes_store.get_meal_plan())
+@app.route("/api/recipes/menu")
+def api_menu_get():
+    week_key = request.args.get("week", "")
+    return jsonify({"ok": True, "menu": recipes_store.get_week_menu(week_key)})
 
 
-@app.route("/api/recipes/meal-plan/<day>/<slot>", methods=["POST"])
-def api_meal_plan_add(day, slot):
+@app.route("/api/recipes/menu/<slot>", methods=["POST"])
+def api_menu_add(slot):
     body = request.get_json(silent=True) or {}
-    entry = recipes_store.add_meal_plan_entry(day, slot, body)
+    week_key = body.get("week_key") or request.args.get("week", "")
+    entry = recipes_store.add_menu_entry(week_key, slot, body)
     if not entry:
-        return jsonify({"ok": False, "error": "Invalid day, slot, or empty entry."}), 400
-    return jsonify({"ok": True, "entry": entry, "plan": recipes_store.get_meal_plan()})
+        return jsonify({"ok": False, "error": "Invalid slot or empty entry."}), 400
+    return jsonify({
+        "ok": True,
+        "entry": entry,
+        "menu": recipes_store.get_week_menu(week_key),
+    })
 
 
-@app.route("/api/recipes/meal-plan/<day>/<slot>/<entry_id>", methods=["DELETE"])
-def api_meal_plan_remove(day, slot, entry_id):
-    ok = recipes_store.remove_meal_plan_entry(day, slot, entry_id)
-    return jsonify({"ok": ok, "plan": recipes_store.get_meal_plan()})
+@app.route("/api/recipes/menu/<slot>/<entry_id>", methods=["DELETE"])
+def api_menu_remove(slot, entry_id):
+    week_key = request.args.get("week", "")
+    ok = recipes_store.remove_menu_entry(week_key, slot, entry_id)
+    return jsonify({
+        "ok": ok,
+        "menu": recipes_store.get_week_menu(week_key),
+    })
 
 
-@app.route("/api/recipes/meal-plan/to-grocery", methods=["POST"])
-def api_meal_plan_to_grocery():
+@app.route("/api/recipes/menu/clear", methods=["POST"])
+def api_menu_clear():
     body = request.get_json(silent=True) or {}
-    day = body.get("day") if isinstance(body, dict) else None
-    res = recipes_store.add_meal_plan_to_grocery(day)
-    return jsonify({"ok": True, **res, "items": recipes_store.list_grocery()})
+    week_key = body.get("week_key") or request.args.get("week", "")
+    ok = recipes_store.clear_week_menu(week_key)
+    return jsonify({
+        "ok": ok,
+        "menu": recipes_store.get_week_menu(week_key),
+    })
+
+
+@app.route("/api/recipes/menu/to-grocery", methods=["POST"])
+def api_menu_to_grocery():
+    body = request.get_json(silent=True) or {}
+    week_key = body.get("week_key") or request.args.get("week", "")
+    res = recipes_store.add_menu_to_grocery(week_key)
+    return jsonify({
+        "ok": True,
+        **res,
+        "items": recipes_store.list_grocery(),
+    })
 
 
 # \u2500\u2500 PDF Export \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -1434,7 +1859,14 @@ def _start_background_schedulers():
 
 @app.route("/healthz")
 def health_check():
-    return jsonify({"status": "ok"})
+    v, v_src = get_app_version()
+    return jsonify(
+        {
+            "status": "ok",
+            "app_version": v,
+            "version_source": v_src,
+        }
+    )
 
 
 # \u2500\u2500 Startup \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500

@@ -6,6 +6,11 @@ primary_region = "atl"
 [env]
   LM_DATA_DIR = "/data"
   LM_PORT = "8080"
+  # Everything in the app that asks "what day is it?" (week rollover, overdue
+  # coloring, notify time, etc.) uses this zone. Without it the container
+  # runs in UTC and rolls the week over around 7–8 PM EST on Sunday.
+  LM_TIMEZONE = "America/New_York"
+  TZ = "America/New_York"
   # Tame glibc malloc fragmentation under low RAM (helps avoid OOM).
   MALLOC_ARENA_MAX = "2"
   # Set to "1" if you don't use the Fantasy tab — it skips the multi-MB
@@ -15,12 +20,17 @@ primary_region = "atl"
 [http_service]
   internal_port = 8080
   force_https = true
-  # Spinning the machine down between requests is a memory "reset" — handy
-  # when you only use the app a few times a day. If you want it always-on,
-  # set auto_stop_machines = "off" and min_machines_running = 1.
-  auto_stop_machines = "stop"
+  # Routine push reminders are sent by an in-process scheduler, so the
+  # machine has to stay awake: with auto-stop enabled the app only ran while
+  # a page was open, and reminders almost never fired. Always-on costs the
+  # full ~$1.94/mo for the 512 MB shared-cpu-1x instead of a fraction of it.
+  # A GitHub Actions cron (.github/workflows/reminder-ping.yml) also hits
+  # /api/push/run-reminders every 30 minutes as a backstop — it auto-starts
+  # the machine, so reminders keep working even if you switch auto-stop back
+  # on to save money.
+  auto_stop_machines = "off"
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ["app"]
 
 [mounts]

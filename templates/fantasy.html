@@ -1,254 +1,198 @@
 {% extends "base.html" %}
-{% block title %}Dynasty rebuild - Life Manager{% endblock %}
+{% block title %}Fantasy — best roster &amp; upgrades{% endblock %}
 
 {% block content %}
 <script type="application/json" id="fantasy-bootstrap">{{ fantasy_bootstrap|tojson }}</script>
 <div x-data="fantasyPage()">
 
 <div class="page-header">
-    <h1>Dynasty rebuild</h1>
+    <h1>Best roster &amp; upgrades</h1>
     <p class="subtitle" x-show="snapshot">
         <span x-text="snapshot.team.name || 'Your team'"></span>
-        · <span x-text="snapshot.league.name"></span>
-        · compete in ~<span x-text="plan.rebuild_horizon_years || 3"></span> yrs
+        <span x-show="snapshot.league &amp;&amp; snapshot.league.name"> · <span x-text="snapshot.league.name"></span></span>
+        <span x-show="lastSync"> · synced <span x-text="fmtTime(lastSync)"></span></span>
     </p>
-    <p class="subtitle" x-show="!snapshot">Sync Sleeper to load your roster, picks, and rebuild board.</p>
+    <p class="subtitle" x-show="!snapshot">Sync Sleeper to load your roster and targets.</p>
 </div>
 
-<div class="card fantasy-actions-card">
-    <div class="card-title">Actions</div>
-    <div class="fantasy-actions">
-        <button type="button" class="btn btn-primary btn-sm" @click="sync()" :disabled="syncing">
-            <span x-show="!syncing">Sync lineup &amp; trades</span>
-            <span x-show="syncing">Working…</span>
-        </button>
-        <button type="button" class="btn btn-secondary btn-sm" @click="refreshTrades()" :disabled="tradeRefreshing || !snapshot">
-            <span x-show="!tradeRefreshing">Refresh trade ideas</span>
-            <span x-show="tradeRefreshing">Computing…</span>
-        </button>
-    </div>
-    <p class="fantasy-msg fantasy-msg-block" x-text="syncMsg" x-show="syncMsg"></p>
-    <p class="fantasy-msg fantasy-msg-block" x-text="tradeRefreshMsg" x-show="tradeRefreshMsg"></p>
-    <p class="fantasy-hint" x-show="snapshot && !snapshot.players_resolved">
-        First sync may take a minute while player names download.
-    </p>
+<div class="fantasy-toolbar-row">
+    <button type="button" class="btn btn-primary btn-sm" @click="sync()" :disabled="syncing">
+        <span x-show="!syncing">Sync</span>
+        <span x-show="syncing">Working…</span>
+    </button>
+    <span class="fantasy-msg" x-text="syncMsg" x-show="syncMsg"></span>
 </div>
 
-<div class="card fantasy-plan-doc-card" x-show="plan.rebuild_plan_doc">
-    <div class="card-title">Plan to win (auto — refresh on each sync)</div>
-    <p class="fantasy-synced" x-show="plan.rebuild_plan_generated_at">
-        Generated <span x-text="fmtTime(plan.rebuild_plan_generated_at)"></span>
-    </p>
-    <pre class="fantasy-plan-doc" x-text="plan.rebuild_plan_doc"></pre>
-</div>
-
-<details class="fantasy-advanced">
-    <summary>Advanced (account &amp; league)</summary>
-    <div class="fantasy-advanced-body">
-        <div class="fantasy-form-row">
-            <label class="fantasy-label">Win window (years)</label>
-            <input type="number" min="1" max="7" class="fantasy-input fantasy-input-narrow" x-model.number="plan.rebuild_horizon_years" @change="savePlan()">
-        </div>
-        <div class="fantasy-form-row">
-            <label class="fantasy-label">Sleeper username</label>
-            <input type="text" class="fantasy-input" x-model="settings.sleeper_username" @change="saveSettings()">
-        </div>
-        <div class="fantasy-form-row">
-            <label class="fantasy-label">Season</label>
-            <input type="text" class="fantasy-input fantasy-input-narrow" x-model="settings.season" @change="saveSettings()" placeholder="2026">
-        </div>
-        <div class="fantasy-form-row">
-            <label class="fantasy-label">League name contains</label>
-            <input type="text" class="fantasy-input" x-model="settings.league_name_hint" @change="saveSettings()">
-        </div>
-        <div class="fantasy-form-row">
-            <label class="fantasy-label">League ID override</label>
-            <input type="text" class="fantasy-input" x-model="settings.league_id" @change="saveSettings()" placeholder="optional">
-        </div>
-        <div class="fantasy-form-row">
-            <label class="fantasy-label">Trade math (FantasyCalc)</label>
-            <div class="fantasy-inline-inputs">
-                <select class="fantasy-input fantasy-input-narrow" x-model.number="settings.valuation_num_qbs" @change="saveSettings()">
-                    <option :value="1">1 QB</option>
-                    <option :value="2">Superflex</option>
-                </select>
-                <input type="number" min="8" max="16" class="fantasy-input fantasy-input-narrow" x-model.number="settings.valuation_num_teams" @change="saveSettings()">
-                <select class="fantasy-input fantasy-input-narrow" x-model.number="settings.valuation_ppr" @change="saveSettings()">
-                    <option :value="0">Std</option>
-                    <option :value="0.5">Half PPR</option>
-                    <option :value="1">Full PPR</option>
-                </select>
-                <select class="fantasy-input" x-model="settings.trade_strategy" @change="saveSettings()">
-                    <option value="rebuild">Rebuild (default)</option>
-                    <option value="balanced">Balanced</option>
-                </select>
-            </div>
-        </div>
-        <p class="fantasy-disclaimer">
-            Suggested trades use <a href="https://fantasycalc.com" target="_blank" rel="noopener">FantasyCalc</a> values. Cross-check on <a href="https://dynastycalc.com" target="_blank" rel="noopener">Dynasty Calc</a>.
-        </p>
-    </div>
-</details>
-
-<div class="card fantasy-trade-card" x-show="tradeSuggestions && tradeSuggestions.ok">
-    <div class="card-title">Suggested trades (rebuild-oriented)</div>
-    <p class="fantasy-synced" x-show="lastTradeRefresh">Updated <span x-text="fmtTime(lastTradeRefresh)"></span></p>
-    <p class="fantasy-hint" x-text="tradeSuggestions && tradeSuggestions.disclaimer"></p>
-    <template x-for="(s, idx) in (tradeSuggestions && tradeSuggestions.suggestions) || []" :key="idx">
-        <div class="fantasy-suggest-block">
-            <div class="fantasy-suggest-head">
-                <span class="fantasy-suggest-tag" x-text="s.tag"></span>
-                <span class="fantasy-suggest-partner" x-text="s.partner_team"></span>
-                <span class="fantasy-suggest-fair" x-text="'Receive / send: ' + (s.fairness_ratio != null ? s.fairness_ratio.toFixed(2) : '—')"></span>
-            </div>
-            <div class="fantasy-suggest-body">
-                <div><strong>You send</strong> (<span x-text="s.value_send"></span>)</div>
-                <ul>
-                    <template x-for="p in s.you_send" :key="p.id">
-                        <li x-text="playerLine(p)"></li>
-                    </template>
-                </ul>
-                <div><strong>You get</strong> (<span x-text="s.value_receive"></span>)</div>
-                <ul>
-                    <template x-for="p in s.you_receive" :key="p.id">
-                        <li x-text="playerLine(p)"></li>
-                    </template>
-                </ul>
-                <p class="fantasy-suggest-note" x-text="s.note"></p>
-            </div>
-        </div>
-    </template>
-</div>
-
-<p class="fantasy-error" x-show="lastTradeError" x-text="lastTradeError"></p>
-
-<template x-if="snapshot">
-<div class="fantasy-snapshot">
-    <div class="card fantasy-league-card">
-        <div class="card-title">Record</div>
-        <div class="fantasy-league-head">
-            <div class="fantasy-record" x-show="snapshot.team.settings">
-                <span x-text="recordStr()"></span>
-                <span x-show="snapshot.team.settings.fpts != null" class="fantasy-fpts">
-                    · <span x-text="fpStr()"></span> PF
+<template x-if="bestLineup &amp;&amp; bestLineup.slots &amp;&amp; bestLineup.slots.length">
+<div class="card fantasy-best-card">
+    <div class="card-title">Best starting lineup</div>
+    <p class="fantasy-hint">Highest-value eligible player per slot (FantasyCalc dynasty). Weak spots are flagged — scroll down for how to fix them.</p>
+    <ul class="fantasy-best-list">
+        <template x-for="s in bestLineup.slots" :key="s.slot + '-' + (s.player_id || 'empty')">
+            <li class="fantasy-best-row" :class="'fantasy-tier-' + (s.tier || 'unknown') + (s.is_weak ? ' fantasy-best-weak' : '')">
+                <span class="fantasy-best-slot" x-text="s.label"></span>
+                <span class="fantasy-best-player">
+                    <button
+                        type="button"
+                        class="fantasy-best-name-btn"
+                        x-show="!s.is_empty &amp;&amp; s.player_id"
+                        @click="openPlayerRosterPlan(s.player_id)"
+                        :title="'Open plan'"
+                    >
+                        <span class="fantasy-best-name" x-text="s.name"></span>
+                    </button>
+                    <span class="fantasy-best-name" x-show="s.is_empty || !s.player_id" x-text="s.is_empty ? 'Empty' : s.name"></span>
+                    <span class="fantasy-best-meta" x-text="bestMeta(s)"></span>
                 </span>
-            </div>
-        </div>
-        <p class="fantasy-synced" x-show="lastSync">Sleeper data <span x-text="fmtTime(lastSync)"></span></p>
-    </div>
-
-    <div class="card fantasy-rebuild-board-card">
-        <div class="card-title">Rebuild board — desired upgrade per asset</div>
-        <p class="fantasy-hint">One row per player and each draft pick you own. Edits save automatically. Aim 2–3 years out: youth, capital, or consolidate to studs.</p>
-        <div class="fantasy-rebuild-table-wrap">
-            <table class="fantasy-rebuild-table">
-                <thead>
-                    <tr>
-                        <th>Group</th>
-                        <th>Asset</th>
-                        <th>Desired upgrade / plan</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template x-for="aid in (rebuildBoard.order || [])" :key="aid">
-                        <tr>
-                            <td class="fantasy-rb-group" x-text="rebuildBoard.assets[aid] && rebuildBoard.assets[aid].group"></td>
-                            <td class="fantasy-rb-name" x-text="playerLabelForAsset(aid)"></td>
-                            <td>
-                                <input
-                                    type="text"
-                                    class="fantasy-input fantasy-rebuild-input"
-                                    placeholder="e.g. younger RB, 2027 1st, package for QB1"
-                                    :value="rebuildBoard.assets[aid] && rebuildBoard.assets[aid].desired_upgrade"
-                                    @input.debounce.500ms="patchRebuildUpgrade(aid, $event.target.value)"
-                                >
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
-        </div>
-        <p class="fantasy-empty-note" x-show="!rebuildBoard.order || rebuildBoard.order.length === 0">Sync from Sleeper to populate this table.</p>
-    </div>
-
-    <div class="card" x-show="snapshot.draft_picks && snapshot.draft_picks.length">
-        <div class="card-title">Your draft picks (Sleeper)</div>
-        <ul class="fantasy-pick-list">
-            <template x-for="pk in snapshot.draft_picks" :key="pk.pick_key">
-                <li x-text="pk.label"></li>
-            </template>
-        </ul>
-    </div>
-
-    <div class="card">
-        <div class="card-title">Starters</div>
-        <table class="fantasy-table">
-            <thead>
-                <tr><th>Slot</th><th>Player</th><th>Pos</th><th>NFL</th></tr>
-            </thead>
-            <tbody>
-                <template x-for="row in snapshot.starters" :key="row.slot + '-' + (row.player && row.player.id)">
-                    <tr :class="{ 'fantasy-row-empty': row.empty }">
-                        <td x-text="row.slot"></td>
-                        <td>
-                            <span x-show="row.empty" class="fantasy-empty-slot">Empty</span>
-                            <span x-show="!row.empty" x-text="row.player.name"></span>
-                        </td>
-                        <td x-text="row.empty ? '—' : row.player.pos"></td>
-                        <td x-text="row.empty ? '—' : row.player.team"></td>
-                    </tr>
-                </template>
-            </tbody>
-        </table>
-    </div>
-
-    <div class="fantasy-bench-grid">
-        <div class="card">
-            <div class="card-title">Bench</div>
-            <ul class="fantasy-player-list">
-                <template x-for="p in snapshot.bench" :key="p.id">
-                    <li><span class="fantasy-pname" x-text="p.name"></span> <span class="fantasy-pmeta" x-text="posTeam(p)"></span></li>
-                </template>
-            </ul>
-            <p class="fantasy-empty-note" x-show="!snapshot.bench || snapshot.bench.length === 0">No bench players listed.</p>
-        </div>
-        <div class="card" x-show="snapshot.reserve && snapshot.reserve.length">
-            <div class="card-title">IR / Reserve</div>
-            <ul class="fantasy-player-list">
-                <template x-for="p in snapshot.reserve" :key="'r-' + p.id">
-                    <li><span class="fantasy-pname" x-text="p.name"></span> <span class="fantasy-pmeta" x-text="posTeam(p)"></span></li>
-                </template>
-            </ul>
-        </div>
-        <div class="card" x-show="snapshot.taxi && snapshot.taxi.length">
-            <div class="card-title">Taxi</div>
-            <ul class="fantasy-player-list">
-                <template x-for="p in snapshot.taxi" :key="'t-' + p.id">
-                    <li><span class="fantasy-pname" x-text="p.name"></span> <span class="fantasy-pmeta" x-text="posTeam(p)"></span></li>
-                </template>
-            </ul>
-        </div>
-    </div>
+                <span class="fantasy-best-tier" x-text="tierLabel(s)"></span>
+            </li>
+        </template>
+    </ul>
 </div>
 </template>
 
-<details class="fantasy-advanced fantasy-notes-details">
-    <summary>Notes</summary>
-    <div class="fantasy-advanced-body fantasy-plan-card-inner">
-        <div class="fantasy-plan-grid">
-            <div class="fantasy-field">
-                <label class="fantasy-label">Draft / keeper</label>
-                <textarea class="fantasy-textarea" rows="3" x-model="plan.draft_notes" @input.debounce.600ms="savePlan()"></textarea>
-            </div>
-            <div class="fantasy-field">
-                <label class="fantasy-label">Rebuild themes</label>
-                <textarea class="fantasy-textarea" rows="3" x-model="plan.rebuild_notes" @input.debounce.600ms="savePlan()"></textarea>
-            </div>
-            <div class="fantasy-field">
-                <label class="fantasy-label">League / trade targets</label>
-                <textarea class="fantasy-textarea" rows="3" x-model="plan.trade_targets" @input.debounce.600ms="savePlan()"></textarea>
-            </div>
+<template x-if="plan.project_rookies_into_lineup &amp;&amp; bestLineupWithAssumptions &amp;&amp; bestLineupWithAssumptions.slots &amp;&amp; bestLineupWithAssumptions.slots.length">
+<div class="card fantasy-best-card fantasy-best-projection">
+    <div class="card-title">Projected lineup (with assumed rookies)</div>
+    <p class="fantasy-hint">FantasyCalc values; draft picks you “assume” are merged in. Turn off in the pick plan modal if you only want your current roster.</p>
+    <ul class="fantasy-best-list">
+        <template x-for="s in bestLineupWithAssumptions.slots" :key="'proj-' + s.slot + '-' + (s.player_id || 'empty')">
+            <li class="fantasy-best-row" :class="'fantasy-tier-' + (s.tier || 'unknown') + (s.is_assumed ? ' fantasy-best-assumed' : '') + (s.is_weak ? ' fantasy-best-weak' : '')">
+                <span class="fantasy-best-slot" x-text="s.label"></span>
+                <span class="fantasy-best-player">
+                    <span class="fantasy-best-name" x-text="s.is_empty ? 'Empty' : s.name"></span>
+                    <span class="fantasy-best-meta" x-text="bestMeta(s) + (s.is_assumed ? ' · assumed' : '')"></span>
+                </span>
+                <span class="fantasy-best-tier" x-text="tierLabel(s)"></span>
+            </li>
+        </template>
+    </ul>
+</div>
+</template>
+
+<template x-if="positionStrategy &amp;&amp; positionStrategy.length">
+<div class="card fantasy-pos-strategy-card">
+    <div class="card-title">Position strategy</div>
+    <p class="fantasy-hint" x-show="rookieBoardHint" x-text="rookieBoardHint"></p>
+    <p class="fantasy-hint" x-show="!rookieBoardHint">Depth vs rough rebuild targets, weak starter flags, and whether to lean draft or trades — not a single-player mandate.</p>
+    <ul class="fantasy-pos-strategy-list">
+        <template x-for="row in positionStrategy" :key="row.pos">
+            <li class="fantasy-pos-strategy-row">
+                <div class="fantasy-pos-strategy-head">
+                    <span class="fantasy-pos-strategy-label" x-text="row.label || row.pos"></span>
+                    <span class="fantasy-pos-strategy-meta" x-text="posStratMeta(row)"></span>
+                </div>
+                <ul class="fantasy-pos-strategy-bullets">
+                    <template x-for="(ln, i) in (row.lines || [])" :key="row.pos + '-' + i">
+                        <li x-text="ln"></li>
+                    </template>
+                </ul>
+            </li>
+        </template>
+    </ul>
+</div>
+</template>
+
+<template x-if="upgradePlans().length">
+<div class="card fantasy-upgrades-card">
+    <div class="card-title">Upgrade plans — weak spots &amp; picks</div>
+    <p class="fantasy-hint">One plan per slot that needs improvement, plus every draft pick you own. Click a name for a plan pop-up. Edit the plan in More if you want.</p>
+    <ul class="fantasy-upgrade-list">
+        <template x-for="u in upgradePlans()" :key="u.aid">
+            <li class="fantasy-upgrade-row">
+                <div class="fantasy-upgrade-head">
+                    <span class="fantasy-upgrade-slot" :class="'fantasy-tier-' + (u.tier || 'unknown')" x-text="u.slotLabel"></span>
+                    <button
+                        type="button"
+                        class="fantasy-upgrade-name-btn"
+                        x-show="!u.virtual &amp;&amp; u.aid &amp;&amp; u.aid.indexOf('virtual-') === -1"
+                        @click="openRosterPlanForAsset(u.aid)"
+                    >
+                        <span class="fantasy-upgrade-name" x-text="u.name"></span>
+                    </button>
+                    <span
+                        class="fantasy-upgrade-name"
+                        x-show="u.virtual || (u.aid &amp;&amp; u.aid.indexOf('virtual-') === 0)"
+                        x-text="u.name"
+                    ></span>
+                    <span class="fantasy-upgrade-tier" x-text="u.tierLabel"></span>
+                </div>
+                <textarea
+                    :id="'plan-' + u.aid"
+                    class="fantasy-input fantasy-upgrade-textarea"
+                    rows="2"
+                    placeholder="Plan to fix / target"
+                    :value="u.desired"
+                    @input.debounce.600ms="patchRebuildUpgrade(u.aid, $event.target.value)"
+                ></textarea>
+                <button
+                    type="button"
+                    class="fantasy-roster-reset"
+                    x-show="u.canReset"
+                    @click="resetToAuto(u.aid)"
+                    title="Reset to auto suggestion"
+                >Reset to auto</button>
+            </li>
+        </template>
+    </ul>
+    <p class="fantasy-empty-note" x-show="!upgradePlans().length">No weak spots — every starting slot is solid. Keep an eye on picks.</p>
+</div>
+</template>
+
+<details
+    class="fantasy-advanced"
+    :open="fantasyMoreOpen"
+    @toggle="fantasyMoreOpen = $event.target.open"
+>
+    <summary>More (full roster, trade ideas, notes, settings)</summary>
+    <div class="fantasy-advanced-body">
+
+        <div class="fantasy-full-roster" x-show="rebuildBoard.order &amp;&amp; rebuildBoard.order.length">
+            <div class="fantasy-label">Full roster &amp; plans <span class="fantasy-hint fantasy-hint--inline">(click a name in Best lineup to jump here)</span></div>
+            <template x-for="group in groupedAssets()" :key="group.title">
+                <section class="fantasy-roster-group">
+                    <h3 class="fantasy-roster-group-title" x-text="group.title"></h3>
+                    <ul class="fantasy-roster-rows">
+                        <template x-for="aid in group.ids" :key="aid">
+                            <li
+                                class="fantasy-roster-row"
+                                :class="{ 'fantasy-roster-row--highlighted': highlightedRosterAid === aid }"
+                            >
+                                <div
+                                    class="fantasy-roster-current fantasy-roster-current--clickable"
+                                    role="button"
+                                    tabindex="0"
+                                    @click.stop="openRosterPlanForAsset(aid)"
+                                    @keydown.enter.prevent.stop="openRosterPlanForAsset(aid)"
+                                    @keydown.space.prevent.stop="openRosterPlanForAsset(aid)"
+                                    :title="rebuildBoard.assets[aid] &amp;&amp; rebuildBoard.assets[aid].kind === 'pick' ? 'Scroll to this pick plan' : 'Scroll to this player plan'"
+                                >
+                                    <div class="fantasy-roster-name" x-text="currentLabel(aid)"></div>
+                                    <div class="fantasy-roster-meta" x-text="currentMeta(aid)"></div>
+                                </div>
+                                <div class="fantasy-roster-target">
+                                    <textarea
+                                        :id="'rb-plan-' + aid"
+                                        class="fantasy-input fantasy-roster-textarea"
+                                        rows="2"
+                                        placeholder="Target / plan"
+                                        :value="(rebuildBoard.assets[aid] &amp;&amp; rebuildBoard.assets[aid].desired_upgrade) || ''"
+                                        @input.debounce.600ms="patchRebuildUpgrade(aid, $event.target.value)"
+                                    ></textarea>
+                                    <button
+                                        type="button"
+                                        class="fantasy-roster-reset"
+                                        x-show="canResetAuto(aid)"
+                                        @click="resetToAuto(aid)"
+                                    >Reset to auto</button>
+                                </div>
+                            </li>
+                        </template>
+                    </ul>
+                </section>
+            </template>
         </div>
+
         <div class="fantasy-trade-ideas">
             <label class="fantasy-label">Quick ideas</label>
             <div class="fantasy-add-row">
@@ -264,8 +208,152 @@
                 </template>
             </ul>
         </div>
+
+        <div class="fantasy-plan-grid">
+            <div class="fantasy-field">
+                <label class="fantasy-label">Draft / keeper notes</label>
+                <textarea class="fantasy-textarea" rows="3" x-model="plan.draft_notes" @input.debounce.600ms="savePlan()"></textarea>
+            </div>
+            <div class="fantasy-field">
+                <label class="fantasy-label">Rebuild themes</label>
+                <textarea class="fantasy-textarea" rows="3" x-model="plan.rebuild_notes" @input.debounce.600ms="savePlan()"></textarea>
+            </div>
+            <div class="fantasy-field">
+                <label class="fantasy-label">League / trade targets</label>
+                <textarea class="fantasy-textarea" rows="3" x-model="plan.trade_targets" @input.debounce.600ms="savePlan()"></textarea>
+            </div>
+        </div>
+
+        <div class="fantasy-actions">
+            <button type="button" class="btn btn-secondary btn-sm" @click="refreshTrades()" :disabled="tradeRefreshing || !snapshot">
+                <span x-show="!tradeRefreshing">Refresh trade suggestions</span>
+                <span x-show="tradeRefreshing">Computing…</span>
+            </button>
+        </div>
+        <p class="fantasy-msg" x-text="tradeRefreshMsg" x-show="tradeRefreshMsg"></p>
+
+        <div class="fantasy-trade-suggestions" x-show="tradeSuggestions &amp;&amp; tradeSuggestions.ok">
+            <p class="fantasy-synced" x-show="lastTradeRefresh">Suggestions updated <span x-text="fmtTime(lastTradeRefresh)"></span></p>
+            <p class="fantasy-hint" x-text="tradeSuggestions &amp;&amp; tradeSuggestions.disclaimer"></p>
+            <template x-for="(s, idx) in (tradeSuggestions &amp;&amp; tradeSuggestions.suggestions) || []" :key="idx">
+                <div class="fantasy-suggest-block">
+                    <div class="fantasy-suggest-head">
+                        <span class="fantasy-suggest-tag" x-text="s.tag"></span>
+                        <span class="fantasy-suggest-partner" x-text="s.partner_team"></span>
+                        <span class="fantasy-suggest-fair" x-text="'Receive / send: ' + (s.fairness_ratio != null ? s.fairness_ratio.toFixed(2) : '—')"></span>
+                    </div>
+                    <div class="fantasy-suggest-body">
+                        <div><strong>You send</strong> (<span x-text="s.value_send"></span>)</div>
+                        <ul>
+                            <template x-for="p in s.you_send" :key="p.id">
+                                <li x-text="playerLine(p)"></li>
+                            </template>
+                        </ul>
+                        <div><strong>You get</strong> (<span x-text="s.value_receive"></span>)</div>
+                        <ul>
+                            <template x-for="p in s.you_receive" :key="p.id">
+                                <li x-text="playerLine(p)"></li>
+                            </template>
+                        </ul>
+                        <p class="fantasy-suggest-note" x-text="s.note"></p>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <div class="fantasy-advanced-settings">
+            <div class="fantasy-form-row">
+                <label class="fantasy-label">Win window (years)</label>
+                <input type="number" min="1" max="7" class="fantasy-input fantasy-input-narrow" x-model.number="plan.rebuild_horizon_years" @change="savePlan()">
+            </div>
+            <div class="fantasy-form-row">
+                <label class="fantasy-label">Sleeper username</label>
+                <input type="text" class="fantasy-input" x-model="settings.sleeper_username" @change="saveSettings()">
+            </div>
+            <div class="fantasy-form-row">
+                <label class="fantasy-label">Season</label>
+                <input type="text" class="fantasy-input fantasy-input-narrow" x-model="settings.season" @change="saveSettings()" placeholder="2026">
+            </div>
+            <div class="fantasy-form-row">
+                <label class="fantasy-label">League name contains</label>
+                <input type="text" class="fantasy-input" x-model="settings.league_name_hint" @change="saveSettings()">
+            </div>
+            <div class="fantasy-form-row">
+                <label class="fantasy-label">League ID override</label>
+                <input type="text" class="fantasy-input" x-model="settings.league_id" @change="saveSettings()" placeholder="optional">
+            </div>
+            <div class="fantasy-form-row">
+                <label class="fantasy-label">Trade math</label>
+                <div class="fantasy-inline-inputs">
+                    <select class="fantasy-input fantasy-input-narrow" x-model.number="settings.valuation_num_qbs" @change="saveSettings()">
+                        <option :value="1">1 QB</option>
+                        <option :value="2">Superflex</option>
+                    </select>
+                    <input type="number" min="8" max="16" class="fantasy-input fantasy-input-narrow" x-model.number="settings.valuation_num_teams" @change="saveSettings()">
+                    <select class="fantasy-input fantasy-input-narrow" x-model.number="settings.valuation_ppr" @change="saveSettings()">
+                        <option :value="0">Std</option>
+                        <option :value="0.5">Half PPR</option>
+                        <option :value="1">Full PPR</option>
+                    </select>
+                </div>
+            </div>
+            <p class="fantasy-disclaimer">
+                Values via <a href="https://fantasycalc.com" target="_blank" rel="noopener">FantasyCalc</a>.
+                Cross-check on <a href="https://dynastycalc.com" target="_blank" rel="noopener">Dynasty Calc</a>.
+            </p>
+        </div>
     </div>
 </details>
+
+    <p class="fantasy-error" x-show="lastTradeError" x-text="lastTradeError"></p>
+
+    <div
+        class="fantasy-modal-backdrop"
+        x-cloak
+        x-show="rosterModalOpen"
+        @click.self="closeRosterPlanModal()"
+        @keydown.escape.window="closeRosterPlanModal()"
+    >
+        <div class="fantasy-modal" role="dialog" aria-modal="true" :aria-labelledby="'roster-modal-title'">
+            <div class="fantasy-modal-head">
+                <h2 class="fantasy-modal-title" id="roster-modal-title" x-text="rosterModalHeader()"></h2>
+                <button type="button" class="fantasy-modal-close" @click="closeRosterPlanModal()">&times;</button>
+            </div>
+            <div class="fantasy-modal-body" x-show="rosterModalAid &amp;&amp; rebuildBoard.assets[rosterModalAid]">
+                <p class="fantasy-modal-lead" x-text="planTargetLine()"></p>
+                <pre class="fantasy-modal-rationale" x-text="planRationaleText()"></pre>
+                <template x-if="rebuildBoard.assets[rosterModalAid] &amp;&amp; rebuildBoard.assets[rosterModalAid].kind === 'pick'">
+                    <div class="fantasy-pick-extras">
+                        <p class="fantasy-hint" x-text="(rebuildBoard.assets[rosterModalAid] &amp;&amp; rebuildBoard.assets[rosterModalAid].model_action_line) || ''"></p>
+                        <p class="fantasy-hint" x-text="(rebuildBoard.assets[rosterModalAid] &amp;&amp; rebuildBoard.assets[rosterModalAid].model_note) || ''"></p>
+                        <div class="fantasy-assume-row" x-show="(rebuildBoard.assets[rosterModalAid] &amp;&amp; rebuildBoard.assets[rosterModalAid].model_suggested_rookie)">
+                            <span class="fantasy-label">Assumed pick</span>
+                            <span x-text="assumedRookieName() || '—'"></span>
+                            <button type="button" class="btn btn-secondary btn-sm" @click="useModelSuggestedRookie()">Use model lean</button>
+                            <button type="button" class="btn btn-secondary btn-sm" @click="clearAssumedRookie()">Clear</button>
+                        </div>
+                        <label class="fantasy-label">Search rookies (type 2+ letters; uses cached Sleeper player file)</label>
+                        <input type="search" class="fantasy-input" x-model="rookieSearch" @input.debounce.300ms="onRookieSearchInput()" placeholder="e.g. Loveland">
+                        <p class="fantasy-hint" x-show="rookieSearchLoading">Searching…</p>
+                        <ul class="fantasy-rookie-search">
+                            <template x-for="p in rookieSearchResults" :key="p.id">
+                                <li>
+                                    <button type="button" class="fantasy-rookie-pick" @click="setAssumedRookieFromSearch(p)">
+                                        <span x-text="p.name"></span>
+                                        <span class="fantasy-rookie-pos" x-text="(p.pos || '') + (p.team ? ' · ' + p.team : '')"></span>
+                                    </button>
+                                </li>
+                            </template>
+                        </ul>
+                        <label class="fantasy-checkbox">
+                            <input type="checkbox" :checked="plan.project_rookies_into_lineup" @change="toggleProjectLineup()">
+                            <span>Project assumed rookies into the “Projected lineup” card above</span>
+                        </label>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
 
 </div>
 {% endblock %}

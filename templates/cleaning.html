@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+{% block title %}Cleaning | Life Manager{% endblock %}
+
+{% block content %}
+<style>
+.cleaning-page { max-width: 1100px; margin: 0 auto; }
+.cleaning-hero {
+    background: linear-gradient(135deg, #111827, #1f2937);
+    color: white;
+    border-radius: 22px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 14px 35px rgba(15, 23, 42, 0.16);
+}
+.cleaning-hero h1 { margin: 0 0 0.35rem; font-size: 1.65rem; }
+.cleaning-hero p { margin: 0; color: rgba(255,255,255,.78); }
+.cleaning-progress-row {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+}
+.cleaning-progress {
+    flex: 1;
+    min-width: 190px;
+    height: 12px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.16);
+    overflow: hidden;
+}
+.cleaning-progress-fill {
+    height: 100%;
+    width: {{ cleaning.percent }}%;
+    border-radius: inherit;
+    background: white;
+    transition: width .2s ease;
+}
+.cleaning-actions { display:flex; gap:.5rem; flex-wrap:wrap; margin-top: .9rem; }
+.cleaning-btn {
+    border: 1px solid rgba(255,255,255,.25);
+    background: rgba(255,255,255,.12);
+    color: white;
+    border-radius: 999px;
+    padding: .55rem .85rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+.cleaning-btn.secondary {
+    background: #fff;
+    color: #111827;
+    border-color: #fff;
+}
+.cleaning-room-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+    gap: .9rem;
+}
+.cleaning-room {
+    background: white;
+    border: 1px solid rgba(15, 23, 42, .08);
+    border-radius: 18px;
+    padding: .95rem;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, .07);
+}
+.cleaning-room-header {
+    display:flex;
+    justify-content:space-between;
+    gap:.75rem;
+    align-items:flex-start;
+    margin-bottom: .65rem;
+}
+.cleaning-room h2 { margin:0; font-size:1.05rem; }
+.cleaning-note { color:#64748b; font-size:.8rem; margin:.2rem 0 0; }
+.cleaning-room-count {
+    white-space: nowrap;
+    color:#475569;
+    background:#f1f5f9;
+    border-radius:999px;
+    padding:.25rem .55rem;
+    font-size:.78rem;
+    font-weight:800;
+}
+.cleaning-task {
+    display:flex;
+    align-items:flex-start;
+    gap:.65rem;
+    padding:.55rem .2rem;
+    border-top:1px solid #f1f5f9;
+}
+.cleaning-task input {
+    width: 22px;
+    height: 22px;
+    margin-top: .05rem;
+    accent-color: #111827;
+    flex: 0 0 auto;
+}
+.cleaning-task span {
+    line-height: 1.25rem;
+    color:#172033;
+}
+.cleaning-task.done span {
+    color:#64748b;
+    text-decoration: line-through;
+}
+.cleaning-room-reset {
+    border:0;
+    background:#f8fafc;
+    color:#475569;
+    border-radius:999px;
+    padding:.45rem .7rem;
+    font-weight:700;
+    cursor:pointer;
+    margin-top:.65rem;
+}
+.cleaning-hidden-done .cleaning-task.done { display: none; }
+.cleaning-error {
+    color: #fecaca;
+    font-size: .85rem;
+    margin-top: .75rem;
+    display: none;
+}
+@media (max-width: 520px) {
+    .cleaning-hero { border-radius: 18px; padding: 1rem; }
+    .cleaning-room-grid { grid-template-columns: 1fr; }
+}
+</style>
+
+<div class="cleaning-page" id="cleaning-page">
+    <section class="cleaning-hero">
+        <h1>Cleaning</h1>
+        <p>Simple room-by-room reset checklist. Bedroom 3 is the former office.</p>
+
+        <div class="cleaning-progress-row">
+            <div class="cleaning-progress" aria-label="Cleaning progress">
+                <div class="cleaning-progress-fill" id="cleaning-progress-fill"></div>
+            </div>
+            <strong id="cleaning-done-text">{{ cleaning.done }}/{{ cleaning.total }} done</strong>
+            <span id="cleaning-left-text">{{ cleaning.remaining }} left</span>
+        </div>
+
+        <div class="cleaning-actions">
+            <button class="cleaning-btn secondary" type="button" id="cleaning-toggle-done">Hide completed</button>
+            <button class="cleaning-btn" type="button" id="cleaning-reset-all">Reset all</button>
+        </div>
+        <div class="cleaning-error" id="cleaning-error">Could not save that change. Try refreshing.</div>
+    </section>
+
+    <section class="cleaning-room-grid">
+        {% for room in cleaning.rooms %}
+            <article class="cleaning-room" data-room-id="{{ room.id }}">
+                <div class="cleaning-room-header">
+                    <div>
+                        <h2>{{ room.name }}</h2>
+                        {% if room.note %}<p class="cleaning-note">{{ room.note }}</p>{% endif %}
+                    </div>
+                    <div class="cleaning-room-count" data-room-count>{{ room.done }}/{{ room.total }}</div>
+                </div>
+
+                {% for task in room.tasks %}
+                    <label class="cleaning-task{% if task.done %} done{% endif %}" data-task-row data-task-id="{{ task.id }}">
+                        <input type="checkbox" data-cleaning-check data-task-id="{{ task.id }}" {% if task.done %}checked{% endif %}>
+                        <span>{{ task.name }}</span>
+                    </label>
+                {% endfor %}
+
+                {% if room.done > 0 %}
+                    <button class="cleaning-room-reset" type="button" data-clear-room data-room-id="{{ room.id }}">
+                        Clear this room
+                    </button>
+                {% else %}
+                    <button class="cleaning-room-reset" type="button" data-clear-room data-room-id="{{ room.id }}" style="display:none;">
+                        Clear this room
+                    </button>
+                {% endif %}
+            </article>
+        {% endfor %}
+    </section>
+</div>
+
+<script>
+(function () {
+    const page = document.getElementById('cleaning-page');
+    const error = document.getElementById('cleaning-error');
+    const progressFill = document.getElementById('cleaning-progress-fill');
+    const doneText = document.getElementById('cleaning-done-text');
+    const leftText = document.getElementById('cleaning-left-text');
+    const toggleDoneBtn = document.getElementById('cleaning-toggle-done');
+    let hideCompleted = false;
+
+    function showError() {
+        if (error) error.style.display = 'block';
+    }
+
+    function hideError() {
+        if (error) error.style.display = 'none';
+    }
+
+    function applyState(state) {
+        if (!state || !state.rooms) return;
+        if (progressFill) progressFill.style.width = `${state.percent || 0}%`;
+        if (doneText) doneText.textContent = `${state.done}/${state.total} done`;
+        if (leftText) leftText.textContent = `${state.remaining} left`;
+
+        state.rooms.forEach((room) => {
+            const card = document.querySelector(`[data-room-id="${room.id}"]`);
+            if (!card) return;
+            const count = card.querySelector('[data-room-count]');
+            if (count) count.textContent = `${room.done}/${room.total}`;
+            const clearBtn = card.querySelector('[data-clear-room]');
+            if (clearBtn) clearBtn.style.display = room.done > 0 ? '' : 'none';
+
+            room.tasks.forEach((task) => {
+                const row = document.querySelector(`[data-task-row][data-task-id="${CSS.escape(task.id)}"]`);
+                const check = document.querySelector(`[data-cleaning-check][data-task-id="${CSS.escape(task.id)}"]`);
+                if (row) row.classList.toggle('done', Boolean(task.done));
+                if (check) check.checked = Boolean(task.done);
+            });
+        });
+    }
+
+    async function patchTask(taskId, done) {
+        hideError();
+        const res = await fetch('/api/cleaning/toggle', {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({task_id: taskId, done})
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error('save failed');
+        applyState(data);
+    }
+
+    document.querySelectorAll('[data-cleaning-check]').forEach((check) => {
+        check.addEventListener('change', async (event) => {
+            const input = event.currentTarget;
+            const taskId = input.dataset.taskId;
+            const original = !input.checked;
+            input.closest('[data-task-row]')?.classList.toggle('done', input.checked);
+            try {
+                await patchTask(taskId, input.checked);
+            } catch (err) {
+                input.checked = original;
+                input.closest('[data-task-row]')?.classList.toggle('done', original);
+                showError();
+            }
+        });
+    });
+
+    document.querySelectorAll('[data-clear-room]').forEach((button) => {
+        button.addEventListener('click', async () => {
+            hideError();
+            const roomId = button.dataset.roomId;
+            try {
+                const res = await fetch(`/api/cleaning/room/${roomId}/clear`, {method: 'POST'});
+                const data = await res.json();
+                if (!res.ok || !data.ok) throw new Error('clear failed');
+                applyState(data);
+            } catch (err) {
+                showError();
+            }
+        });
+    });
+
+    document.getElementById('cleaning-reset-all')?.addEventListener('click', async () => {
+        hideError();
+        try {
+            const res = await fetch('/api/cleaning/reset', {method: 'POST'});
+            const data = await res.json();
+            if (!res.ok || !data.ok) throw new Error('reset failed');
+            applyState(data);
+        } catch (err) {
+            showError();
+        }
+    });
+
+    toggleDoneBtn?.addEventListener('click', () => {
+        hideCompleted = !hideCompleted;
+        page.classList.toggle('cleaning-hidden-done', hideCompleted);
+        toggleDoneBtn.textContent = hideCompleted ? 'Show completed' : 'Hide completed';
+    });
+})();
+</script>
+{% endblock %}

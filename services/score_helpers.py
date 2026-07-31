@@ -19,6 +19,8 @@ from __future__ import annotations
 
 from datetime import date
 
+from services.local_time import local_today
+
 DAY_LABELS_SHORT = ("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")
 DAY_LABELS_LONG = (
     "Monday",
@@ -243,7 +245,7 @@ def today_score_banner_context(cards: dict) -> dict:
 
 def today_weekday_index(week_start_iso: str, today: date | None = None) -> int | None:
     if today is None:
-        today = date.today()
+        today = local_today()
     try:
         monday = date.fromisoformat(week_start_iso[:10])
     except ValueError:

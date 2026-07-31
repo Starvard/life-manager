@@ -1,5 +1,7 @@
 # AGENTS.md
 
+**Maintainer process (merge policy, no pre-test merge, etc.):** see `AGENTS_PREFERENCES.md`.
+
 ## Cursor Cloud specific instructions
 
 ### Overview

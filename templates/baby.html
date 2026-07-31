@@ -1,101 +1,288 @@
 {% extends "base.html" %}
-{% block title %}Baby Tracker - Life Manager{% endblock %}
+{% block title %}Rowan Snapshot - Life Manager{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1>Baby Tracker</h1>
-    <p class="subtitle">{{ card.baby_name }} &mdash; {{ card_date }}</p>
+{% set birth_date = '2026-03-16' %}
+<div class="page-header baby-page-header">
+    <h1>Rowan Snapshot</h1>
+    <p class="subtitle">Current leap/regression snapshot, simple milestones, and what to watch &mdash; born March 16, 2026</p>
 </div>
 
-<div class="picker">
-    <a href="#" class="picker-btn"
-       onclick="event.preventDefault(); var d=new Date('{{ card_date }}'); d.setDate(d.getDate()-1); location.href='?date='+d.toISOString().slice(0,10);">
-        &larr;
-    </a>
-    <input type="date" value="{{ card_date }}"
-           onchange="location.href='?date='+this.value"
-           style="padding:0.4rem; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:0.8rem;">
-    <a href="#" class="picker-btn"
-       onclick="event.preventDefault(); var d=new Date('{{ card_date }}'); d.setDate(d.getDate()+1); location.href='?date='+d.toISOString().slice(0,10);">
-        &rarr;
-    </a>
-    <a href="#" class="btn btn-sm btn-outline"
-       onclick="event.preventDefault(); location.href='?date='+new Date().toISOString().slice(0,10);">Today</a>
-</div>
-
-<div x-data='babyCard("{{ card_date }}", {{ card|tojson }})' class="notecard"
-     @mouseup.window="endPaint()" @touchend.window="endPaint()">
-
-    <div class="notecard-header baby">
-        <span>Baby {{ card.baby_name }}</span>
-        <span class="week-label"
-              x-text="new Date('{{ card_date }}T12:00:00').toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric', year:'numeric'})">
-        </span>
-    </div>
-
-    {% for track_key, track in card.tracks.items() %}
-    <div class="baby-track">
-        <div class="baby-track-label">
-            {{ track.label }}
-            {% if track.hint %}<span class="hint">{{ track.hint }}</span>{% endif %}
+<div class="baby-snapshot" data-birth-date="{{ birth_date }}" data-card-date="{{ card_date }}">
+    <section class="baby-hero card">
+        <div>
+            <div class="baby-eyebrow">Today</div>
+            <div class="baby-age-value" id="baby-age-value">Calculating…</div>
+            <p class="baby-age-sub" id="baby-age-sub">Born March 16, 2026</p>
         </div>
-        <div class="baby-track-content">
+        <div class="baby-now-chip" id="baby-now-chip">Loading</div>
+    </section>
 
-            {% if track.type == "blocks" %}
-            <div class="block-wrap">
-                <div class="block-time-labels">
-                    <span style="grid-column: 1">12a</span>
-                    <span style="grid-column: 4">3a</span>
-                    <span style="grid-column: 7">6a</span>
-                    <span style="grid-column: 10">9a</span>
-                    <span style="grid-column: 13">12p</span>
-                    <span style="grid-column: 16">3p</span>
-                    <span style="grid-column: 19">6p</span>
-                    <span style="grid-column: 22">9p</span>
-                </div>
-                <div class="block-grid" data-track="{{ track_key }}">
-                    <template x-for="(filled, idx) in card.tracks['{{ track_key }}'].squares" :key="idx">
-                        <div class="blk"
-                             :class="{ filled: card.tracks['{{ track_key }}'].squares[idx] }"
-                             :data-idx="idx"
-                             @mousedown.prevent="startPaint('{{ track_key }}', idx)"
-                             @mouseenter="continuePaint('{{ track_key }}', idx)"
-                             @touchstart.prevent="startPaint('{{ track_key }}', idx)"
-                             @touchmove.prevent="onTouchMove($event)">
-                        </div>
-                    </template>
-                </div>
-            </div>
+    <section class="baby-main-grid">
+        <article class="card baby-now-card" id="baby-current-card">
+            <div class="card-title">Current snapshot</div>
+            <h2 id="baby-current-title">Loading current window…</h2>
+            <p id="baby-current-summary" class="baby-copy"></p>
+            <div class="baby-pill-row" id="baby-current-pills"></div>
+        </article>
 
-            {% elif track.type == "tally" %}
-            <div class="tally">
-                <button class="tally-btn" @click="updateTally('{{ track_key }}', -1)">&minus;</button>
-                <span class="tally-count" x-text="card.tracks['{{ track_key }}'].count"></span>
-                <button class="tally-btn" @click="updateTally('{{ track_key }}', 1)">+</button>
-            </div>
+        <article class="card baby-next-card" id="baby-next-card">
+            <div class="card-title">Next likely window</div>
+            <h2 id="baby-next-title">Loading next window…</h2>
+            <p id="baby-next-summary" class="baby-copy"></p>
+            <div class="baby-date-line" id="baby-next-date"></div>
+        </article>
+    </section>
 
-            {% elif track.type == "notes" %}
-            <textarea class="baby-notes-input"
-                      placeholder="Notes..."
-                      x-model="card.tracks['{{ track_key }}'].text"
-                      @blur="updateNotes('{{ track_key }}')"
-                      rows="1"></textarea>
-            {% endif %}
+    <section class="card baby-watch-card">
+        <div class="card-title">What to look for now</div>
+        <div class="baby-watch-grid" id="baby-watch-grid"></div>
+    </section>
 
-        </div>
-    </div>
-    {% endfor %}
+    <section class="card baby-milestone-card">
+        <div class="card-title">Simple milestone check</div>
+        <div class="baby-milestone-grid" id="baby-milestone-grid"></div>
+        <p class="baby-disclaimer">Milestones are broad guideposts. If something feels off, this is a prompt for the pediatrician, not a diagnosis.</p>
+    </section>
+
+    <section class="card baby-regression-card">
+        <div class="card-title">Sleep / regression notes</div>
+        <div class="baby-note-list" id="baby-regression-list"></div>
+    </section>
+
+    <details class="card baby-timeline-details">
+        <summary>Full first-year timeline</summary>
+        <div class="baby-timeline" id="baby-timeline"></div>
+    </details>
 </div>
 
-{% if days %}
-<div class="card" style="margin-top:1rem;">
-    <div class="card-title">Recent Days</div>
-    <div class="btn-group">
-        {% for d in days[-14:] %}
-        <a href="?date={{ d }}" class="btn btn-sm {% if d == card_date %}btn-primary{% else %}btn-outline{% endif %}"
-           style="{% if d == card_date %}background:var(--purple); border-color:var(--purple);{% endif %}">{{ d[5:] }}</a>
-        {% endfor %}
-    </div>
-</div>
-{% endif %}
+<style>
+.baby-page-header { margin-bottom: 1rem; }
+.baby-snapshot { display: grid; gap: 1rem; }
+.baby-hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0;
+    border-color: rgba(167,139,250,0.24);
+    background: radial-gradient(circle at top left, rgba(167,139,250,0.18), transparent 34%), linear-gradient(135deg, rgba(99,179,255,0.08), rgba(167,139,250,0.08));
+}
+.baby-eyebrow, .baby-date-line { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+.baby-age-value { font-size: clamp(1.8rem, 7vw, 3.1rem); font-weight: 850; line-height: 1; color: var(--text-bright); letter-spacing: -0.06em; }
+.baby-age-sub { margin: 0.45rem 0 0; color: var(--text-muted); font-size: 0.85rem; }
+.baby-now-chip { flex-shrink: 0; border: 1px solid rgba(167,139,250,0.35); color: #d8b4fe; background: rgba(167,139,250,0.12); border-radius: 999px; padding: 0.45rem 0.75rem; font-size: 0.75rem; font-weight: 800; }
+.baby-main-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.8fr); gap: 1rem; }
+.baby-now-card, .baby-next-card, .baby-watch-card, .baby-milestone-card, .baby-regression-card { margin-bottom: 0; }
+.baby-now-card h2, .baby-next-card h2 { margin: 0 0 0.5rem; color: var(--text-bright); font-size: 1.25rem; letter-spacing: -0.03em; }
+.baby-copy { color: var(--text-muted); font-size: 0.88rem; line-height: 1.55; margin: 0; }
+.baby-pill-row { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 0.8rem; }
+.baby-pill-row span { border: 1px solid var(--border); border-radius: 999px; padding: 0.32rem 0.55rem; background: var(--surface-hover); color: var(--text); font-size: 0.73rem; font-weight: 650; }
+.baby-watch-grid, .baby-milestone-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 0.65rem; }
+.baby-watch-item, .baby-milestone-item, .baby-note-item { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem; background: rgba(255,255,255,0.026); }
+.baby-watch-item strong, .baby-milestone-item strong, .baby-note-item strong { display: block; color: var(--text-bright); font-size: 0.9rem; margin-bottom: 0.25rem; }
+.baby-watch-item span, .baby-milestone-item span, .baby-note-item span { display: block; color: var(--text-muted); font-size: 0.78rem; line-height: 1.42; }
+.baby-disclaimer { color: var(--text-light); font-size: 0.72rem; margin: 0.75rem 0 0; }
+.baby-note-list { display: grid; gap: 0.65rem; }
+.baby-timeline-details { margin-bottom: 0; }
+.baby-timeline-details summary { cursor: pointer; color: var(--text-bright); font-weight: 750; }
+.baby-timeline { display: grid; gap: 0.65rem; margin-top: 0.9rem; }
+.baby-window { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem; background: rgba(255,255,255,0.025); }
+.baby-window.is-current { border-color: rgba(167,139,250,0.55); background: linear-gradient(135deg, rgba(167,139,250,0.16), rgba(99,179,255,0.06)); }
+.baby-window.is-past { opacity: 0.55; }
+.baby-window-date { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.07em; color: var(--purple); margin-bottom: 0.22rem; }
+.baby-window h3 { margin: 0 0 0.3rem; font-size: 0.98rem; color: var(--text-bright); }
+.baby-window p { margin: 0; color: var(--text-muted); font-size: 0.8rem; line-height: 1.42; }
+@media (max-width: 760px) {
+    .baby-hero, .baby-main-grid { grid-template-columns: 1fr; }
+    .baby-hero { align-items: flex-start; flex-direction: column; }
+}
+</style>
+
+<script>
+(function () {
+    const MS_DAY = 86400000;
+    const snapshot = document.querySelector('.baby-snapshot');
+    if (!snapshot) return;
+
+    function parseIso(s) { return new Date(String(s) + 'T12:00:00'); }
+    function fmtDate(s) { return parseIso(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+    function esc(s) { return String(s || '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function daysBetween(a, b) { return Math.round((parseIso(a) - parseIso(b)) / MS_DAY); }
+    function plural(n, unit) { return n + ' ' + unit + (n === 1 ? '' : 's'); }
+
+    const birthIso = snapshot.dataset.birthDate || '2026-03-16';
+    const selectedIso = snapshot.dataset.cardDate || new Date().toISOString().slice(0, 10);
+    const ageDays = Math.max(0, daysBetween(selectedIso, birthIso));
+    const weeks = Math.floor(ageDays / 7);
+    const extraDays = ageDays % 7;
+    const ageText = plural(weeks, 'week') + (extraDays ? ' + ' + plural(extraDays, 'day') : '');
+
+    const windows = [
+        {
+            start: '2026-03-16', end: '2026-04-12', label: 'Weeks 0–4 · Mar 16–Apr 12', title: 'Newborn rhythm',
+            summary: 'The main job is feeding, sleeping, growing, and learning the basics of being awake. Watch comfort cues and how he settles.',
+            learn: ['Recognizing voices', 'Brief eye contact', 'Startle and rooting reflexes', 'Short awake windows'],
+            watch: [
+                ['Simple baby stuff', 'Frequent feeds, lots of sleep, diapers, skin-to-skin, and calm repetition.'],
+                ['What to notice', 'What settles him, how long he tolerates being awake, and whether evenings are harder.'],
+                ['Call pediatrician if', 'Poor feeding, fever, hard breathing, dehydration concerns, or anything that feels sharply different.']
+            ],
+            regression: ['No formal sleep regression yet. Sleep is naturally chaotic and still day/night confused.']
+        },
+        {
+            start: '2026-04-13', end: '2026-05-10', label: 'Weeks 4–8 · Apr 13–May 10', title: 'Early awareness jump',
+            summary: 'He is moving out of pure newborn mode. Expect more alert time, more face watching, stronger reactions to voices, and maybe bigger fussy stretches.',
+            learn: ['Faces are interesting', 'Voices are familiar', 'Early social smiles may appear', 'Head control starts improving'],
+            watch: [
+                ['Learning now', 'Looking at faces, calming to familiar voices, tracking briefly, and starting to show little social responses.'],
+                ['What to do', 'Talk close to his face, pause for him to respond, do short tummy-time reps, and keep wake windows gentle.'],
+                ['Look out for', 'Evening fussiness, overtired spirals, feeding cluster stretches, and gas/discomfort patterns.']
+            ],
+            regression: ['This is more of a fussiness/awareness leap than a sleep regression. If sleep gets messy, check wake windows and overstimulation first.']
+        },
+        {
+            start: '2026-05-11', end: '2026-06-07', label: 'Weeks 8–12 · May 11–Jun 7', title: '2-month social burst',
+            summary: 'This is the next big window: more cooing, smiling back, watching movement, responding to sounds, and stronger head lifting during tummy time.',
+            learn: ['Smiles back', 'Cooing sounds', 'Tracks faces/toys', 'Lifts head on tummy'],
+            watch: [
+                ['Milestones to watch', 'Smiling at people, looking at your face, reacting to loud sounds, making sounds other than crying, and lifting his head during tummy time.'],
+                ['Good tiny activities', 'Face-to-face talking, slow high-contrast toys, mirror time, songs, and several short tummy-time sessions.'],
+                ['Look out for', 'A sudden clingier/fussier stretch can happen as awareness grows. Keep routines boring and predictable.']
+            ],
+            regression: ['Not the classic 4-month regression yet. Sleep may still shift as feeds and alert windows change.']
+        },
+        {
+            start: '2026-06-08', end: '2026-07-05', label: 'Weeks 12–16 · Jun 8–Jul 5', title: 'Hands, voice, and coordination',
+            summary: 'He may start using hands more, bring hands to mouth, bat at toys, and become more interactive with sounds and faces.',
+            learn: ['Hands to mouth', 'Bats at toys', 'Turns toward voices', 'More expressive sounds'],
+            watch: [
+                ['Learning now', 'Cause/effect with hands and voice, stronger visual tracking, and more body control.'],
+                ['What to do', 'Place toys slightly to the side, keep tummy time interesting, and copy his sounds back to him.'],
+                ['Look out for', 'More boredom cues; he may want position changes and interaction but still get overstimulated fast.']
+            ],
+            regression: ['Some babies get short naps here as awareness and movement ramp up.']
+        },
+        {
+            start: '2026-07-06', end: '2026-08-09', label: 'Weeks 16–21 · Jul 6–Aug 9', title: '4-month sleep regression zone',
+            summary: 'Sleep can get choppy as sleep cycles mature and skills accelerate. This is the big regression window to have on your radar.',
+            learn: ['Rolling attempts', 'Pushes up on forearms', 'Reaches on purpose', 'Laughs/chuckles'],
+            watch: [
+                ['Sleep watch', 'False starts, short naps, more night wakes, and harder transfers.'],
+                ['Skills watch', 'Rolling attempts, reaching, pushing up, hands together, and stronger laughter/social play.'],
+                ['What helps', 'Consistent bedtime rhythm, age-appropriate wake windows, and letting the day be calmer when sleep is rough.']
+            ],
+            regression: ['This is the classic 4-month sleep regression window. It can be intense but usually reflects maturation, not failure.']
+        },
+        {
+            start: '2026-08-24', end: '2026-09-27', label: 'Weeks 23–28 · Aug 24–Sep 27', title: '6-month skill consolidation',
+            summary: 'More purposeful reaching, rolling, object exploration, stronger trunk control, and possible feed/sleep shifts.',
+            learn: ['Rolls both ways', 'Supported sitting', 'Reaches and grabs', 'Explores objects'],
+            watch: [
+                ['Learning now', 'Object exploration, hand-to-hand transfers, rolling practice, and early sitting strength.'],
+                ['Simple baby stuff', 'More floor time, safe objects to grab, reading, songs, and responsive talking.'],
+                ['Look out for', 'Feed changes, nap changes, and frustration when the body wants to move but cannot quite do it yet.']
+            ],
+            regression: ['Sleep may wobble around new movement skills and feeding changes.']
+        },
+        {
+            start: '2026-10-05', end: '2026-11-08', label: 'Weeks 29–34 · Oct 5–Nov 8', title: 'Separation + mobility prep',
+            summary: 'Object permanence, caregiver preference, and early mobility practice can make nights and transitions feel harder.',
+            learn: ['Looks for hidden things', 'Stranger awareness', 'Scoots or pivots', 'More intentional play'],
+            watch: [
+                ['Learning now', 'People exist when out of sight, toys can be searched for, and movement has a purpose.'],
+                ['Look out for', 'Clinginess, bedtime protests, and frustration during mobility practice.'],
+                ['What helps', 'Predictable goodbyes, peekaboo, floor play, and calm repetition.']
+            ],
+            regression: ['Often shows up as separation-driven sleep disruption or bedtime protest.']
+        },
+        {
+            start: '2026-11-09', end: '2026-12-20', label: 'Weeks 34–40 · Nov 9–Dec 20', title: '9-month milestone window',
+            summary: 'Communication and mobility may jump: sitting, crawling, pulling toward objects, babbling strings, and games like peekaboo.',
+            learn: ['Responds to name', 'Babbling strings', 'Sits strongly', 'Moves toward toys'],
+            watch: [
+                ['Milestones to watch', 'Sitting without support, responding to name, babbling, moving toward toys, and playing simple games.'],
+                ['Look out for', 'Frustration, separation anxiety, and suddenly bigger opinions.'],
+                ['What helps', 'Name games, object hiding games, books, songs, and safe movement space.']
+            ],
+            regression: ['A 8–10 month sleep disruption is common around separation anxiety and mobility.']
+        },
+        {
+            start: '2027-01-04', end: '2027-02-07', label: 'Weeks 42–47 · Jan 4–Feb 7', title: 'Pre-walking / big opinions phase',
+            summary: 'Pulling to stand, cruising attempts, pointing/gesturing, and stronger preferences can make routines feel wobbly again.',
+            learn: ['Pulls to stand', 'Cruising prep', 'Pincer grasp', 'Copies sounds'],
+            watch: [
+                ['Learning now', 'Standing practice, fine motor control, gestures, imitation, and more communication.'],
+                ['Look out for', 'More frustration because he knows what he wants before he can say or do it.'],
+                ['What helps', 'Safe cruising space, simple choices, labeling objects, and patient repetition.']
+            ],
+            regression: ['Sleep may wobble around standing practice and separation.']
+        },
+        {
+            start: '2027-02-15', end: '2027-03-16', label: 'Weeks 49–52 · Feb 15–Mar 16', title: '1-year transition',
+            summary: 'First words, standing/walking attempts, imitation, games, meals, and nap transitions can all stack up around the first birthday.',
+            learn: ['Waves or claps', 'First words/sounds', 'Cruises or steps', 'Imitates games'],
+            watch: [
+                ['Milestones to watch', 'Waving, clapping, simple words/sounds, pulling to stand, cruising, and copying gestures.'],
+                ['Look out for', 'Nap transitions, picky eating, and big feelings as independence grows.'],
+                ['Pediatrician notes', 'Bring questions about words, movement, feeding, sleep, and safety.']
+            ],
+            regression: ['The 12-month transition can disrupt sleep, especially with walking practice and nap changes.']
+        }
+    ];
+
+    const milestonePrompts = [
+        ['Social', 'Smiles back, watches your face, calms to familiar voices, and enjoys interaction.'],
+        ['Language', 'Makes sounds other than crying, coos, and starts little back-and-forth “conversations.”'],
+        ['Movement', 'Lifts head during tummy time, turns head toward sounds, opens hands more, and starts smoother body control.'],
+        ['Thinking', 'Looks at faces/toys, follows movement briefly, and gets more interested in the world.']
+    ];
+
+    function activeWindow() {
+        return windows.find((w) => selectedIso >= w.start && selectedIso <= w.end) ||
+            windows.filter((w) => selectedIso > w.end).slice(-1)[0] || windows[0];
+    }
+    function nextWindow(current) {
+        return windows.find((w) => w.start > selectedIso && w !== current) || null;
+    }
+
+    const current = activeWindow();
+    const next = nextWindow(current);
+
+    document.getElementById('baby-age-value').textContent = ageText;
+    document.getElementById('baby-age-sub').textContent = ageDays + ' days old · today is ' + parseIso(selectedIso).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    document.getElementById('baby-now-chip').textContent = current.title;
+    document.getElementById('baby-current-title').textContent = current.title;
+    document.getElementById('baby-current-summary').textContent = current.summary;
+    document.getElementById('baby-current-pills').innerHTML = current.learn.map((x) => '<span>' + esc(x) + '</span>').join('');
+
+    if (next) {
+        const daysUntil = Math.max(0, daysBetween(next.start, selectedIso));
+        document.getElementById('baby-next-title').textContent = next.title;
+        document.getElementById('baby-next-summary').textContent = next.summary;
+        document.getElementById('baby-next-date').textContent = next.label + ' · starts in about ' + plural(daysUntil, 'day');
+    } else {
+        document.getElementById('baby-next-title').textContent = 'First year complete';
+        document.getElementById('baby-next-summary').textContent = 'You can generalize this page later into a toddler snapshot with the same current/next structure.';
+        document.getElementById('baby-next-date').textContent = '';
+    }
+
+    document.getElementById('baby-watch-grid').innerHTML = current.watch.map((item) =>
+        '<div class="baby-watch-item"><strong>' + esc(item[0]) + '</strong><span>' + esc(item[1]) + '</span></div>'
+    ).join('');
+
+    document.getElementById('baby-milestone-grid').innerHTML = milestonePrompts.map((item) =>
+        '<div class="baby-milestone-item"><strong>' + esc(item[0]) + '</strong><span>' + esc(item[1]) + '</span></div>'
+    ).join('');
+
+    document.getElementById('baby-regression-list').innerHTML = current.regression.map((text) =>
+        '<div class="baby-note-item"><strong>Sleep context</strong><span>' + esc(text) + '</span></div>'
+    ).join('');
+
+    document.getElementById('baby-timeline').innerHTML = windows.map((w) => {
+        const cls = selectedIso >= w.start && selectedIso <= w.end ? ' is-current' : (selectedIso > w.end ? ' is-past' : '');
+        return '<article class="baby-window' + cls + '"><div class="baby-window-date">' + esc(w.label) + '</div><h3>' + esc(w.title) + '</h3><p>' + esc(w.summary) + '</p></article>';
+    }).join('');
+})();
+</script>
 {% endblock %}

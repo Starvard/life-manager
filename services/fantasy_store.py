@@ -40,6 +40,8 @@ DEFAULT_STATE: dict = {
         "rebuild_horizon_years": 3,
         "rebuild_plan_doc": "",
         "rebuild_plan_generated_at": None,
+        "assumed_rookies": {},
+        "project_rookies_into_lineup": False,
     },
     "rebuild_board": {
         "sync_token": "",
@@ -51,6 +53,8 @@ DEFAULT_STATE: dict = {
     "trade_suggestions": None,
     "last_trade_refresh": None,
     "last_trade_error": None,
+    "best_lineup": None,
+    "best_lineup_generated_at": None,
 }
 
 
@@ -73,6 +77,10 @@ def state_for_client(state: dict | None) -> dict:
         slim_snap = {k: v for k, v in snap.items() if k not in ("league_rosters", "league_users")}
     out = {k: v for k, v in state.items() if k != "cached_snapshot"}
     out["cached_snapshot"] = slim_snap
+    if "best_lineup_with_assumptions" not in out:
+        out["best_lineup_with_assumptions"] = None
+    if "best_lineup_with_assumptions_at" not in out:
+        out["best_lineup_with_assumptions_at"] = None
     return out
 
 
@@ -96,6 +104,9 @@ def load_state() -> dict:
         merged["settings"] = {**merged["settings"], **data["settings"]}
     if "plan" in data and isinstance(data["plan"], dict):
         merged["plan"] = {**merged["plan"], **data["plan"]}
+        p = data["plan"]
+        if "assumed_rookies" in p and not isinstance(p.get("assumed_rookies"), dict):
+            merged["plan"]["assumed_rookies"] = {}
     if "rebuild_board" in data and isinstance(data["rebuild_board"], dict):
         rb = data["rebuild_board"]
         merged["rebuild_board"] = {
@@ -152,6 +163,7 @@ def update_settings(updates: dict) -> dict:
 def update_plan(updates: dict) -> dict:
     state = load_state()
     p = state.setdefault("plan", {})
+    recompute = False
     for k in ("draft_notes", "trade_targets", "rebuild_notes"):
         if k in updates and updates[k] is not None:
             p[k] = str(updates[k])
@@ -163,12 +175,32 @@ def update_plan(updates: dict) -> dict:
             pass
     if "trade_ideas" in updates and isinstance(updates["trade_ideas"], list):
         p["trade_ideas"] = updates["trade_ideas"]
+    if "assumed_rookies" in updates and updates["assumed_rookies"] is not None:
+        if isinstance(updates["assumed_rookies"], dict):
+            p["assumed_rookies"] = updates["assumed_rookies"]
+            recompute = True
+    if "project_rookies_into_lineup" in updates and updates["project_rookies_into_lineup"] is not None:
+        p["project_rookies_into_lineup"] = bool(updates["project_rookies_into_lineup"])
+        recompute = True
+    if recompute:
+        try:
+            from services.fantasy_rebuild_plan import apply_lineup_projection
+
+            apply_lineup_projection(state)
+        except Exception:
+            pass
     save_state(state)
     return state
 
 
 def _merge_rebuild_board_from_snapshot(snapshot: dict, prev: dict | None) -> dict:
-    """One row per starter, bench, IR, taxi player and per owned draft pick."""
+    """One row per starter, bench, IR, taxi player and per owned draft pick.
+
+    Ordering: draft picks first (rookie draft focus), then starters, bench, IR, taxi.
+    User-edited desired_upgrade text is preserved across syncs; stored auto fields
+    (plan_target, plan_rationale, _auto_desired_upgrade) are passed through so the
+    auto planner can detect "user has edited — leave it alone."
+    """
     lg = snapshot.get("league") or {}
     league_id = str(lg.get("league_id", ""))
     season = str(lg.get("season", ""))
@@ -185,6 +217,38 @@ def _merge_rebuild_board_from_snapshot(snapshot: dict, prev: dict | None) -> dic
         o = prev_assets.get(key)
         return o if isinstance(o, dict) else {}
 
+    def _base(key: str, extra: dict) -> dict:
+        o = _old(key)
+        row = {
+            "desired_upgrade": str(o.get("desired_upgrade", "")),
+            "plan_target": str(o.get("plan_target", "")),
+            "plan_rationale": str(o.get("plan_rationale", "")),
+            "_auto_desired_upgrade": str(o.get("_auto_desired_upgrade", "")),
+        }
+        row.update(extra)
+        return row
+
+    for pick in snapshot.get("draft_picks") or []:
+        pk = pick.get("pick_key")
+        if not pk:
+            continue
+        key = f"k-{pk}"
+        order.append(key)
+        extra_pick: dict = {
+            "kind": "pick",
+            "pick_key": str(pk),
+            "group": "Draft picks",
+            "label": str(pick.get("label") or pk),
+            "season": str(pick.get("season") or ""),
+            "round": int(pick.get("round") or 0),
+            "original_team_label": pick.get("original_team_label"),
+        }
+        if pick.get("display_slot"):
+            extra_pick["display_slot"] = str(pick.get("display_slot"))
+        if pick.get("sleeper_draft_id"):
+            extra_pick["sleeper_draft_id"] = str(pick.get("sleeper_draft_id"))
+        assets[key] = _base(key, extra_pick)
+
     for row in snapshot.get("starters") or []:
         if row.get("empty"):
             continue
@@ -194,14 +258,12 @@ def _merge_rebuild_board_from_snapshot(snapshot: dict, prev: dict | None) -> dic
             continue
         key = f"p-{pid}"
         order.append(key)
-        o = _old(key)
-        assets[key] = {
+        assets[key] = _base(key, {
             "kind": "player",
             "player_id": str(pid),
             "group": "Starters",
             "slot": row.get("slot") or "",
-            "desired_upgrade": str(o.get("desired_upgrade", "")),
-        }
+        })
 
     for pl in snapshot.get("bench") or []:
         pid = pl.get("id")
@@ -209,14 +271,12 @@ def _merge_rebuild_board_from_snapshot(snapshot: dict, prev: dict | None) -> dic
             continue
         key = f"p-{pid}"
         order.append(key)
-        o = _old(key)
-        assets[key] = {
+        assets[key] = _base(key, {
             "kind": "player",
             "player_id": str(pid),
             "group": "Bench",
             "slot": "",
-            "desired_upgrade": str(o.get("desired_upgrade", "")),
-        }
+        })
 
     for label, field in (("IR / Reserve", "reserve"), ("Taxi", "taxi")):
         for pl in snapshot.get(field) or []:
@@ -225,29 +285,12 @@ def _merge_rebuild_board_from_snapshot(snapshot: dict, prev: dict | None) -> dic
                 continue
             key = f"p-{pid}"
             order.append(key)
-            o = _old(key)
-            assets[key] = {
+            assets[key] = _base(key, {
                 "kind": "player",
                 "player_id": str(pid),
                 "group": label,
                 "slot": "",
-                "desired_upgrade": str(o.get("desired_upgrade", "")),
-            }
-
-    for pick in snapshot.get("draft_picks") or []:
-        pk = pick.get("pick_key")
-        if not pk:
-            continue
-        key = f"k-{pk}"
-        order.append(key)
-        o = _old(key)
-        assets[key] = {
-            "kind": "pick",
-            "pick_key": str(pk),
-            "group": "Draft picks",
-            "label": str(pick.get("label") or pk),
-            "desired_upgrade": str(o.get("desired_upgrade", "")),
-        }
+            })
 
     return {"sync_token": token, "order": order, "assets": assets}
 

@@ -10,9 +10,16 @@ Import meta:   data/budget/import_meta.json
 import json
 import os
 import threading
+from collections import defaultdict
 from datetime import datetime
 
 import config
+from services.budget_category_list import (
+    BUDGET_CATEGORY_ORDER,
+    CREDIT_CARD_PAYMENT_CATEGORY,
+    INTERNAL_TRANSFER_CATEGORY,
+    SALARY_INCOME_CATEGORY_NAMES,
+)
 
 _file_locks: dict[str, threading.Lock] = {}
 _locks_lock = threading.Lock()
@@ -134,6 +141,85 @@ def get_available_months() -> list[str]:
     for m in list_plan_months():
         months.add(m)
     return sorted(months)
+
+
+def _month_add(month: str, delta: int) -> str:
+    """Return YYYY-MM shifted by delta months (delta may be negative)."""
+    y, m = int(month[:4]), int(month[5:7])
+    idx = y * 12 + (m - 1) + delta
+    ny, nm = divmod(idx, 12)
+    return f"{ny:04d}-{nm + 1:02d}"
+
+
+def _projected_income_from_limits(limits: dict) -> float:
+    """Sum of monthly limit rows that represent expected take-home (Budgets tab)."""
+    t = 0.0
+    for k in SALARY_INCOME_CATEGORY_NAMES:
+        try:
+            t += float((limits or {}).get(k) or 0)
+        except (TypeError, ValueError):
+            pass
+    return round(t, 2)
+
+
+def _income_salary_categories_actual(by_category: dict) -> float:
+    """Sum of **positive** flows in the salary / take-home budget categories (Dyndrite, etc.)."""
+    t = 0.0
+    for k in SALARY_INCOME_CATEGORY_NAMES:
+        try:
+            raw = float((by_category or {}).get(k) or 0)
+        except (TypeError, ValueError):
+            raw = 0.0
+        if raw > 0:
+            t += raw
+    return round(t, 2)
+
+
+def expense_totals_by_category(month: str) -> dict[str, float]:
+    """Sum of absolute outflows per display category for a month (no duplicates)."""
+    from services.budget_categorizer import get_display_category
+
+    out: dict[str, float] = defaultdict(float)
+    for tx in get_transactions_by_month(month):
+        if tx.get("is_duplicate"):
+            continue
+        amt = float(tx.get("amount", 0))
+        if amt >= 0:
+            continue
+        cat = get_display_category(tx) or "Other"
+        out[cat] += abs(amt)
+    return dict(out)
+
+
+def compute_category_average_monthly_spend(
+    as_of_month: str, max_months: int = 12
+) -> dict[str, dict[str, float | int]]:
+    """Rolling average of outflows per category over up to ``max_months`` months ending at ``as_of_month``.
+
+    Includes ``as_of_month`` in the window. Returns per category:
+    ``{"average": float, "months": int}`` where ``months`` is how many months had data.
+    """
+    all_m = get_available_months()
+    eligible = [m for m in all_m if m <= as_of_month]
+    if not eligible:
+        return {}
+    window = eligible[-max_months:] if len(eligible) > max_months else eligible
+    sums: dict[str, float] = defaultdict(float)
+    counts: dict[str, int] = defaultdict(int)
+    for m in window:
+        by_cat = expense_totals_by_category(m)
+        for cat, amt in by_cat.items():
+            sums[cat] += amt
+            counts[cat] += 1
+    out: dict[str, dict[str, float | int]] = {}
+    for cat, total in sums.items():
+        c = counts[cat]
+        if c <= 0:
+            continue
+        out[cat] = {"average": round(total / c, 2), "months": int(c)}
+    # Categories that appear in window but had zero spend still get average 0 if we only iterate sums;
+    # we only include categories with at least one outflow in some month.
+    return out
 
 
 # ── Sheet overview (parsed monthly tab HTML) ────────────────────
@@ -278,12 +364,81 @@ def record_import(source_file: str, tx_count: int, fingerprint: str):
 
 # ── Category budgets (simple over/under) ─────────────────────────
 
+def _default_budgets_json_path() -> str:
+    """Factory defaults — lives next to this module (always in Docker image).
+
+    Do **not** use ``data/budget/budgets.json`` as the sole source: ``.dockerignore``
+    omits ``data/budget/``, so the image has no file there unless we ship a copy
+    under ``services/``.
+    """
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "budget_default_limits.json")
+
+
+def ensure_default_budget_limits_from_bundle() -> None:
+    """Merge factory default limits. Bumps ``defaults_version`` when new rows ship."""
+    bundled = _default_budgets_json_path()
+    if not os.path.isfile(bundled):
+        return
+    raw = _load_json(bundled)
+    if not isinstance(raw, dict) or not isinstance(raw.get("limits"), dict):
+        return
+    factory: dict = raw["limits"]
+    try:
+        factory_version = int(raw.get("defaults_version", 0))
+    except (TypeError, ValueError):
+        factory_version = 0
+
+    _ensure_dirs()
+    dest = config.BUDGET_BUDGETS_FILE
+    existing = _load_json(dest)
+    if not isinstance(existing, dict):
+        existing = {}
+    limits: dict = {}
+    if isinstance(existing.get("limits"), dict):
+        for k, v in existing["limits"].items():
+            try:
+                limits[str(k)] = float(v)
+            except (TypeError, ValueError):
+                pass
+
+    try:
+        stored_version = int(existing.get("defaults_version", 0))
+    except (TypeError, ValueError):
+        stored_version = 0
+
+    prior_keys = set(limits.keys())
+    merged = dict(limits)
+    for cat in BUDGET_CATEGORY_ORDER:
+        if cat in factory and cat not in merged:
+            try:
+                merged[cat] = float(factory[cat])
+            except (TypeError, ValueError):
+                pass
+
+    if not merged and not prior_keys and not factory:
+        return
+    if set(merged.keys()) == prior_keys and prior_keys and stored_version >= factory_version and existing.get(
+        "defaults_filled"
+    ):
+        return
+
+    out = dict(existing) if existing else {}
+    out["limits"] = {k: round(merged[k], 2) for k in sorted(merged.keys(), key=str)}
+    out["defaults_filled"] = True
+    out["defaults_version"] = factory_version
+    try:
+        _save_json(dest, out)
+    except OSError:
+        return
+
+
 def load_budgets() -> dict:
     """Return {category: monthly_limit} map. Stored in budgets.json."""
+    ensure_default_budget_limits_from_bundle()
     _ensure_dirs()
     data = _load_json(config.BUDGET_BUDGETS_FILE)
     if isinstance(data, dict) and isinstance(data.get("limits"), dict):
-        out = {}
+        out: dict = {}
         for k, v in data["limits"].items():
             try:
                 out[str(k)] = float(v)
@@ -304,7 +459,13 @@ def save_budgets(limits: dict) -> None:
         except (TypeError, ValueError):
             continue
         cleaned[str(k).strip()] = round(amt, 2)
-    _save_json(config.BUDGET_BUDGETS_FILE, {"limits": cleaned})
+    path = config.BUDGET_BUDGETS_FILE
+    root = _load_json(path) if os.path.isfile(path) else None
+    if not isinstance(root, dict):
+        root = {}
+    root = dict(root)
+    root["limits"] = dict(sorted(cleaned.items(), key=lambda kv: str(kv[0])))
+    _save_json(path, root)
 
 
 def set_category_budget(category: str, amount: float | None) -> dict:
@@ -320,17 +481,17 @@ def set_category_budget(category: str, amount: float | None) -> dict:
 
 # ── Monthly Report (computed) ─────────────────────────────────────
 
-def compute_monthly_report(month: str) -> dict:
-    """Compute income/expense/net totals and category breakdown for a month."""
+def aggregate_month_financials(month: str) -> dict:
+    """Per-month totals used by the report and prior-month comparisons."""
     from services.budget_categorizer import get_display_category
 
     txns = get_transactions_by_month(month)
-    plan = load_plan(month)
-    budgets = load_budgets().get("limits") or {}
-
     total_income = 0.0
     total_expenses = 0.0
-    by_category: dict[str, float] = {}
+    by_category: dict[str, float] = defaultdict(float)
+    card_payment_income = 0.0
+    card_payment_expense = 0.0
+    purchases_spend = 0.0  # outflows excluding card payoff transfers
 
     for tx in txns:
         if tx.get("is_duplicate"):
@@ -338,36 +499,311 @@ def compute_monthly_report(month: str) -> dict:
         amt = float(tx.get("amount", 0))
         cat = get_display_category(tx) or "Other"
 
-        by_category[cat] = by_category.get(cat, 0) + amt
+        by_category[cat] += amt
 
-        if amt > 0:
-            total_income += amt
-        else:
+        if cat == INTERNAL_TRANSFER_CATEGORY:
+            continue
+
+        if cat == CREDIT_CARD_PAYMENT_CATEGORY:
+            if amt > 0:
+                card_payment_income += amt
+            else:
+                card_payment_expense += amt
+                total_expenses += amt
+        elif amt < 0:
+            purchases_spend += abs(amt)
             total_expenses += amt
+        else:
+            # All positive inflows to checking/savings (except card refunds handled above)
+            total_income += amt
 
-    net = total_income + total_expenses
+    if INTERNAL_TRANSFER_CATEGORY in by_category:
+        by_category[INTERNAL_TRANSFER_CATEGORY] = 0.0
+
+    # Inflows: everything positive except internal + card. Do NOT subtract card
+    # refunds from total (they are not in total_income); that produced bogus negatives.
+    lifestyle_income = max(0.0, round(total_income, 2))
+    # Banner "Actual" vs Projected (budget sum): only salary / income-budget rows
+    income_salary_actual = max(
+        0.0, _income_salary_categories_actual(dict(by_category))
+    )
+    lifestyle_expenses = round(total_expenses - card_payment_expense, 2)
+    # Income line must never read negative in the UI; net uses the same non-negative inflow
+    lifestyle_net = round(lifestyle_income + lifestyle_expenses, 2)
+    card_payoff_total = round(abs(card_payment_expense), 2)
+    card_payment_net = round(card_payment_income + card_payment_expense, 2)
+
+    return {
+        "txns": txns,
+        "by_category": dict(by_category),
+        "total_income": round(total_income, 2),
+        "total_expenses": round(total_expenses, 2),
+        "net": round(total_income + total_expenses, 2),
+        "card_payment_income": round(card_payment_income, 2),
+        "card_payment_expense": round(card_payment_expense, 2),
+        "card_payoff_total": card_payoff_total,
+        "card_payment_net": card_payment_net,
+        "lifestyle_income": lifestyle_income,
+        "income_salary_actual": income_salary_actual,
+        "lifestyle_expenses": lifestyle_expenses,
+        "lifestyle_net": lifestyle_net,
+        "purchases_spend": round(purchases_spend, 2),
+    }
+
+
+def compute_cashflow_series(ending_month: str, n_months: int = 12) -> list[dict[str, float | str]]:
+    """Recent months' lifestyle net and in/out (for a simple bar chart; oldest first)."""
+    m0 = _month_add(ending_month, -(max(1, n_months) - 1))
+    out: list[dict[str, float | str]] = []
+    m = m0
+    while m <= ending_month:
+        a = aggregate_month_financials(m)
+        out.append(
+            {
+                "month": m,
+                "net": float(a["lifestyle_net"]),
+                "income": float(a["lifestyle_income"]),
+                "outflow": float(abs(a["lifestyle_expenses"])),
+            }
+        )
+        m = _month_add(m, 1)
+    return out
+
+
+def _income_in_date_range(start_date: str, end_date: str) -> float:
+    """Sum positive real inflows in [start, end] (inclusive, YYYY-MM-DD).
+
+    Excludes credit-card payments and internal transfers so only money that
+    actually *came in* (take-home pay, refunds, etc.) is counted.
+    """
+    from services.budget_categorizer import get_display_category
+
+    total = 0.0
+    for tx in load_transactions():
+        if tx.get("is_duplicate"):
+            continue
+        d = str(tx.get("date") or "")[:10]
+        if not d or d < start_date or d > end_date:
+            continue
+        amt = float(tx.get("amount", 0))
+        if amt <= 0:
+            continue
+        cat = get_display_category(tx) or ""
+        if cat in (CREDIT_CARD_PAYMENT_CATEGORY, INTERNAL_TRANSFER_CATEGORY):
+            continue
+        total += amt
+    return round(total, 2)
+
+
+def compute_recent_income_basis(window_days: int = 14) -> dict | None:
+    """Estimate true earnings from the most recent ``window_days`` of inflows.
+
+    Anchored on the latest transaction date we have (not the wall clock), so it
+    reflects the user's actual recent pay. Designed for weekly earners: a 14-day
+    window normally captures ~2 paychecks, which we annualize as 52 weeks.
+    """
+    from datetime import datetime, timedelta
+
+    dates = [
+        str(t.get("date") or "")[:10]
+        for t in load_transactions()
+        if not t.get("is_duplicate") and t.get("date")
+    ]
+    if not dates:
+        return None
+    anchor = max(dates)
+    try:
+        a = datetime.strptime(anchor, "%Y-%m-%d").date()
+    except ValueError:
+        return None
+    start = a - timedelta(days=max(1, window_days) - 1)
+    income = _income_in_date_range(start.isoformat(), anchor)
+    weeks = max(1, window_days) / 7.0
+    weekly = income / weeks if weeks else 0.0
+    return {
+        "window_days": int(window_days),
+        "weeks": round(weeks, 2),
+        "window_start": start.isoformat(),
+        "anchor_date": anchor,
+        "income_in_window": round(income, 2),
+        "weekly": round(weekly, 2),
+        "monthly": round(weekly * 52.0 / 12.0, 2),
+        "annual": round(weekly * 52.0, 2),
+    }
+
+
+def compute_money_outlook(month: str, lookback: int = 6) -> dict:
+    """Big-picture in/out flow plus monthly + yearly forward projections.
+
+    Combines the current month's real cash flow (money in vs money out, with
+    credit-card payoff transfers excluded so purchases aren't double counted)
+    with:
+      * a rolling average over recent **completed** months (for spending), and
+      * a recent-pay income estimate (last ~2 weeks annualized — best for
+        weekly earners),
+    to project next month's net and a full-year savings figure — i.e. whether
+    the household is on track to **save** or come up **short**. ``card_bill_due``
+    surfaces the typical credit-card payoff that usually decides it.
+    """
+    cur = aggregate_month_financials(month)
+    cur_in = max(0.0, float(cur["lifestyle_income"]))
+    cur_out = float(cur["purchases_spend"])
+    cur_net = round(cur_in - cur_out, 2)
+
+    all_m = get_available_months()
+    # Average over completed months (strictly before the selected month) so an
+    # in-progress month doesn't drag the projection artificially low.
+    prior = [m for m in all_m if m < month]
+    window = prior[-lookback:] if prior else [m for m in all_m if m <= month][-lookback:]
+    if not window:
+        window = [month]
+
+    sum_in = sum_out = sum_payoff = 0.0
+    per_month: list[dict] = []
+    for m in window:
+        a = aggregate_month_financials(m)
+        mi = max(0.0, float(a["lifestyle_income"]))
+        mo = float(a["purchases_spend"])
+        pf = float(a["card_payoff_total"])
+        sum_in += mi
+        sum_out += mo
+        sum_payoff += pf
+        per_month.append({"month": m, "in": round(mi, 2), "out": round(mo, 2), "net": round(mi - mo, 2)})
+
+    n = max(1, len(window))
+    avg_in = sum_in / n
+    avg_out = sum_out / n
+    avg_payoff = sum_payoff / n
+
+    # Predicted income: prefer the recent-pay estimate (best for weekly earners),
+    # falling back to the monthly average if the last two weeks had no inflow.
+    basis = compute_recent_income_basis(14)
+    if basis and basis.get("income_in_window", 0) > 0:
+        pred_in = round(float(basis["monthly"]), 2)
+        income_source = "recent_weekly"
+    else:
+        pred_in = round(avg_in, 2)
+        income_source = "monthly_avg"
+
+    pred_out = round(avg_out, 2)
+    pred_net = round(pred_in - pred_out, 2)
+
+    annual_income = round(pred_in * 12.0, 2)
+    annual_spend = round(pred_out * 12.0, 2)
+    annual_savings = round(pred_net * 12.0, 2)
+
+    return {
+        "current": {
+            "month": month,
+            "in": round(cur_in, 2),
+            "out": round(cur_out, 2),
+            "net": cur_net,
+        },
+        "averages": {
+            "in": round(avg_in, 2),
+            "out": round(avg_out, 2),
+            "net": round(avg_in - avg_out, 2),
+            "months": int(n),
+            "window": list(window),
+        },
+        "income_basis": basis or {},
+        "next_month": {
+            "key": _month_add(month, 1),
+            "predicted_in": pred_in,
+            "predicted_out": pred_out,
+            "predicted_net": pred_net,
+            "card_bill_due": round(avg_payoff, 2),
+            "income_source": income_source,
+            "outcome": "save" if pred_net >= 0 else "short",
+        },
+        "annual": {
+            "predicted_income": annual_income,
+            "predicted_spend": annual_spend,
+            "predicted_savings": annual_savings,
+            "outcome": "save" if annual_savings >= 0 else "short",
+        },
+        "per_month": per_month,
+    }
+
+
+def compute_monthly_report(month: str) -> dict:
+    """Compute income/expense/net totals and category breakdown for a month."""
+    cur = aggregate_month_financials(month)
+    txns = cur["txns"]
+    by_category = cur["by_category"]
+    total_income = float(cur["total_income"])
+    total_expenses = float(cur["total_expenses"])
+    net = float(cur["net"])
+    card_payment_income = float(cur["card_payment_income"])
+    card_payment_expense = float(cur["card_payment_expense"])
+    card_payoff_total = float(cur["card_payoff_total"])
+    card_payment_net = float(cur["card_payment_net"])
+    lifestyle_income = max(0.0, float(cur["lifestyle_income"]))
+    income_salary_actual = max(0.0, float(cur.get("income_salary_actual") or 0))
+    lifestyle_expenses = float(cur["lifestyle_expenses"])
+    lifestyle_net = float(cur["lifestyle_net"])
+    purchases_spend_this = float(cur["purchases_spend"])
+
+    plan = load_plan(month)
+    budgets = load_budgets().get("limits") or {}
+
+    prior_key = _month_add(month, -1)
+    prior = aggregate_month_financials(prior_key)
+    purchases_spend_prior = float(prior["purchases_spend"])
+    card_payoffs_prior = float(prior["card_payoff_total"])
+    prior_salary_income = max(
+        0.0,
+        float(
+            prior.get("income_salary_actual")
+            or prior.get("lifestyle_income")
+            or 0
+        ),
+    )
+
+    income_breakdown: list[dict] = []
+    for cat, raw in by_category.items():
+        if raw <= 0:
+            continue
+        if cat in (CREDIT_CARD_PAYMENT_CATEGORY, INTERNAL_TRANSFER_CATEGORY):
+            continue
+        if cat in SALARY_INCOME_CATEGORY_NAMES:
+            income_breakdown.append({"category": cat, "total": round(raw, 2)})
+    income_breakdown.sort(key=lambda r: (-r["total"], r["category"]))
 
     cat_breakdown = []
     for cat, total in sorted(by_category.items(), key=lambda x: x[1]):
         cat_breakdown.append({"category": cat, "total": round(total, 2)})
 
+    category_average_spend = compute_category_average_monthly_spend(month, max_months=12)
+
     # Simple budget status: per-category over/under, and overall.
     category_status: list[dict] = []
     for cat, limit in budgets.items():
-        # For expense-style categories the spent total is the absolute value of
-        # negative sums. For income categories the "spent" concept doesn't
-        # apply — we still report progress toward the goal.
+        # Expense categories: negative raw → spent = abs(raw). Income-budget rows
+        # (Dyndrite, etc.): only **positive** flows count as received; a negative
+        # net (mis-tags / noise) must not use the expense formula or "remaining"
+        # becomes limit - abs(raw) (e.g. -$6k with no pay yet).
         raw = by_category.get(cat, 0.0)
-        if cat.lower() == "income" or raw >= 0:
-            spent = raw  # treat as income received
-            remaining = round(limit - spent, 2)
-            over = spent > limit and limit > 0
-            pct = (spent / limit * 100) if limit > 0 else 0
+        is_income_budget = cat in SALARY_INCOME_CATEGORY_NAMES or cat.lower() == "income"
+        if is_income_budget:
+            received = max(0.0, float(raw))
+            spent = received
+            remaining = round(float(limit) - received, 2)
+            over = received > float(limit) and float(limit) > 0
+            pct = (received / float(limit) * 100) if float(limit) > 0 else 0.0
+            kind = "income"
+        elif raw >= 0:
+            spent = float(raw)
+            remaining = round(float(limit) - spent, 2)
+            over = spent > float(limit) and float(limit) > 0
+            pct = (spent / float(limit) * 100) if float(limit) > 0 else 0.0
+            kind = "income"
         else:
-            spent = abs(raw)
-            remaining = round(limit - spent, 2)
-            over = spent > limit
-            pct = (spent / limit * 100) if limit > 0 else 0
+            spent = abs(float(raw))
+            remaining = round(float(limit) - spent, 2)
+            over = spent > float(limit)
+            pct = (spent / float(limit) * 100) if float(limit) > 0 else 0.0
+            kind = "expense"
         category_status.append(
             {
                 "category": cat,
@@ -376,7 +812,7 @@ def compute_monthly_report(month: str) -> dict:
                 "remaining": remaining,
                 "percent": round(pct, 1),
                 "over": bool(over),
-                "kind": "income" if (cat.lower() == "income" or raw >= 0) else "expense",
+                "kind": kind,
             }
         )
     # Also surface categories that have activity but no budget set
@@ -399,12 +835,20 @@ def compute_monthly_report(month: str) -> dict:
         )
     category_status.sort(key=lambda r: (r.get("no_budget", False), -r["spent"]))
 
-    total_budget_limit = sum(v for k, v in budgets.items() if k.lower() != "income")
-    total_spent = abs(total_expenses)
+    total_budget_limit = sum(
+        v
+        for k, v in budgets.items()
+        if k.lower() != "income"
+        and k != CREDIT_CARD_PAYMENT_CATEGORY
+        and k not in SALARY_INCOME_CATEGORY_NAMES
+        and k != INTERNAL_TRANSFER_CATEGORY
+    )
+    # Spending bar: exclude card payoffs (they settle card purchases already in other categories).
+    total_spent = abs(total_expenses) - abs(card_payment_expense)
     overall_status = {
         "total_budget": round(total_budget_limit, 2),
-        "total_spent": round(total_spent, 2),
-        "total_remaining": round(total_budget_limit - total_spent, 2),
+        "total_spent": round(max(0.0, total_spent), 2),
+        "total_remaining": round(total_budget_limit - max(0.0, total_spent), 2),
         "over": bool(total_budget_limit > 0 and total_spent > total_budget_limit),
         "percent": round((total_spent / total_budget_limit * 100), 1)
         if total_budget_limit > 0
@@ -419,7 +863,7 @@ def compute_monthly_report(month: str) -> dict:
         items = sec.get("items") or []
         return sum(float(i.get("allocated") or 0) for i in items)
 
-    planned_income = _sum_allocated("income")
+    planned_income = _projected_income_from_limits(budgets)
     expense_section_keys = (
         "bills",
         "savings",
@@ -431,28 +875,66 @@ def compute_monthly_report(month: str) -> dict:
     planned_expenses = sum(_sum_allocated(k) for k in expense_section_keys)
 
     actual_expenses = abs(total_expenses)
+    lifestyle_actual_expenses = abs(lifestyle_expenses)
+    snap_actual_income = income_salary_actual
     snapshot = {
         "planned_income": round(planned_income, 2),
-        "actual_income": round(total_income, 2),
-        "income_variance": round(planned_income - total_income, 2),
+        "actual_income": round(snap_actual_income, 2),
+        "income_variance": round(float(planned_income) - snap_actual_income, 2),
         "planned_expenses": round(planned_expenses, 2),
         "actual_expenses": round(actual_expenses, 2),
+        "lifestyle_actual_expenses": round(lifestyle_actual_expenses, 2),
         "expense_variance": round(planned_expenses - actual_expenses, 2),
         "planned_net": round(planned_income - planned_expenses, 2),
-        "actual_net": round(net, 2),
-        "net_variance": round((planned_income - planned_expenses) - net, 2),
+        "actual_net": round(lifestyle_net, 2),
+        "net_variance": round(
+            (float(planned_income) - float(planned_expenses)) - float(lifestyle_net), 2
+        ),
         "has_planned_expenses": planned_expenses > 0,
         "has_planned_income": planned_income > 0,
     }
+
+    card_payoff_vs_salary = (
+        None
+        if prior_salary_income <= 0.005
+        else round((card_payoff_total / prior_salary_income) * 100, 1)
+    )
 
     return {
         "month": month,
         "total_income": round(total_income, 2),
         "total_expenses": round(total_expenses, 2),
         "net": round(net, 2),
+        "lifestyle_income": lifestyle_income,
+        "income_salary_actual": round(income_salary_actual, 2),
+        "lifestyle_expenses": lifestyle_expenses,
+        "lifestyle_net": lifestyle_net,
+        "card_payment_income": round(card_payment_income, 2),
+        "card_payment_expense": round(card_payment_expense, 2),
+        "card_payoff_total": card_payoff_total,
+        "card_payment_net": card_payment_net,
+        "credit_card_payment_category": CREDIT_CARD_PAYMENT_CATEGORY,
+        "projected": {
+            "income": round(planned_income, 2),
+            "expenses": round(planned_expenses, 2),
+        },
+        "card_compare": {
+            "prior_month": prior_key,
+            "purchases_spend_prior_month": purchases_spend_prior,
+            "purchases_spend_this_month": purchases_spend_this,
+            "card_payoffs_this_month": card_payoff_total,
+            "card_payoffs_prior_month": card_payoffs_prior,
+            "prior_salary_income": round(prior_salary_income, 2),
+            "card_payoff_vs_salary_pct": card_payoff_vs_salary,
+        },
+        "cash_flow_series": compute_cashflow_series(month, 12),
+        "money_outlook": compute_money_outlook(month),
+        "category_average_spend": category_average_spend,
         "transaction_count": len([t for t in txns if not t.get("is_duplicate")]),
+        "income_breakdown": income_breakdown,
         "categories": cat_breakdown,
         "has_plan": bool(plan.get("sections", {}).get("income", {}).get("items")),
+        "plan": plan,
         "snapshot": snapshot,
         "category_status": category_status,
         "overall_status": overall_status,

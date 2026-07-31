@@ -2,11 +2,15 @@
 {% block title %}Budget - Life Manager{% endblock %}
 
 {% block content %}
-<div x-data='budgetPage({{ transactions|tojson }}, {{ report|tojson }}, {{ plan|tojson }}, {{ categories|tojson }}, "{{ current_month }}", {{ months|tojson }}, {{ overview|tojson }}, {{ budgets|tojson }}, {{ budget_categories|tojson }}, {{ plaid_items|tojson }}, {{ plaid_configured|tojson }}, {{ plaid_status|tojson }})'>
+<div x-data='budgetPage({{ transactions|tojson }}, {{ report|tojson }}, {{ plan|tojson }}, {{ categories|tojson }}, "{{ current_month }}", {{ months|tojson }}, {{ overview|tojson }}, {{ budgets|tojson }}, {{ budget_categories|tojson }}, {{ plaid_items|tojson }}, {{ plaid_configured|tojson }}, {{ plaid_status|tojson }})'
+     @keydown.escape.window="incomeModalOpen && closeIncomeModal()">
 
 <div class="page-header">
     <h1>Budget</h1>
-    <p class="subtitle" x-text="monthLabel(currentMonth)"></p>
+    <p class="subtitle"><span x-text="monthLabel(currentMonth)"></span>
+        <span class="text-muted" style="font-size:0.7rem; margin-left:0.4rem; font-weight:500;"
+              title="Server build. If you still see an old budget bug, this number should change after deploy.">build: {{ budget_page_version }}</span>
+    </p>
 </div>
 
 {# ── Month Picker ──────────────────────────────────────────── #}
@@ -33,37 +37,100 @@
     </div>
 </div>
 
-{# ── Quick Status (Over / Under budget) ───────────────────────── #}
-<div class="budget-summary">
-    <div class="budget-summary-card budget-income">
-        <div class="budget-summary-label">Income</div>
-        <div class="budget-summary-value" x-text="formatMoney(report.total_income)"></div>
-    </div>
-    <div class="budget-summary-card budget-expenses">
-        <div class="budget-summary-label">Spent</div>
-        <div class="budget-summary-value" x-text="formatMoney(Math.abs(report.total_expenses))"></div>
-    </div>
-    <div class="budget-summary-card" :class="report.net >= 0 ? 'budget-net-pos' : 'budget-net-neg'">
-        <div class="budget-summary-label">Net</div>
-        <div class="budget-summary-value" x-text="formatMoney(report.net)"></div>
-    </div>
-    <div class="budget-summary-card"
-         :class="overallStatus().over ? 'budget-net-neg' : 'budget-net-pos'"
-         x-show="overallStatus().has_budget">
-        <div class="budget-summary-label">
-            <span x-show="!overallStatus().over">Under budget</span>
-            <span x-show="overallStatus().over">Over budget</span>
+<div class="card budget-flow-card" x-show="(report.cash_flow_series || []).length > 0" x-cloak>
+    <div class="card-title">Big picture: money in &amp; out</div>
+    <p class="text-muted" style="font-size:0.8rem; margin: 0 0 0.9rem;">
+        Money in (take-home) vs money out (everyday spending). Credit-card payoffs are left out so
+        purchases aren't counted twice.
+    </p>
+
+    {# This month in / out / net #}
+    <div class="budget-flow-hero">
+        <button type="button" class="budget-flow-stat in budget-flow-stat-btn" @click="openIncomeBreakdown()" title="See where this month's income came from">
+            <span class="budget-flow-stat-lbl">In this month</span>
+            <span class="budget-flow-stat-val" x-text="formatMoney(outlook().current.in)"></span>
+        </button>
+        <div class="budget-flow-stat out">
+            <span class="budget-flow-stat-lbl">Out this month</span>
+            <span class="budget-flow-stat-val" x-text="formatMoney(outlook().current.out)"></span>
         </div>
-        <div class="budget-summary-value"
-             x-text="formatMoneySigned(overallStatus().total_remaining)"></div>
-        <div class="budget-summary-label" style="margin-top:.25rem;"
-             x-text="overallStatus().percent.toFixed(0) + '% of ' + formatMoney(overallStatus().total_budget) + ' used'">
+        <div class="budget-flow-stat net" :class="outlook().current.net >= 0 ? 'pos' : 'neg'">
+            <span class="budget-flow-stat-lbl" x-text="outlook().current.net >= 0 ? 'Saved so far' : 'Over by'"></span>
+            <span class="budget-flow-stat-val" x-text="formatMoney(Math.abs(outlook().current.net))"></span>
         </div>
     </div>
-    <div class="budget-summary-card budget-count"
-         x-show="!overallStatus().has_budget">
-        <div class="budget-summary-label">Transactions</div>
-        <div class="budget-summary-value" x-text="report.transaction_count"></div>
+
+    {# To-scale in vs out bars for the current month #}
+    <div class="budget-flow-track">
+        <div class="budget-flow-track-row">
+            <span class="budget-flow-track-lbl">In</span>
+            <div class="budget-flow-track-bar">
+                <div class="budget-flow-track-fill in" :style="'width:' + flowBarPct(outlook().current.in) + '%'"></div>
+            </div>
+            <span class="budget-flow-track-amt" x-text="formatMoney(outlook().current.in)"></span>
+        </div>
+        <div class="budget-flow-track-row">
+            <span class="budget-flow-track-lbl">Out</span>
+            <div class="budget-flow-track-bar">
+                <div class="budget-flow-track-fill out" :style="'width:' + flowBarPct(outlook().current.out) + '%'"></div>
+            </div>
+            <span class="budget-flow-track-amt" x-text="formatMoney(outlook().current.out)"></span>
+        </div>
+    </div>
+
+    {# 12-month paired in/out flow #}
+    <div class="budget-flow-trend-title">In &amp; out by month</div>
+    <div class="budget-cashflow-bars budget-flow-bars" role="img" aria-label="Money in and out by month">
+        <template x-for="row in flowSeriesBars()" :key="row.month">
+            <div class="budget-cashflow-item"
+                 :title="row.month + ' · in ' + formatMoney(row.income) + ' · out ' + formatMoney(row.outflow) + ' · net ' + formatMoneySigned(row.net)">
+                <div class="budget-flow-bar-wrap">
+                    <div class="budget-flow-bar in" :style="'height:' + row.inPct + '%'"></div>
+                    <div class="budget-flow-bar out" :style="'height:' + row.outPct + '%'"></div>
+                </div>
+                <div class="budget-cashflow-label" x-text="cashflowBarLabel(row.month)"></div>
+            </div>
+        </template>
+    </div>
+    <div class="budget-flow-legend">
+        <span><i class="budget-flow-dot in"></i> In</span>
+        <span><i class="budget-flow-dot out"></i> Out</span>
+    </div>
+
+    {# Outlook: predicted savings, monthly + yearly #}
+    <div class="budget-outlook" :class="outlook().annual.outcome === 'save' ? 'save' : 'short'">
+        <div class="budget-outlook-head">Predicted savings</div>
+        <div class="budget-outlook-year">
+            <div class="budget-outlook-year-block big">
+                <span class="budget-outlook-year-lbl" x-text="outlook().annual.outcome === 'save' ? 'In a year you’d save' : 'In a year you’d be short'"></span>
+                <span class="budget-outlook-year-amt" x-text="formatMoney(Math.abs(outlook().annual.predicted_savings))"></span>
+            </div>
+            <div class="budget-outlook-year-block">
+                <span class="budget-outlook-year-lbl" x-text="outlook().next_month.predicted_net >= 0 ? 'Per month (save)' : 'Per month (short)'"></span>
+                <span class="budget-outlook-year-amt sm" x-text="formatMoney(Math.abs(outlook().next_month.predicted_net))"></span>
+            </div>
+        </div>
+        <p class="budget-outlook-method text-muted" x-text="incomeBasisNote()"></p>
+        <div class="budget-outlook-rows">
+            <div class="budget-outlook-row">
+                <span>Predicted income / mo</span>
+                <strong x-text="formatMoney(outlook().next_month.predicted_in)"></strong>
+            </div>
+            <div class="budget-outlook-row">
+                <span>Predicted spending / mo</span>
+                <strong x-text="formatMoney(outlook().next_month.predicted_out)"></strong>
+            </div>
+            <div class="budget-outlook-row" x-show="outlook().next_month.card_bill_due > 0.005">
+                <span>💳 Typical card bill to cover</span>
+                <strong x-text="formatMoney(outlook().next_month.card_bill_due)"></strong>
+            </div>
+            <div class="budget-outlook-row total" :class="outlook().next_month.predicted_net >= 0 ? 'pos' : 'neg'">
+                <span x-text="outlook().next_month.predicted_net >= 0 ? 'Net saved / mo' : 'Net short / mo'"></span>
+                <strong x-text="formatMoneySigned(outlook().next_month.predicted_net)"></strong>
+            </div>
+        </div>
+        <p class="budget-outlook-annual-note text-muted"
+           x-text="'Over 12 months: ' + formatMoney(outlook().annual.predicted_income) + ' in · ' + formatMoney(outlook().annual.predicted_spend) + ' out.'"></p>
     </div>
 </div>
 
@@ -72,7 +139,7 @@
     <button class="budget-tab" :class="{ active: view === 'status' }" @click="view = 'status'">Status</button>
     <button class="budget-tab" :class="{ active: view === 'transactions' }" @click="view = 'transactions'">Transactions</button>
     <button class="budget-tab" :class="{ active: view === 'budgets' }" @click="view = 'budgets'">Budgets</button>
-    <button class="budget-tab" :class="{ active: view === 'connect' }" @click="view = 'connect'">
+    <button class="budget-tab" :class="{ active: view === 'connect' }" @click="goToConnect()">
         Connect
         <span class="budget-badge" x-show="plaidItems.length > 0" x-text="plaidItems.length"></span>
     </button>
@@ -113,7 +180,8 @@
     <h3 class="budget-report-title" x-show="(report.category_status || []).length > 0">By category</h3>
     <div class="budget-status-list">
         <template x-for="row in (report.category_status || [])" :key="row.category">
-            <div class="budget-status-row" :class="row.over ? 'over' : ''">
+            <div class="budget-status-row"
+                 :class="{ over: row.over, 'budget-status-row-card-pay': row.category === report.credit_card_payment_category }">
                 <div class="budget-status-row-head">
                     <span class="budget-status-cat" x-text="row.category"></span>
                     <span class="budget-status-spent">
@@ -144,14 +212,14 @@
             </div>
         </template>
         <div class="budget-empty" x-show="(report.category_status || []).length === 0">
-            <p>No transactions yet this month. <a href="#" @click.prevent="view='connect'">Connect a bank</a>
-               or <a href="#" @click.prevent="view='connect'">upload a CSV</a> to get started.</p>
+            <p>No transactions yet this month. <a href="#" @click.prevent="goToConnect()">Connect a bank</a>
+               or <a href="#" @click.prevent="goToConnect()">upload a CSV</a> to get started.</p>
         </div>
     </div>
 </div>
 
 {# ── Connect (Plaid / CSV upload) ─────────────────────────────── #}
-<div x-show="view === 'connect'" x-cloak>
+<div x-show="view === 'connect'" x-cloak x-ref="connectSection">
     <div class="card">
         <div class="card-title">Plaid credentials</div>
 
@@ -195,8 +263,12 @@
                 Secret
                 <input type="password" x-model="plaidForm.secret"
                        autocomplete="off" spellcheck="false"
-                       placeholder="Sandbox / Dev / Prod secret"
+                       :placeholder="plaidStatus.has_secret ? 'Saved — leave blank to keep' : 'Sandbox / Dev / Prod secret'"
                        class="budget-rule-input">
+                <span class="budget-plaid-form-hint" x-show="plaidStatus.has_secret">
+                    A secret is already saved (<span x-text="plaidStatus.sources.secret"></span>).
+                    Leave blank to keep it, type a new one to replace it.
+                </span>
             </label>
             <label>
                 Environment
@@ -215,14 +287,19 @@
             </label>
             <div class="budget-plaid-form-actions">
                 <button class="btn btn-primary" @click="savePlaidCredentials()"
-                        :disabled="savingCreds">
+                        :disabled="savingCreds || !canSaveCreds()">
                     <span x-show="!savingCreds">Save credentials</span>
                     <span x-show="savingCreds">Saving…</span>
+                </button>
+                <button class="btn btn-sm btn-outline" @click="forgetPlaidSecret()"
+                        x-show="plaidStatus.sources.secret === 'app'"
+                        title="Delete the saved secret only">
+                    Forget secret
                 </button>
                 <button class="btn btn-sm btn-outline" @click="clearPlaidCredentials()"
                         x-show="plaidStatus.sources.client_id === 'app' || plaidStatus.sources.secret === 'app'"
                         title="Remove values saved by this app (env / .env / dashboard secrets remain)">
-                    Clear saved values
+                    Clear all saved values
                 </button>
             </div>
             <div class="budget-csv-msg" x-show="plaidCredMsg" x-text="plaidCredMsg"></div>
@@ -265,6 +342,42 @@
                 </div>
             </template>
         </div>
+
+        {# ── Auto-sync settings (cost control) ───────────────────── #}
+        <div class="budget-autosync" x-show="plaidItems.length > 0">
+            <div class="budget-autosync-title">Auto-sync</div>
+            <p class="text-muted" style="font-size:.78rem; margin:0 0 .6rem; line-height:1.45;">
+                Syncs only pull <strong>new</strong> transactions since last time (cheap), and we
+                only auto-sync once per interval so Plaid usage — and cost — stays low. Turn it off
+                to sync manually only.
+            </p>
+            <label class="budget-autosync-toggle">
+                <input type="checkbox" x-model="autoSync.enabled" @change="saveAutoSyncSettings()">
+                <span>Auto-sync banks when I open Budget</span>
+            </label>
+            <label class="budget-autosync-interval" x-show="autoSync.enabled">
+                <span>At most once every</span>
+                <input type="number" min="1" step="1" class="budget-rule-input"
+                       style="width:5rem;"
+                       x-model.number="autoSync.interval_hours" @change="saveAutoSyncSettings()">
+                <span>hours</span>
+            </label>
+            <p class="text-muted" style="font-size:.72rem; margin:.5rem 0 0;"
+               x-show="autoSync.last_auto_sync">
+                Last auto-sync: <span x-text="autoSync.last_auto_sync"></span>
+            </p>
+            <div class="budget-autosync-actions">
+                <button class="btn btn-sm btn-outline" @click="syncNow()" :disabled="autoSyncing">
+                    <span x-show="!autoSyncing">Sync now</span>
+                    <span x-show="autoSyncing">Syncing…</span>
+                </button>
+                <button class="btn btn-sm btn-outline" @click="syncPlaid({ fullRebuild: true })" :disabled="syncing"
+                        title="Re-pull full history. Slower / more API calls — only after reconnecting a bank.">
+                    <span x-show="!syncing">Full re-sync</span>
+                    <span x-show="syncing">Working…</span>
+                </button>
+            </div>
+        </div>
     </div>
 
     <div class="card">
@@ -293,39 +406,69 @@
         </select>
     </div>
 
+    <div class="budget-tx-bulk-bar" x-show="filteredTxns.length > 0">
+        <label class="budget-tx-bulk-check">
+            <input type="checkbox"
+                   :checked="selectedTxnCount > 0 && selectedTxnCount === filteredTxns.length"
+                   @change="selectedTxnCount === filteredTxns.length ? clearTxnSelection() : selectAllFiltered()">
+            <span x-text="selectedTxnCount ? selectedTxnCount + ' selected' : 'Select rows'"></span>
+        </label>
+        <template x-if="selectedTxnCount > 0">
+            <div class="budget-tx-bulk-actions">
+                <span class="text-muted" style="font-size:0.78rem;">Set category:</span>
+                <select class="budget-cat-select budget-tx-bulk-select"
+                        @change="applyBulkCategory($event.target.value); $event.target.value='';">
+                    <option value="">Choose…</option>
+                    <template x-for="c in allCategories" :key="'bulk-' + c">
+                        <option :value="c" x-text="c"></option>
+                    </template>
+                </select>
+                <button type="button" class="btn btn-sm btn-outline" @click="clearTxnSelection()">Clear</button>
+            </div>
+        </template>
+    </div>
+
     <div class="budget-tx-list" x-show="filteredTxns.length > 0">
         <template x-for="tx in filteredTxns" :key="tx.id">
-            <div class="budget-tx-row" :class="{ 'budget-tx-income': tx.amount > 0 }">
-                <div class="budget-tx-date" x-text="tx.date"></div>
-                <div class="budget-tx-desc">
-                    <span class="budget-tx-desc-text" x-text="tx.description"></span>
-                    <span class="budget-tx-account" x-text="tx.account"></span>
+            <div class="budget-tx-block" :class="{ 'budget-tx-income': tx.amount > 0, 'budget-tx-selected': isTxnSelected(tx) }">
+                <div class="budget-tx-row">
+                    <label class="budget-tx-check">
+                        <input type="checkbox" :checked="isTxnSelected(tx)" @change="toggleTxnSelect(tx)">
+                    </label>
+                    <div class="budget-tx-date" x-text="tx.date"></div>
+                    <div class="budget-tx-desc">
+                        <span class="budget-tx-desc-text" x-text="tx.description"></span>
+                        <span class="budget-tx-account" x-text="tx.account"></span>
+                    </div>
+                    <div class="budget-tx-cat-wrap">
+                        <button type="button" class="budget-cat-pill-btn" @click="openCatPicker(tx)"
+                                :class="{ 'active': catPickerForId === tx.id }">
+                            <span class="budget-cat-pill" x-text="displayCat(tx)"></span>
+                        </button>
+                    </div>
+                    <div class="budget-tx-amount" :class="tx.amount >= 0 ? 'positive' : 'negative'"
+                         x-text="formatMoney(tx.amount)"></div>
                 </div>
-                <div class="budget-tx-cat" @click="startEditCategory(tx)">
-                    <template x-if="editingCatId !== tx.id">
-                        <span class="budget-cat-pill" x-text="displayCat(tx)"></span>
-                    </template>
-                    <template x-if="editingCatId === tx.id">
-                        <select class="budget-cat-select"
-                                x-model="editCatValue"
-                                @change="saveCategory(tx)"
-                                @blur="editingCatId = null"
-                                x-ref="catSelect">
-                            <template x-for="c in allCategories" :key="c">
-                                <option :value="c" x-text="c" :selected="c === displayCat(tx)"></option>
-                            </template>
-                        </select>
-                    </template>
+                <div class="budget-cat-picker" x-show="catPickerForId === tx.id" x-cloak @click.outside="closeCatPicker()">
+                    <input type="search" class="budget-cat-filter" placeholder="Filter categories…"
+                           x-model="catFilter" x-ref="catFilterInput" @keyup.escape="closeCatPicker()">
+                    <p class="text-muted" style="font-size:0.75rem;margin:0;"
+                       x-show="categoriesForPicker().length === 0">No category matches that filter.</p>
+                    <div class="budget-cat-grid" x-show="categoriesForPicker().length > 0">
+                        <template x-for="c in categoriesForPicker()" :key="'pick-' + tx.id + '-' + c">
+                            <button type="button" class="budget-cat-chip"
+                                    :class="{ 'current': c === displayCat(tx) }"
+                                    @click="pickCategory(tx, c)" x-text="c"></button>
+                        </template>
+                    </div>
                 </div>
-                <div class="budget-tx-amount" :class="tx.amount >= 0 ? 'positive' : 'negative'"
-                     x-text="formatMoney(tx.amount)"></div>
             </div>
         </template>
     </div>
 
     <div class="budget-empty" x-show="filteredTxns.length === 0">
         <p>No transactions for this month.</p>
-        <button class="btn btn-primary" @click="view='connect'">Connect a bank or upload CSV</button>
+        <button class="btn btn-primary" @click="goToConnect()">Connect a bank or upload CSV</button>
     </div>
 </div>
 
@@ -343,6 +486,7 @@
                     <th style="text-align:left;">Category</th>
                     <th>Monthly limit</th>
                     <th>Spent this month</th>
+                    <th class="budget-avg-col">Avg / mo <span class="budget-avg-hint" title="Average of monthly outflows in this category over the months we have (up to 12, including this month)">(?)</span></th>
                     <th></th>
                 </tr>
             </thead>
@@ -358,6 +502,15 @@
                                    placeholder="—">
                         </td>
                         <td class="text-muted" x-text="formatMoney(spentForCategory(cat))"></td>
+                        <td class="text-muted budget-avg-col">
+                            <template x-if="categoryAvgSpend(cat)">
+                                <span>
+                                    <span x-text="formatMoney(categoryAvgSpend(cat).average)"></span>
+                                    <span class="budget-avg-mo" x-text="' · ' + categoryAvgSpend(cat).months + ' mo'"></span>
+                                </span>
+                            </template>
+                            <template x-if="!categoryAvgSpend(cat)"><span>—</span></template>
+                        </td>
                         <td>
                             <button class="btn btn-sm btn-outline"
                                     @click="budgetLimits[cat] = null; saveBudgets();"
@@ -406,6 +559,41 @@
             No custom rules yet. We're using a set of built-in defaults for common
             merchants (Amazon, Netflix, Starbucks, grocery chains, gas, etc.).
         </p>
+
+        <div class="budget-replace-cat card" style="margin-top:1.25rem;">
+            <div class="card-title">Rename or merge a category</div>
+            <p class="text-muted" style="font-size:.85rem;">
+                If a stray label (like an old <code>Housing</code>) still appears in filters or reports,
+                move every transaction and rule to another category here. Budget limits for the old name
+                are merged into the new one.
+            </p>
+            <div class="budget-replace-cat-row">
+                <label class="budget-replace-field">
+                    <span>From</span>
+                    <select class="budget-rule-input" x-model="replaceFrom">
+                        <option value="">Pick a category…</option>
+                        <template x-for="c in allCategories" :key="'rep-from-' + c">
+                            <option :value="c" x-text="c"></option>
+                        </template>
+                    </select>
+                </label>
+                <label class="budget-replace-field">
+                    <span>To</span>
+                    <select class="budget-rule-input" x-model="replaceTo">
+                        <option value="">Pick target…</option>
+                        <template x-for="c in allCategories" :key="'rep-to-' + c">
+                            <option :value="c" x-text="c"></option>
+                        </template>
+                    </select>
+                </label>
+                <button type="button" class="btn btn-primary budget-replace-submit"
+                        :disabled="replacingCat || !replaceFrom || !replaceTo || replaceFrom === replaceTo"
+                        @click="applyReplaceCategory()">
+                    <span x-show="!replacingCat">Apply</span>
+                    <span x-show="replacingCat">Working…</span>
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -440,8 +628,39 @@
 <div class="flash flash-danger" x-show="errorMsg" x-text="errorMsg"
      style="display:none;"></div>
 
+{# Income breakdown modal #}
+<div class="budget-modal-backdrop" x-show="incomeModalOpen" x-cloak
+     @keyup.escape.window="closeIncomeModal()">
+    <div class="budget-modal" role="dialog" aria-modal="true" aria-labelledby="budget-income-modal-title"
+         @click.outside="closeIncomeModal()">
+        <div class="budget-modal-head">
+            <h2 id="budget-income-modal-title">Income this month</h2>
+            <button type="button" class="budget-modal-close" @click="closeIncomeModal()" aria-label="Close">&times;</button>
+        </div>
+        <p class="budget-modal-total text-muted" style="font-size:0.85rem;margin:0 0 0.75rem;">
+            Total: <strong x-text="formatMoney(lifestyleIncome())"></strong>
+            <span class="text-muted" style="font-size:0.8rem;"> (income-budget categories)</span>
+        </p>
+        <div class="budget-income-rows" x-show="(report.income_breakdown || []).length > 0">
+            <template x-for="row in (report.income_breakdown || [])" :key="row.category">
+                <button type="button" class="budget-income-row" @click="goToIncomeCategory(row)">
+                    <span class="budget-income-cat" x-text="row.category"></span>
+                    <span class="budget-income-amt" x-text="formatMoney(row.total)"></span>
+                </button>
+            </template>
+        </div>
+        <p class="text-muted" style="font-size:0.85rem;" x-show="!(report.income_breakdown || []).length">
+            No positive transactions this month.
+        </p>
+    </div>
 </div>
 
-{# Plaid Link SDK — loaded on demand #}
-<script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js" async></script>
+</div>
+
+{# Plaid Link SDK (defer: runs before DOMContentLoaded; app.js runs after and can rely on Plaid) #}
+<script defer src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+{% block body_scripts %}
+<script src="{{ url_for('static', filename='js/budget-polish.js') }}?v={{ cache_bust }}"></script>
+<script src="{{ url_for('static', filename='js/budget-category-drilldown.js') }}?v={{ cache_bust }}"></script>
+{% endblock %}
 {% endblock %}

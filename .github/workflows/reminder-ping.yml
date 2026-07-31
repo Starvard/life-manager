@@ -1,0 +1,25 @@
+name: Routine reminder ping
+
+# Backstop for routine push reminders. The app sends reminders from an
+# in-process scheduler, which only runs while the Fly machine is awake.
+# This cron pings /api/push/run-reminders every 30 minutes; the request
+# auto-starts the machine if it is stopped, and the endpoint itself is
+# idempotent (each reminder slot / per-task reminder is sent at most once).
+#
+# Note: GitHub disables scheduled workflows after ~60 days without repo
+# activity — re-enable it from the Actions tab if reminders ever go quiet.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger reminder scan
+        run: |
+          curl -fsS -m 90 -X POST \
+            "https://life-manager-fragrant-fog-1910.fly.dev/api/push/run-reminders" \
+            || echo "ping failed (machine may be starting) — next run will retry"

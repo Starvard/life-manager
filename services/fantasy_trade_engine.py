@@ -154,6 +154,31 @@ def generate_suggestions(
     band_lo, band_hi = (0.78, 1.22) if strategy == "rebuild" else (0.85, 1.18)
     pkg_lo, pkg_hi = (0.80, 1.15)
 
+    def _age_f(vi: dict | None) -> float | None:
+        if not vi:
+            return None
+        a = vi.get("age")
+        if a is None:
+            return None
+        try:
+            return float(a)
+        except (TypeError, ValueError):
+            return None
+
+    def _young_cornerstone_swap_block(vi: dict | None) -> bool:
+        """Do not suggest lateral 1-for-1 swaps off young QBs / very young skill in rebuild mode."""
+        if strategy != "rebuild":
+            return False
+        pos = ((vi or {}).get("pos") or "").upper()
+        af = _age_f(vi)
+        if af is None:
+            return False
+        if pos == "QB" and af <= 26.0:
+            return True
+        if pos in ("RB", "WR", "TE") and af <= 23.5:
+            return True
+        return False
+
     # My movable pieces: non-core or older in rebuild
     movable: list[str] = []
     for pid, vi in my_with_val:
@@ -184,6 +209,8 @@ def generate_suggestions(
             # Single for single
             for them, them_v in opp_assets[:20]:
                 if them == me:
+                    continue
+                if _young_cornerstone_swap_block(me_v):
                     continue
                 tv = float(them_v.get("value") or 0)
                 if tv < 400:

@@ -35,6 +35,50 @@ def _pick_league(
     return leagues[0]
 
 
+def search_nfl_rookies_for_draft(
+    query: str, limit: int = 12
+) -> list[dict]:
+    """
+    Local search over cached slim /players/nfl: years_exp == 0, QB/RB/WR/TE.
+    """
+    q = (query or "").strip().lower()
+    lim = max(1, min(30, int(limit or 12)))
+    cache_path = os.path.join(config.DATA_DIR, "fantasy", "sleeper_players_nfl.json")
+    players_map = sleeper_client.load_players_nfl_cached(cache_path) or {}
+    out: list[dict] = []
+    for pid, p in players_map.items():
+        if not isinstance(p, dict):
+            continue
+        ye = p.get("years_exp")
+        is_rookie = False
+        if ye in (0, "0"):
+            is_rookie = True
+        else:
+            try:
+                if int(ye) == 0:
+                    is_rookie = True
+            except (TypeError, ValueError):
+                pass
+        if not is_rookie:
+            continue
+        pos = (p.get("position") or "").upper()
+        if pos not in ("QB", "RB", "WR", "TE"):
+            continue
+        fn = (p.get("first_name") or "").strip()
+        ln = (p.get("last_name") or "").strip()
+        name = f"{fn} {ln}".strip() or (p.get("full_name") or "").strip() or str(pid)
+        if q and (q not in name.lower() and q not in str(pid).lower()):
+            continue
+        out.append({
+            "id": str(pid),
+            "name": name,
+            "pos": pos,
+            "team": (p.get("team") or "") or "",
+        })
+    out.sort(key=lambda x: x["name"].lower())
+    return out[:lim]
+
+
 def _player_label(players_map: dict | None, pid: str) -> dict:
     pid = str(pid)
     p = (players_map or {}).get(pid) if players_map else None
@@ -68,6 +112,98 @@ def _team_name_for_roster(rosters: list[dict], users: list[dict], roster_id: int
                 return str(meta["team_name"])
             return str(u.get("display_name") or f"Roster {roster_id}")
     return f"Roster {roster_id}"
+
+
+def _snake_pick_in_round(
+    draft_type: str, n_teams: int, round_num: int, team_draft_slot: int
+) -> int:
+    """
+    1-based pick index within a round. team_draft_slot = column (1 = first in round 1 in linear).
+    """
+    n = max(0, n_teams)
+    if n <= 0 or round_num < 1 or team_draft_slot < 1:
+        return max(1, team_draft_slot)
+    t = (draft_type or "").lower()
+    if t != "snake":
+        return min(team_draft_slot, n)
+    if round_num % 2 == 1:
+        return min(team_draft_slot, n)
+    return n - team_draft_slot + 1
+
+
+def _enrich_draft_picks_sleeper_slots(
+    my_picks: list[dict],
+    league_id: str,
+    league_season: str,
+) -> None:
+    """
+    Set display_slot (e.g. 1.01) from the league's rookie/draft order + snake math.
+    Mutates my_picks in place. Safe no-op on API miss.
+    """
+    if not my_picks or not league_id or not str(league_season).strip():
+        return
+    try:
+        league_drafts = sleeper_client.fetch_league_drafts(league_id)
+    except Exception:
+        return
+    cands = [d for d in (league_drafts or []) if str(d.get("season") or "") == str(league_season).strip()]
+    if not cands and league_drafts:
+        cands = list(league_drafts)
+    if not cands:
+        return
+    st_rank = ("pre_draft", "drafting", "in_season", "complete", "")
+
+    def _score(d: dict) -> int:
+        st = (d.get("status") or "").lower()
+        try:
+            return st_rank.index(st)
+        except ValueError:
+            return 99
+
+    cands.sort(key=_score)
+    dmeta = cands[0]
+    did = dmeta.get("draft_id")
+    if not did:
+        return
+    dfull = sleeper_client.fetch_draft(str(did)) or {}
+    stod = dfull.get("slot_to_roster_id")
+    if not isinstance(stod, dict) or not stod:
+        return
+    n = len(stod)
+    d_type = str(dfull.get("type") or "snake")
+    r_to_s: dict[int, int] = {}
+    for k, v in stod.items():
+        try:
+            sk = int(k)
+        except (TypeError, ValueError):
+            continue
+        try:
+            rid = int(v) if v is not None else None
+        except (TypeError, ValueError):
+            rid = None
+        if rid is not None:
+            r_to_s[rid] = sk
+    for p in my_picks:
+        orig = p.get("original_roster_id")
+        if orig is None:
+            continue
+        try:
+            oi = int(orig)
+        except (TypeError, ValueError):
+            continue
+        my_slot = r_to_s.get(oi)
+        if not my_slot or my_slot < 1:
+            continue
+        rnum = int(p.get("round") or 0)
+        if rnum < 1:
+            continue
+        pin = _snake_pick_in_round(d_type, n, rnum, my_slot)
+        p["display_slot"] = f"{rnum}.{pin:02d}"
+        p["sleeper_draft_id"] = str(did)
+        p["label"] = (
+            f"{p.get('season', '')} {p['display_slot']}"
+            + (f" (from {p.get('original_team_label')})" if p.get("original_team_label") else "")
+        )
 
 
 def _my_draft_picks(
@@ -205,6 +341,7 @@ def sync_team(settings: dict) -> dict:
     rs = my_roster.get("settings") or {}
     my_rid = my_roster.get("roster_id")
     my_picks = _my_draft_picks(traded_picks, my_rid, rosters, users)
+    _enrich_draft_picks_sleeper_slots(my_picks, league_id, str(league.get("season") or season))
     synced_at = datetime.now(timezone.utc).isoformat()
 
     # Release the big players_map ref before constructing the snapshot so

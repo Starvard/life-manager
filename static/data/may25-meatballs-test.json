@@ -1,0 +1,24 @@
+{
+  "week_key": "2026-W22",
+  "week_start": "2026-05-25",
+  "slot": "dinner",
+  "name": "Beef Ricotta Meatballs with Leftover Veggies and Pasta Salad",
+  "notes": "Monday dinner. No extra pasta needed because pasta salad is already the side.",
+  "ingredients": [
+    "ground beef",
+    "ricotta",
+    "egg",
+    "crushed crackers or breadcrumbs",
+    "Italian seasoning",
+    "garlic powder",
+    "leftover vegetables",
+    "leftover pasta salad"
+  ],
+  "instructions": [
+    "Heat oven to 400F and line a sheet pan.",
+    "Mix beef, ricotta, egg, crushed crackers, Italian seasoning, garlic powder, salt, and pepper just until combined.",
+    "Roll small meatballs and bake 15 to 18 minutes until cooked through.",
+    "Warm leftover vegetables while the meatballs cook.",
+    "Serve with leftover vegetables and pasta salad. Add tomato sauce only if wanted."
+  ]
+}

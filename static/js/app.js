@@ -78,6 +78,20 @@ function _schedSlotIndex(sched, di, doi) {
     return k + doi;
 }
 
+/**
+ * The score model spreads min(sched, fills) "pool" credit Mon→Sun, so empty
+ * scheduled dots can *look* filled when an earlier day was completed. For days
+ * after "today" in the current week (or a week that has not started yet) we
+ * must not do that, or a tap on a future day appears to backfill past skips
+ * and corrupts the visual record. Past-only weeks (todayIdx > 6) still use
+ * the full pool mapping for review.
+ */
+function _allowRoutinePoolVirtualFill(todayIdx, dayIdx) {
+    if (todayIdx < 0) return false;
+    if (todayIdx > 6) return true;
+    return dayIdx <= todayIdx;
+}
+
 function earnedByDayForTask(task) {
     const r = ROUTINE_BONUS_RATIO;
     let w = Number(task.weight);
@@ -162,9 +176,12 @@ document.addEventListener("alpine:init", () => {
             const nSched = _taskScheduledSlotCount(sched);
             const nFill = _taskTotalFillCount(days);
             const pool = Math.min(nSched, nFill);
+            const inherited = Math.max(0, Number(task.prev_week_overdue_streak) || 0);
             let streak = 0;
+            let brokeWithinWeek = false;
             for (let d = ti; d >= 0; d--) {
                 const sc = _schedInt(sched, d);
+                if (sc === 0) continue;
                 const row = days[d] || [];
                 let unmet = false;
                 for (let doi = 0; doi < sc; doi++) {
@@ -175,8 +192,9 @@ document.addEventListener("alpine:init", () => {
                     }
                 }
                 if (unmet) streak++;
-                else break;
+                else { brokeWithinWeek = true; break; }
             }
+            if (!brokeWithinWeek) streak += inherited;
             return streak > 0 ? Math.min(streak, 4) : 0;
         },
 
@@ -195,6 +213,8 @@ document.addEventListener("alpine:init", () => {
                 _taskTotalFillCount(task.days || [])
             );
             const cls = {};
+            const ti = this.todayIdx;
+            const allowPoolVirtual = _allowRoutinePoolVirtualFill(ti, di);
 
             if (filled) {
                 cls.filled = true;
@@ -202,12 +222,10 @@ document.addEventListener("alpine:init", () => {
                 return cls;
             }
 
-            if (isScheduled && slotK >= 0 && slotK < pool) {
+            if (isScheduled && slotK >= 0 && slotK < pool && allowPoolVirtual) {
                 cls.filled = true;
                 return cls;
             }
-
-            const ti = this.todayIdx;
 
             if (ti > 6 && isScheduled) {
                 cls["overdue-4"] = true;
@@ -327,9 +345,12 @@ document.addEventListener("alpine:init", () => {
             const nSched = _taskScheduledSlotCount(sched);
             const nFill = _taskTotalFillCount(days);
             const pool = Math.min(nSched, nFill);
+            const inherited = Math.max(0, Number(task.prev_week_overdue_streak) || 0);
             let streak = 0;
+            let brokeWithinWeek = false;
             for (let d = ti; d >= 0; d--) {
                 const sc = _schedInt(sched, d);
+                if (sc === 0) continue;
                 const row = days[d] || [];
                 let unmet = false;
                 for (let doi = 0; doi < sc; doi++) {
@@ -340,8 +361,9 @@ document.addEventListener("alpine:init", () => {
                     }
                 }
                 if (unmet) streak++;
-                else break;
+                else { brokeWithinWeek = true; break; }
             }
+            if (!brokeWithinWeek) streak += inherited;
             return streak > 0 ? Math.min(streak, 4) : 0;
         },
 
@@ -366,6 +388,8 @@ document.addEventListener("alpine:init", () => {
                 _taskTotalFillCount(task.days || [])
             );
             const cls = {};
+            const ti = this.todayIdx;
+            const allowPoolVirtual = _allowRoutinePoolVirtualFill(ti, di);
 
             if (filled) {
                 cls.filled = true;
@@ -373,12 +397,10 @@ document.addEventListener("alpine:init", () => {
                 return cls;
             }
 
-            if (isScheduled && slotK >= 0 && slotK < pool) {
+            if (isScheduled && slotK >= 0 && slotK < pool && allowPoolVirtual) {
                 cls.filled = true;
                 return cls;
             }
-
-            const ti = this.todayIdx;
 
             if (ti > 6 && isScheduled) {
                 cls["overdue-4"] = true;
@@ -491,7 +513,33 @@ document.addEventListener("alpine:init", () => {
 
     Alpine.data("budgetPage", (initialTxns, initialReport, initialPlan, initialCategories, currentMonth, months, initialOverview, initialBudgets, budgetCategoryList, initialPlaidItems, plaidConfigured, initialPlaidStatus) => ({
         transactions: initialTxns || [],
-        report: initialReport || { total_income: 0, total_expenses: 0, net: 0, transaction_count: 0, categories: [], category_status: [], overall_status: {} },
+        report: initialReport || {
+            total_income: 0,
+            total_expenses: 0,
+            net: 0,
+            lifestyle_income: 0,
+            lifestyle_expenses: 0,
+            lifestyle_net: 0,
+            card_payment_income: 0,
+            card_payment_expense: 0,
+            card_payoff_total: 0,
+            card_payment_net: 0,
+            credit_card_payment_category: "💳 Credit Card Payments",
+            projected: { income: 0, expenses: 0 },
+            card_compare: {
+                prior_month: "",
+                purchases_spend_prior_month: 0,
+                purchases_spend_this_month: 0,
+                card_payoffs_this_month: 0,
+                card_payoffs_prior_month: 0,
+            },
+            category_average_spend: {},
+            transaction_count: 0,
+            categories: [],
+            income_breakdown: [],
+            category_status: [],
+            overall_status: {},
+        },
         plan: initialPlan || { month: currentMonth, sections: {}, notes: "" },
         allCategories: initialCategories || [],
         overview: initialOverview || {},
@@ -502,8 +550,6 @@ document.addEventListener("alpine:init", () => {
         filterCategory: "",
         filteredTxns: [],
         duplicates: [],
-        editingCatId: null,
-        editCatValue: "",
         importing: false,
         importMsg: "",
         errorMsg: "",
@@ -523,6 +569,13 @@ document.addEventListener("alpine:init", () => {
             sources: { client_id: "missing", secret: "missing", env: "missing", redirect_uri: "missing" },
         },
         plaidForm: { client_id: "", secret: "", env: "sandbox", redirect_uri: "" },
+        autoSync: (initialPlaidStatus && initialPlaidStatus.auto_sync) || {
+            enabled: true,
+            interval_hours: 12,
+            last_auto_sync: null,
+        },
+        savingAutoSync: false,
+        autoSyncing: false,
         savingCreds: false,
         plaidCredMsg: "",
         linking: false,
@@ -532,8 +585,36 @@ document.addEventListener("alpine:init", () => {
         rules: [],
         newRuleKeyword: "",
         newRuleCategory: "",
+        catPickerForId: null,
+        catFilter: "",
+        /** @type {Record<string, boolean>} */
+        selectedTxnIds: {},
+        incomeModalOpen: false,
+        replaceFrom: "",
+        replaceTo: "",
+        replacingCat: false,
 
         init() {
+            if (!Array.isArray(this.report.income_breakdown)) {
+                this.report.income_breakdown = [];
+            }
+            if (!this.report.projected || typeof this.report.projected !== "object") {
+                this.report.projected = { income: 0, expenses: 0 };
+            }
+            if (!this.report.card_compare || typeof this.report.card_compare !== "object") {
+                this.report.card_compare = {
+                    prior_month: "",
+                    purchases_spend_prior_month: 0,
+                    purchases_spend_this_month: 0,
+                    card_payoffs_this_month: 0,
+                    card_payoffs_prior_month: 0,
+                    prior_salary_income: 0,
+                    card_payoff_vs_salary_pct: null,
+                };
+            }
+            if (!this.report.category_average_spend || typeof this.report.category_average_spend !== "object") {
+                this.report.category_average_spend = {};
+            }
             if (!this.report.snapshot) {
                 this.report.snapshot = {
                     planned_income: 0,
@@ -569,6 +650,11 @@ document.addEventListener("alpine:init", () => {
                     misc: { label: "Misc", items: [] },
                 };
             }
+            // Fresh numbers from server (bypasses any stale HTML-embedded report / HTTP cache)
+            void this.refreshReport();
+            // Throttled auto-sync (server decides if it's due) so banks stay
+            // fresh without the user clicking, and without extra Plaid cost.
+            void this.maybeAutoSync();
         },
 
         monthLabel(m) {
@@ -580,6 +666,25 @@ document.addEventListener("alpine:init", () => {
 
         switchMonth() {
             window.location.href = "/budget?month=" + this.currentMonth;
+        },
+
+        /** Switch to Connect tab and scroll the panel into view (links above the fold looked like no-ops). */
+        goToConnect() {
+            this.view = "connect";
+            this.$nextTick(() => {
+                const el = this.$refs.connectSection;
+                if (el && typeof el.scrollIntoView === "function") {
+                    el.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+            });
+        },
+
+        async waitForPlaid(maxMs = 15000) {
+            const t0 = Date.now();
+            while (typeof window.Plaid === "undefined" && Date.now() - t0 < maxMs) {
+                await new Promise((r) => setTimeout(r, 50));
+            }
+            return typeof window.Plaid !== "undefined";
         },
 
         prevMonth() {
@@ -693,30 +798,113 @@ document.addEventListener("alpine:init", () => {
             }
             list.sort((a, b) => b.date.localeCompare(a.date));
             this.filteredTxns = list;
+            // Drop selection for rows no longer visible
+            const visible = new Set(list.map((t) => t.id).filter(Boolean));
+            const next = {};
+            for (const id of Object.keys(this.selectedTxnIds)) {
+                if (visible.has(id)) next[id] = true;
+            }
+            this.selectedTxnIds = next;
         },
 
         displayCat(tx) {
-            return tx.category_override || tx.category_display || tx.category || "Other";
+            return tx.category_override || tx.category_display || tx.category || "🏬 Shopping";
         },
 
-        startEditCategory(tx) {
-            this.editingCatId = tx.id;
-            this.editCatValue = this.displayCat(tx);
+        categoriesForPicker() {
+            const q = (this.catFilter || "").trim().toLowerCase();
+            const list = this.allCategories || [];
+            if (!q) return list;
+            return list.filter((c) => (c || "").toLowerCase().includes(q));
+        },
+
+        openCatPicker(tx) {
+            if (this.catPickerForId === tx.id) {
+                this.catPickerForId = null;
+                this.catFilter = "";
+                return;
+            }
+            this.catPickerForId = tx.id;
+            this.catFilter = "";
             this.$nextTick(() => {
-                const sel = this.$refs.catSelect;
-                if (sel) sel.focus();
+                const inp = this.$refs.catFilterInput;
+                if (inp) inp.focus();
             });
         },
 
-        async saveCategory(tx) {
-            const cat = this.editCatValue;
-            this.editingCatId = null;
-            if (!cat || cat === this.displayCat(tx)) return;
+        closeCatPicker() {
+            this.catPickerForId = null;
+            this.catFilter = "";
+        },
+
+        async pickCategory(tx, cat) {
+            if (!cat || cat === this.displayCat(tx)) {
+                this.closeCatPicker();
+                return;
+            }
             tx.category_override = cat;
             await api("PATCH", `/api/budget/transactions/${tx.id}/category`, { category: cat });
-            // Pick up the newly learned keyword rule and refresh the per-category status.
             await this.loadRules();
             await this.refreshReport();
+            this.closeCatPicker();
+        },
+
+        toggleTxnSelect(tx) {
+            const id = tx.id;
+            if (!id) return;
+            if (this.selectedTxnIds[id]) {
+                const next = { ...this.selectedTxnIds };
+                delete next[id];
+                this.selectedTxnIds = next;
+            } else {
+                this.selectedTxnIds = { ...this.selectedTxnIds, [id]: true };
+            }
+        },
+
+        isTxnSelected(tx) {
+            return !!(tx.id && this.selectedTxnIds[tx.id]);
+        },
+
+        selectAllFiltered() {
+            const next = { ...this.selectedTxnIds };
+            for (const t of this.filteredTxns) {
+                if (t.id) next[t.id] = true;
+            }
+            this.selectedTxnIds = next;
+        },
+
+        clearTxnSelection() {
+            this.selectedTxnIds = {};
+        },
+
+        get selectedTxnCount() {
+            return Object.keys(this.selectedTxnIds).length;
+        },
+
+        async applyBulkCategory(cat) {
+            if (!cat || this.selectedTxnCount === 0) return;
+            const ids = Object.keys(this.selectedTxnIds);
+            const res = await api("POST", "/api/budget/transactions/bulk-category", {
+                category: cat,
+                ids,
+            });
+            if (res && res.ok) {
+                for (const id of ids) {
+                    const tx = this.transactions.find((t) => t.id === id);
+                    if (tx) tx.category_override = cat;
+                }
+                this.clearTxnSelection();
+                await this.loadRules();
+                await this.refreshReport();
+                this.filterTxns();
+                this.importMsg = res.updated
+                    ? `Updated ${res.updated} transaction(s).`
+                    : "No changes.";
+                setTimeout(() => { this.importMsg = ""; }, 4000);
+            } else {
+                this.errorMsg = (res && res.error) || "Bulk update failed.";
+                setTimeout(() => { this.errorMsg = ""; }, 5000);
+            }
         },
 
         async loadDuplicates() {
@@ -804,6 +992,219 @@ document.addEventListener("alpine:init", () => {
             return this.report.overall_status || { has_budget: false, total_budget: 0, total_spent: 0, total_remaining: 0, percent: 0, over: false };
         },
 
+        lifestyleIncome() {
+            let n;
+            if (this.report.income_salary_actual != null) {
+                n = Number(this.report.income_salary_actual) || 0;
+            } else {
+                const v = this.report.lifestyle_income;
+                n = v != null ? v : this.report.total_income;
+            }
+            // Never show negative "Actual" income; old API / cached JS could pass through bad values
+            return Math.max(0, n);
+        },
+
+        lifestyleSpentAbs() {
+            const v = this.report.lifestyle_expenses;
+            if (v != null) return Math.abs(v);
+            return Math.abs(this.report.total_expenses || 0);
+        },
+
+        bankSpentAbs() {
+            return Math.abs(this.report.total_expenses || 0);
+        },
+
+        cardPayoffTotal() {
+            return Number(this.report.card_payoff_total) || 0;
+        },
+
+        cardRefundIncome() {
+            return Number(this.report.card_payment_income) || 0;
+        },
+
+        hasCardPaymentSplit() {
+            return this.cardPayoffTotal() > 0.005 || this.cardRefundIncome() > 0.005;
+        },
+
+        lifestyleNet() {
+            const v = this.report.lifestyle_net;
+            if (v != null) return v;
+            return Number(this.report.net) || 0;
+        },
+
+        projectedIncome() {
+            const p = this.report.projected;
+            if (p && p.income != null) return Number(p.income) || 0;
+            return Number(this.report.snapshot && this.report.snapshot.planned_income) || 0;
+        },
+
+        projectedSpend() {
+            const p = this.report.projected;
+            if (p && p.expenses != null) return Number(p.expenses) || 0;
+            return Number(this.report.snapshot && this.report.snapshot.planned_expenses) || 0;
+        },
+
+        projectedNet() {
+            return this.projectedIncome() - this.projectedSpend();
+        },
+
+        cardPurchasesPriorMonth() {
+            const c = this.report.card_compare;
+            if (!c) return 0;
+            return Number(c.purchases_spend_prior_month) || 0;
+        },
+
+        cardPayoffsPriorMonth() {
+            const c = this.report.card_compare;
+            if (!c) return 0;
+            return Number(c.card_payoffs_prior_month) || 0;
+        },
+
+        priorMonthSalaryIncome() {
+            const c = this.report.card_compare;
+            if (!c) return 0;
+            if (c.prior_salary_income != null) return Number(c.prior_salary_income) || 0;
+            return 0;
+        },
+
+        cardPayoffVsPriorSalary() {
+            const c = this.report.card_compare;
+            if (!c) return null;
+            if (c.card_payoff_vs_salary_pct == null) return null;
+            return Number(c.card_payoff_vs_salary_pct);
+        },
+
+        cashflowThisMonthNet() {
+            const rows = this.report.cash_flow_series || [];
+            const m = this.currentMonth;
+            const r = rows.find((x) => x.month === m);
+            return r ? Number(r.net) : (this.lifestyleNet() || 0);
+        },
+
+        cashflowBarLabel(m) {
+            if (!m || m.length < 7) return "";
+            const mo = parseInt(m.slice(5, 7), 10);
+            const short = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
+            return (short[mo - 1] || "") + m.slice(2, 4);
+        },
+
+        cashflowSeriesBars() {
+            const rows = this.report.cash_flow_series || [];
+            if (!rows.length) return [];
+            const maxAbs = Math.max(1, ...rows.map((r) => Math.abs(Number(r.net) || 0)));
+            return rows.map((r) => {
+                const net = Number(r.net) || 0;
+                return {
+                    month: r.month,
+                    net,
+                    pct: (Math.abs(net) / maxAbs) * 100,
+                };
+            });
+        },
+
+        /** Default-safe accessor for the money outlook block. */
+        outlook() {
+            const o = this.report.money_outlook;
+            const cur = (o && o.current) || {};
+            const avg = (o && o.averages) || {};
+            const nxt = (o && o.next_month) || {};
+            const basis = (o && o.income_basis) || {};
+            const ann = (o && o.annual) || {};
+            return {
+                current: {
+                    in: Number(cur.in) || 0,
+                    out: Number(cur.out) || 0,
+                    net: Number(cur.net) || 0,
+                },
+                averages: {
+                    in: Number(avg.in) || 0,
+                    out: Number(avg.out) || 0,
+                    net: Number(avg.net) || 0,
+                    months: Number(avg.months) || 0,
+                },
+                income_basis: {
+                    window_days: Number(basis.window_days) || 0,
+                    weekly: Number(basis.weekly) || 0,
+                    monthly: Number(basis.monthly) || 0,
+                    annual: Number(basis.annual) || 0,
+                    income_in_window: Number(basis.income_in_window) || 0,
+                },
+                next_month: {
+                    key: nxt.key || "",
+                    predicted_in: Number(nxt.predicted_in) || 0,
+                    predicted_out: Number(nxt.predicted_out) || 0,
+                    predicted_net: Number(nxt.predicted_net) || 0,
+                    card_bill_due: Number(nxt.card_bill_due) || 0,
+                    income_source: nxt.income_source || "monthly_avg",
+                    outcome: nxt.outcome || (Number(nxt.predicted_net) >= 0 ? "save" : "short"),
+                },
+                annual: {
+                    predicted_income: Number(ann.predicted_income) || 0,
+                    predicted_spend: Number(ann.predicted_spend) || 0,
+                    predicted_savings: Number(ann.predicted_savings) || 0,
+                    outcome: ann.outcome || (Number(ann.predicted_savings) >= 0 ? "save" : "short"),
+                },
+            };
+        },
+
+        /** Friendly explanation of where the income projection comes from. */
+        incomeBasisNote() {
+            const o = this.outlook();
+            const b = o.income_basis;
+            if (o.next_month.income_source === "recent_weekly" && b.weekly > 0) {
+                const weeks = Math.round((b.window_days || 14) / 7);
+                return `Based on your last ${weeks} weeks of pay: ~${this.formatMoney(b.weekly)}/week (≈ ${this.formatMoney(b.monthly)}/mo). Spending is your recent ${o.averages.months}-month average.`;
+            }
+            return `Projected from your last ${o.averages.months}-month average.`;
+        },
+
+        /** Width % of the current-month in/out track, scaled to the larger of the two. */
+        flowBarPct(value) {
+            const o = this.outlook().current;
+            const max = Math.max(1, o.in, o.out);
+            return Math.min(100, (Math.abs(Number(value) || 0) / max) * 100);
+        },
+
+        /** Paired in/out bars for the 12-month flow chart, scaled to a shared max. */
+        flowSeriesBars() {
+            const rows = this.report.cash_flow_series || [];
+            if (!rows.length) return [];
+            const maxAbs = Math.max(
+                1,
+                ...rows.map((r) => Math.max(Number(r.income) || 0, Number(r.outflow) || 0))
+            );
+            return rows.map((r) => {
+                const income = Number(r.income) || 0;
+                const outflow = Number(r.outflow) || 0;
+                const net = Number(r.net) || 0;
+                return {
+                    month: r.month,
+                    income,
+                    outflow,
+                    net,
+                    inPct: (income / maxAbs) * 100,
+                    outPct: (outflow / maxAbs) * 100,
+                };
+            });
+        },
+
+        categoryAvgSpend(cat) {
+            const m = this.report.category_average_spend && this.report.category_average_spend[cat];
+            if (!m) return null;
+            const avg = m.average;
+            const mo = m.months;
+            if (avg == null || mo == null) return null;
+            return { average: avg, months: mo };
+        },
+
+        goToCardPayments() {
+            const cat = this.report.credit_card_payment_category || "💳 Credit Card Payments";
+            this.filterCategory = cat;
+            this.searchQuery = "";
+            this.filterTxns();
+            this.view = "transactions";
+        },
+
         spentForCategory(cat) {
             const row = (this.report.category_status || []).find(r => r.category === cat);
             return row ? row.spent : 0;
@@ -823,22 +1224,119 @@ document.addEventListener("alpine:init", () => {
         },
 
         async refreshReport() {
-            const res = await fetch(`/api/budget/report?month=${this.currentMonth}`);
-            if (res.ok) this.report = await res.json();
+            const res = await fetch(
+                `/api/budget/report?month=${this.currentMonth}&_=${Date.now()}`,
+                { cache: "no-store" }
+            );
+            if (res.ok) {
+                const data = await res.json();
+                if (!Array.isArray(data.income_breakdown)) data.income_breakdown = [];
+                if (data.lifestyle_income == null) data.lifestyle_income = data.total_income;
+                if (data.income_salary_actual == null && data.lifestyle_income != null) {
+                    data.income_salary_actual = data.lifestyle_income;
+                }
+                if (data.lifestyle_expenses == null) data.lifestyle_expenses = data.total_expenses;
+                if (data.lifestyle_net == null) data.lifestyle_net = data.net;
+                if (data.card_payoff_total == null) data.card_payoff_total = 0;
+                if (data.credit_card_payment_category == null) {
+                    data.credit_card_payment_category = "💳 Credit Card Payments";
+                }
+                if (!data.projected) data.projected = { income: 0, expenses: 0 };
+                if (!data.card_compare) {
+                    data.card_compare = {
+                        prior_month: "",
+                        purchases_spend_prior_month: 0,
+                        purchases_spend_this_month: 0,
+                        card_payoffs_this_month: 0,
+                        card_payoffs_prior_month: 0,
+                        prior_salary_income: 0,
+                        card_payoff_vs_salary_pct: null,
+                    };
+                } else {
+                    if (data.card_compare.prior_salary_income == null) {
+                        data.card_compare.prior_salary_income = 0;
+                    }
+                }
+                if (!data.cash_flow_series) data.cash_flow_series = [];
+                if (!data.category_average_spend) data.category_average_spend = {};
+                this.report = data;
+                if (data.plan) {
+                    this.plan = data.plan;
+                }
+            }
+        },
+
+        openIncomeBreakdown() {
+            this.incomeModalOpen = true;
+        },
+
+        closeIncomeModal() {
+            this.incomeModalOpen = false;
+        },
+
+        goToIncomeCategory(row) {
+            if (!row || !row.category) return;
+            this.filterCategory = row.category;
+            this.searchQuery = "";
+            this.filterTxns();
+            this.view = "transactions";
+            this.incomeModalOpen = false;
+        },
+
+        async applyReplaceCategory() {
+            const from = (this.replaceFrom || "").trim();
+            const to = (this.replaceTo || "").trim();
+            if (!from || !to) {
+                this.errorMsg = "Enter both the old category name and the new one.";
+                setTimeout(() => { this.errorMsg = ""; }, 5000);
+                return;
+            }
+            this.replacingCat = true;
+            const res = await api("POST", "/api/budget/categories/replace", { from, to });
+            this.replacingCat = false;
+            if (res && res.ok) {
+                const parts = [`${res.transactions_updated} transaction(s)`];
+                if (res.rules_updated) parts.push(`${res.rules_updated} keyword rule(s)`);
+                if (res.budget_moved) parts.push("budget limit merged");
+                this.importMsg = "Updated: " + parts.join(", ") + ".";
+                setTimeout(() => { this.importMsg = ""; }, 6000);
+                this.replaceFrom = "";
+                this.replaceTo = "";
+                window.location.reload();
+            } else {
+                this.errorMsg = (res && res.error) || "Could not replace category.";
+                setTimeout(() => { this.errorMsg = ""; }, 6000);
+            }
         },
 
         /* Plaid credentials */
+
+        canSaveCreds() {
+            const hasClient = (this.plaidForm.client_id || "").trim().length > 0
+                || this.plaidStatus.has_client_id;
+            const hasSecret = (this.plaidForm.secret || "").trim().length > 0
+                || this.plaidStatus.has_secret;
+            const typedSomething = (this.plaidForm.client_id || "").trim()
+                || (this.plaidForm.secret || "").trim()
+                || (this.plaidForm.redirect_uri || "").trim();
+            return !!(hasClient && hasSecret && typedSomething);
+        },
 
         async savePlaidCredentials() {
             this.savingCreds = true;
             this.plaidCredMsg = "";
             try {
-                const body = {
-                    client_id: (this.plaidForm.client_id || "").trim(),
-                    secret: (this.plaidForm.secret || "").trim(),
-                    env: (this.plaidForm.env || "sandbox").trim(),
-                    redirect_uri: (this.plaidForm.redirect_uri || "").trim(),
-                };
+                // Only send fields the user actually filled in, so empty form
+                // values can never wipe an already-saved secret on the server.
+                const body = {};
+                const ci = (this.plaidForm.client_id || "").trim();
+                const sk = (this.plaidForm.secret || "").trim();
+                const ru = (this.plaidForm.redirect_uri || "").trim();
+                const ev = (this.plaidForm.env || "").trim();
+                if (ci) body.client_id = ci;
+                if (sk) body.secret = sk;
+                if (ru) body.redirect_uri = ru;
+                if (ev) body.env = ev;
                 const res = await api("PUT", "/api/budget/plaid/credentials", body);
                 if (res && res.ok) {
                     this.plaidStatus = {
@@ -847,16 +1345,16 @@ document.addEventListener("alpine:init", () => {
                         has_client_id: res.has_client_id,
                         has_secret: res.has_secret,
                         has_redirect_uri: res.has_redirect_uri,
-                        client_id_preview: body.client_id ? body.client_id.slice(0, 6) + "…" : this.plaidStatus.client_id_preview,
-                        redirect_uri: body.redirect_uri || this.plaidStatus.redirect_uri,
+                        client_id_preview: ci ? ci.slice(0, 6) + "…" : this.plaidStatus.client_id_preview,
+                        redirect_uri: ru || this.plaidStatus.redirect_uri,
                         sources: res.sources,
                     };
                     this.plaidConfigured = res.configured;
-                    // Never keep the secret in memory after save
-                    this.plaidForm.secret = "";
+                    // Wipe the secret from memory only if we actually sent one.
+                    if (sk) this.plaidForm.secret = "";
                     this.plaidCredMsg = res.configured
                         ? "Saved. Plaid is now ready."
-                        : "Saved, but Plaid still isn't fully configured — check Client ID and Secret.";
+                        : "Saved. Still missing fields — check the diagnostic strip above.";
                     setTimeout(() => { this.plaidCredMsg = ""; }, 6000);
                 } else {
                     this.plaidCredMsg = (res && res.error) || "Could not save credentials.";
@@ -865,6 +1363,20 @@ document.addEventListener("alpine:init", () => {
                 this.plaidCredMsg = "Save error.";
             }
             this.savingCreds = false;
+        },
+
+        async forgetPlaidSecret() {
+            if (!confirm("Delete the saved Plaid secret? You'll need to paste it again to re-enable Plaid.")) return;
+            const res = await fetch(
+                "/api/budget/plaid/credentials?field=PLAID_SECRET",
+                { method: "DELETE" }
+            );
+            const data = await res.json();
+            if (data) {
+                await this.refreshPlaidStatus();
+                this.plaidCredMsg = "Saved secret removed.";
+                setTimeout(() => { this.plaidCredMsg = ""; }, 4000);
+            }
         },
 
         async clearPlaidCredentials() {
@@ -906,9 +1418,10 @@ document.addEventListener("alpine:init", () => {
 
         async startPlaidLink() {
             if (!this.plaidConfigured) return;
-            if (typeof window.Plaid === "undefined") {
-                this.errorMsg = "Plaid SDK hasn't loaded yet. Please reload the page.";
-                setTimeout(() => { this.errorMsg = ""; }, 4000);
+            const sdkReady = await this.waitForPlaid();
+            if (!sdkReady) {
+                this.errorMsg = "Plaid SDK hasn't loaded yet. Check your network or ad blockers, then reload.";
+                setTimeout(() => { this.errorMsg = ""; }, 6000);
                 return;
             }
             this.linking = true;
@@ -949,11 +1462,15 @@ document.addEventListener("alpine:init", () => {
             // Note: Plaid's modal handles "linking" state itself; we reset on exit.
         },
 
-        async syncPlaid() {
+        async syncPlaid(opts) {
             if (this.syncing) return;
+            const fullRebuild = !!(opts && opts.fullRebuild);
+            if (fullRebuild && !confirm("Full re-sync re-pulls your entire bank history from Plaid (slower, more API calls). Only needed after reconnecting a bank. Continue?")) {
+                return;
+            }
             this.syncing = true;
             try {
-                const res = await api("POST", "/api/budget/plaid/sync", {});
+                const res = await api("POST", "/api/budget/plaid/sync", { full_rebuild: fullRebuild });
                 if (res && res.ok) {
                     const parts = [];
                     if (res.added) parts.push(`${res.added} new`);
@@ -971,6 +1488,53 @@ document.addEventListener("alpine:init", () => {
                 setTimeout(() => { this.errorMsg = ""; }, 4000);
             }
             this.syncing = false;
+        },
+
+        /** Fire-and-forget throttled sync on page load. Server enforces the interval. */
+        async maybeAutoSync() {
+            if (this.plaidItems.length === 0) return;
+            if (this.autoSync && this.autoSync.enabled === false) return;
+            try {
+                const res = await api("POST", "/api/budget/plaid/auto-sync", {});
+                if (res && res.last_auto_sync) this.autoSync.last_auto_sync = res.last_auto_sync;
+                if (res && res.ran && (res.added || res.modified || res.removed)) {
+                    // New data landed — refresh the numbers quietly.
+                    await this.refreshReport();
+                    this.importMsg = "Auto-synced your banks.";
+                    setTimeout(() => { this.importMsg = ""; }, 4000);
+                }
+            } catch (e) { /* silent: auto-sync must never block the page */ }
+        },
+
+        async saveAutoSyncSettings() {
+            this.savingAutoSync = true;
+            try {
+                const res = await api("PUT", "/api/budget/plaid/auto-sync/settings", {
+                    enabled: !!this.autoSync.enabled,
+                    interval_hours: Number(this.autoSync.interval_hours) || 12,
+                });
+                if (res && res.ok) {
+                    this.autoSync.enabled = res.enabled;
+                    this.autoSync.interval_hours = res.interval_hours;
+                }
+            } catch (e) { /* ignore */ }
+            this.savingAutoSync = false;
+        },
+
+        async syncNow() {
+            this.autoSyncing = true;
+            try {
+                const res = await api("POST", "/api/budget/plaid/auto-sync", { force: true });
+                if (res && res.last_auto_sync) this.autoSync.last_auto_sync = res.last_auto_sync;
+                const parts = [];
+                if (res && res.added) parts.push(`${res.added} new`);
+                if (res && res.modified) parts.push(`${res.modified} updated`);
+                if (res && res.removed) parts.push(`${res.removed} removed`);
+                this.importMsg = parts.length ? `Synced: ${parts.join(", ")}.` : "Already up to date.";
+                setTimeout(() => { this.importMsg = ""; }, 4000);
+                if (parts.length) setTimeout(() => window.location.reload(), 900);
+            } catch (e) { /* ignore */ }
+            this.autoSyncing = false;
         },
 
         async removePlaidItem(item) {
@@ -1050,6 +1614,11 @@ document.addEventListener("alpine:init", () => {
         settings: {},
         plan: { trade_ideas: [], rebuild_horizon_years: 3 },
         rebuildBoard: { order: [], assets: {} },
+        bestLineup: null,
+        bestLineupWithAssumptions: null,
+        positionStrategy: null,
+        rookieBoardHint: null,
+        positionStrategyGeneratedAt: null,
         lastSync: null,
         snapshot: null,
         tradeSuggestions: null,
@@ -1060,6 +1629,17 @@ document.addEventListener("alpine:init", () => {
         tradeRefreshing: false,
         tradeRefreshMsg: "",
         newIdea: "",
+        /** Open "More" when jumping to a roster plan from a click elsewhere */
+        fantasyMoreOpen: false,
+        /** Roster row aid to highlight after scroll (e.g. p-123) */
+        highlightedRosterAid: null,
+        _rosterHighlightTimer: null,
+
+        rosterModalOpen: false,
+        rosterModalAid: null,
+        rookieSearch: "",
+        rookieSearchResults: [],
+        rookieSearchLoading: false,
 
         init() {
             const el = document.getElementById("fantasy-bootstrap");
@@ -1092,9 +1672,15 @@ document.addEventListener("alpine:init", () => {
         applyState(state) {
             if (!state) return;
             this.settings = Object.assign({ trade_strategy: "rebuild" }, state.settings || {});
-            this.plan = Object.assign({ trade_ideas: [], rebuild_horizon_years: 3 }, state.plan || {});
+            this.plan = Object.assign({
+                trade_ideas: [],
+                rebuild_horizon_years: 3,
+                assumed_rookies: {},
+                project_rookies_into_lineup: false,
+            }, state.plan || {});
             if (!this.plan.trade_ideas) this.plan.trade_ideas = [];
             if (this.plan.rebuild_horizon_years == null) this.plan.rebuild_horizon_years = 3;
+            if (!this.plan.assumed_rookies) this.plan.assumed_rookies = {};
             this.rebuildBoard = state.rebuild_board || { order: [], assets: {} };
             if (!this.rebuildBoard.assets) this.rebuildBoard.assets = {};
             if (!this.rebuildBoard.order) this.rebuildBoard.order = [];
@@ -1103,6 +1689,11 @@ document.addEventListener("alpine:init", () => {
             this.tradeSuggestions = state.trade_suggestions || null;
             this.lastTradeRefresh = state.last_trade_refresh || null;
             this.lastTradeError = state.last_trade_error || null;
+            this.bestLineup = state.best_lineup || null;
+            this.positionStrategy = state.position_strategy || null;
+            this.rookieBoardHint = state.rookie_board_hint || null;
+            this.positionStrategyGeneratedAt = state.position_strategy_generated_at || null;
+            this.bestLineupWithAssumptions = state.best_lineup_with_assumptions || null;
         },
 
         async sync() {
@@ -1154,6 +1745,180 @@ document.addEventListener("alpine:init", () => {
             if (pl.team) bits.push(pl.team);
             if (a.slot) bits.push(a.slot);
             return bits.join(" · ");
+        },
+
+        groupedAssets() {
+            const order = (this.rebuildBoard && this.rebuildBoard.order) || [];
+            const assets = (this.rebuildBoard && this.rebuildBoard.assets) || {};
+            const seen = new Map();
+            for (const aid of order) {
+                const a = assets[aid];
+                if (!a) continue;
+                const key = a.group || "Other";
+                if (!seen.has(key)) seen.set(key, []);
+                seen.get(key).push(aid);
+            }
+            return Array.from(seen.entries()).map(([title, ids]) => ({ title, ids }));
+        },
+
+        bestMeta(s) {
+            if (!s || s.is_empty) return "";
+            const bits = [];
+            if (s.pos) bits.push(s.pos);
+            if (s.team) bits.push(s.team);
+            if (s.value) bits.push("≈" + Math.round(s.value));
+            return bits.join(" · ");
+        },
+
+        tierLabel(s) {
+            if (!s) return "";
+            if (s.is_empty) return "Empty";
+            const tier = s.tier || "unknown";
+            const map = {
+                elite: "Elite",
+                solid: "Solid",
+                adequate: "OK",
+                weak: "Weak",
+                unknown: "?",
+                empty: "Empty",
+            };
+            return map[tier] || tier;
+        },
+
+        posStratMeta(row) {
+            if (!row) return "";
+            const bits = [];
+            if (row.owned != null && row.target_depth != null) {
+                bits.push(`${row.owned} rostered · target ~${row.target_depth}`);
+            }
+            if (row.weak_starters > 0) {
+                bits.push(`${row.weak_starters} thin starter view`);
+            }
+            if (row.gap > 0) {
+                bits.push(`short ~${row.gap}`);
+            } else if (row.surplus > 0) {
+                bits.push(`+${row.surplus} vs target`);
+            }
+            const bo = row.best_owned;
+            if (bo && bo.name) {
+                bits.push(`top: ${bo.name}` + (bo.value != null ? ` ≈${Math.round(bo.value)}` : ""));
+            }
+            return bits.join(" · ");
+        },
+
+        upgradePlans() {
+            const assets = (this.rebuildBoard && this.rebuildBoard.assets) || {};
+            const order = (this.rebuildBoard && this.rebuildBoard.order) || [];
+            const bestSlots = (this.bestLineup && this.bestLineup.slots) || [];
+
+            const out = [];
+            const usedAids = new Set();
+
+            for (const s of bestSlots) {
+                if (!s.is_weak && !s.is_empty) continue;
+                let aid = null;
+                if (s.player_id) {
+                    const candidate = "p-" + s.player_id;
+                    if (assets[candidate]) aid = candidate;
+                }
+                if (!aid) {
+                    out.push({
+                        aid: "virtual-" + s.slot + "-" + (s.player_id || "empty"),
+                        slotLabel: (s.label || s.slot || "") + (s.is_empty ? " · open" : ""),
+                        name: s.is_empty ? "Empty slot" : (s.name || "Player"),
+                        tier: s.tier || "weak",
+                        tierLabel: this.tierLabel(s),
+                        desired: "",
+                        canReset: false,
+                        virtual: true,
+                    });
+                    continue;
+                }
+                usedAids.add(aid);
+                const a = assets[aid];
+                const desired = (a.desired_upgrade || "").trim();
+                const auto = (a._auto_desired_upgrade || "").trim();
+                out.push({
+                    aid,
+                    slotLabel: s.label || s.slot || "",
+                    name: s.name || this.currentLabel(aid),
+                    tier: s.tier || "weak",
+                    tierLabel: this.tierLabel(s),
+                    desired: a.desired_upgrade || "",
+                    canReset: !!auto && desired !== auto,
+                    virtual: false,
+                });
+            }
+
+            for (const aid of order) {
+                const a = assets[aid];
+                if (!a) continue;
+                if (a.kind !== "pick") continue;
+                const desired = (a.desired_upgrade || "").trim();
+                const auto = (a._auto_desired_upgrade || "").trim();
+                out.push({
+                    aid,
+                    slotLabel: "Pick",
+                    name: a.label || aid,
+                    tier: "pick",
+                    tierLabel: "Draft",
+                    desired: a.desired_upgrade || "",
+                    canReset: !!auto && desired !== auto,
+                    virtual: false,
+                });
+            }
+
+            return out;
+        },
+
+        hasPicks() {
+            const assets = (this.rebuildBoard && this.rebuildBoard.assets) || {};
+            for (const k in assets) {
+                if (assets[k] && assets[k].kind === "pick") return true;
+            }
+            return false;
+        },
+
+        currentLabel(aid) {
+            const a = this.rebuildBoard.assets[aid];
+            if (!a) return "";
+            if (a.kind === "pick") return a.label || aid;
+            const pl = this._findPlayer(a.player_id);
+            return pl ? pl.name : "Player " + a.player_id;
+        },
+
+        currentMeta(aid) {
+            const a = this.rebuildBoard.assets[aid];
+            if (!a) return "";
+            if (a.kind === "pick") {
+                const bits = [];
+                if (a.season) bits.push(a.season);
+                if (a.round) bits.push("R" + a.round);
+                if (a.original_team_label) bits.push("from " + a.original_team_label);
+                return bits.join(" · ");
+            }
+            const pl = this._findPlayer(a.player_id);
+            const bits = [];
+            if (pl && pl.pos) bits.push(pl.pos);
+            if (pl && pl.team) bits.push(pl.team);
+            if (a.slot) bits.push(a.slot);
+            return bits.join(" · ");
+        },
+
+        canResetAuto(aid) {
+            const a = this.rebuildBoard.assets[aid];
+            if (!a) return false;
+            const desired = (a.desired_upgrade || "").trim();
+            const auto = (a._auto_desired_upgrade || "").trim();
+            if (!auto) return false;
+            return desired !== auto;
+        },
+
+        async resetToAuto(aid) {
+            const a = this.rebuildBoard.assets[aid];
+            if (!a) return;
+            const auto = a._auto_desired_upgrade || "";
+            await this.patchRebuildUpgrade(aid, auto);
         },
 
         _findPlayer(pid) {
@@ -1235,6 +2000,170 @@ document.addEventListener("alpine:init", () => {
         async removeIdea(id) {
             const res = await api("DELETE", "/api/fantasy/trade-ideas/" + encodeURIComponent(id));
             if (res.ok && res.state) this.applyState(res.state);
+        },
+
+        /**
+         * Open the full roster section, scroll to this asset’s plan, focus the textarea.
+         * Works for players and draft picks (a.k in rebuildBoard.assets).
+         */
+        openRosterPlanForAsset(aid) {
+            this.openAssetPlanModal(aid);
+        },
+
+        openPlayerRosterPlan(playerId) {
+            if (!playerId) {
+                return;
+            }
+            this.openAssetPlanModal("p-" + String(playerId));
+        },
+
+        openAssetPlanModal(aid) {
+            if (!aid || (typeof aid === "string" && aid.indexOf("virtual-") === 0)) {
+                return;
+            }
+            const a = (this.rebuildBoard.assets || {})[aid];
+            if (!a) {
+                return;
+            }
+            this.rosterModalAid = aid;
+            this.rosterModalOpen = true;
+            this.rookieSearch = "";
+            this.rookieSearchResults = [];
+            if (a.kind === "pick") {
+                this._fetchRookieList("");
+            }
+        },
+
+        closeRosterPlanModal() {
+            this.rosterModalOpen = false;
+            this.rosterModalAid = null;
+        },
+
+        rosterModalHeader() {
+            if (!this.rosterModalAid) {
+                return "";
+            }
+            const a = (this.rebuildBoard.assets || {})[this.rosterModalAid];
+            if (!a) {
+                return "Plan";
+            }
+            if (a.kind === "pick") {
+                return a.label || a.pick_key || "Draft pick";
+            }
+            const pl = this._findPlayer(a.player_id);
+            return (pl && pl.name) || ("Player " + a.player_id);
+        },
+
+        async _fetchRookieList(q) {
+            this.rookieSearchLoading = true;
+            try {
+                const url = "/api/fantasy/players?q=" + encodeURIComponent((q || "").trim()) + "&limit=12";
+                const res = await fetch(url);
+                const d = await res.json();
+                this.rookieSearchResults = (d && d.players) || [];
+            } catch (e) {
+                this.rookieSearchResults = [];
+            }
+            this.rookieSearchLoading = false;
+        },
+
+        onRookieSearchInput() {
+            this._fetchRookieList(this.rookieSearch);
+        },
+
+        planTargetLine() {
+            if (!this.rosterModalAid) {
+                return "";
+            }
+            const a = (this.rebuildBoard.assets || {})[this.rosterModalAid];
+            if (!a) {
+                return "";
+            }
+            return a.plan_target || (a.desired_upgrade || "").split(".")[0] || "";
+        },
+
+        planRationaleText() {
+            if (!this.rosterModalAid) {
+                return "";
+            }
+            const a = (this.rebuildBoard.assets || {})[this.rosterModalAid];
+            if (!a) {
+                return "";
+            }
+            return a.plan_rationale || "";
+        },
+
+        assumedRookieName() {
+            if (!this.rosterModalAid) {
+                return null;
+            }
+            const a = (this.rebuildBoard.assets || {})[this.rosterModalAid];
+            if (!a || a.kind !== "pick") {
+                return null;
+            }
+            const ar = (this.plan.assumed_rookies || {})[this.rosterModalAid];
+            if (ar && ar.name) {
+                return ar.name;
+            }
+            const m = a.model_suggested_rookie;
+            if (m && m.name) {
+                return m.name;
+            }
+            return null;
+        },
+
+        setAssumedRookieFromSearch(p) {
+            if (!this.rosterModalAid || !p || !p.id) {
+                return;
+            }
+            const a = (this.rebuildBoard.assets || {})[this.rosterModalAid];
+            if (!a || a.kind !== "pick") {
+                return;
+            }
+            const ar = { ...(this.plan.assumed_rookies || {}) };
+            ar[this.rosterModalAid] = {
+                sleeper_player_id: p.id,
+                name: p.name,
+                pos: p.pos,
+                team: p.team,
+                source: "user",
+            };
+            this.plan.assumed_rookies = ar;
+            this.plan.project_rookies_into_lineup = true;
+            this.savePlan();
+        },
+
+        clearAssumedRookie() {
+            if (!this.rosterModalAid) {
+                return;
+            }
+            const a = (this.rebuildBoard.assets || {})[this.rosterModalAid];
+            if (!a || a.kind !== "pick") {
+                return;
+            }
+            const ar = { ...(this.plan.assumed_rookies || {}) };
+            delete ar[this.rosterModalAid];
+            this.plan.assumed_rookies = ar;
+            this.savePlan();
+        },
+
+        useModelSuggestedRookie() {
+            if (!this.rosterModalAid) {
+                return;
+            }
+            const a = (this.rebuildBoard.assets || {})[this.rosterModalAid];
+            const m = a && a.model_suggested_rookie;
+            if (!m || !m.player_id) {
+                return;
+            }
+            this.setAssumedRookieFromSearch({
+                id: m.player_id, name: m.name, pos: m.pos, team: "",
+            });
+        },
+
+        toggleProjectLineup() {
+            this.plan.project_rookies_into_lineup = !this.plan.project_rookies_into_lineup;
+            this.savePlan();
         },
     }));
 
@@ -1416,6 +2345,18 @@ async function initPushReminders() {
             btnEn.hidden = true;
             btnDis.hidden = false;
             setStatus("Reminders enabled on this device.");
+            // Re-register with the server on every load: subscriptions rotate,
+            // and one failed delivery (410) makes the server silently drop the
+            // device. This keeps the server's list in sync with the browser.
+            try {
+                await fetch("/api/push/subscribe", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(sub.toJSON()),
+                });
+            } catch (e) {
+                /* offline — will retry next load */
+            }
         } else {
             btnEn.hidden = false;
             btnDis.hidden = true;
@@ -1463,12 +2404,32 @@ async function initPushReminders() {
                 setStatus("Could not save subscription on server.");
                 return;
             }
-            setStatus("Subscribed. Incomplete tasks for today will be nagged on the scheduler interval.");
+            setStatus("Reminders on! You'll get a routine check-in every 3 hours (7am–10pm). Tap Send test to confirm.");
         } catch (e) {
             setStatus("Subscribe failed — on this PC try http://127.0.0.1:5000; on HTTPS use a trusted certificate (tunnel/mkcert).");
         }
         await syncUi();
     });
+
+    const btnTest = document.getElementById("push-test-btn");
+    if (btnTest) {
+        btnTest.addEventListener("click", async () => {
+            setStatus("Sending test…");
+            try {
+                const res = await fetch("/api/push/test", { method: "POST" });
+                const data = await res.json();
+                if (data.registered === 0) {
+                    setStatus("No devices are subscribed yet — tap Enable first.");
+                } else if (data.sent > 0) {
+                    setStatus(`Test sent to ${data.sent} of ${data.registered} device(s). Check your notifications.`);
+                } else {
+                    setStatus("Couldn't deliver the test push. If you just enabled, try disabling and enabling again.");
+                }
+            } catch (e) {
+                setStatus("Test failed to send (network or server error).");
+            }
+        });
+    }
 
     btnDis.addEventListener("click", async () => {
         const sub = await reg.pushManager.getSubscription();
