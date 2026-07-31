@@ -170,11 +170,22 @@
     return 3;
   }
 
+  function pinnedToOtherWeekday(task) {
+    // Tasks with on_days (e.g. Trash on Tuesday) keep scheduled[] dots only on
+    // those weekdays. Do not pull them into a flex slot on other days — they
+    // belong in Bonus (or on the timed timeline when overdue + timed).
+    const sched = task.scheduled || [];
+    const today = Number(sched[DAY_INDEX] || 0) > 0;
+    if (today) return false;
+    return sched.some((n) => Number(n || 0) > 0);
+  }
+
   function pickFlex(rows, pool, usedIds) {
     const cand = rows.filter((r) => {
       if (usedIds.has(r.id) || r.complete || r.plannedDate || skipped.has(r.id)) return false;
       if (r.kind !== 'recurring') return false;
-      if (r.onPlan && r.time) return false; // already on the timed timeline
+      if (r.time) return false; // timed rows stay on the clock timeline, never flex
+      if (pinnedToOtherWeekday(r.task)) return false;
       if (pool === 'at_work') return !!r.atWork;
       return !r.atWork; // home pool
     }).sort((a, b) => flexPriority(a) - flexPriority(b) || (a.dueIso || '').localeCompare(b.dueIso || ''));
