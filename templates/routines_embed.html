@@ -25,8 +25,8 @@
                 <span class="task-col-h">Freq/Wk</span>
                 <span class="task-col-h">Freq/Yr</span>
                 <span class="task-col-h" title="Importance for score (default 1)">Wt</span>
-                <span class="task-col-h" title="Day-plan order on Today">Time</span>
-                <span class="task-col-h" title="Optional push reminder">Notify</span>
+                <span class="task-col-h" title="Day-plan order + push reminder clock">Time</span>
+                <span class="task-col-h" title="Optional push time override (blank = use Time)">Notify</span>
                 <span class="task-col-h" title="Eligible for Work flex">At work</span>
                 <span class="task-col-h" title="Optional: Mon–Sun">Days</span>
                 <span></span>
@@ -43,10 +43,10 @@
                        value="{{ task.weight if task.weight is defined else '' }}" step="0.5" min="0.5" max="10" placeholder="1" title="Weight for scoring">
                 <input type="time" name="task_time_{{ area_key }}_{{ loop.index0 }}"
                        value="{{ task.time if task.time else '' }}"
-                       title="When this appears on Today's day plan. Leave blank for flex/bonus only.">
+                       title="Day-plan time on Today; also the push reminder clock. Leave blank for flex/bonus only (no auto reminder).">
                 <input type="time" name="task_notify_time_{{ area_key }}_{{ loop.index0 }}"
                        value="{{ task.notify_time if task.notify_time else '' }}"
-                       title="Remind after this time when today has a scheduled dot (PC clock). Leave blank to disable.">
+                       title="Optional: different push time than Time. Leave blank to use Time.">
                 <label class="task-at-work" title="Eligible for the Work flex slot">
                     <input type="checkbox" name="task_at_work_{{ area_key }}_{{ loop.index0 }}" value="1"{% if task.at_work %} checked{% endif %}>
                     <span>Work</span>
@@ -70,8 +70,8 @@
                 <input type="number" name="new_task_freq_{{ area_key }}" step="0.01" min="0" placeholder="freq/wk">
                 <input type="number" name="new_task_fpy_{{ area_key }}" step="1" min="0" placeholder="freq/yr">
                 <input type="number" name="new_task_weight_{{ area_key }}" step="0.5" min="0.5" max="10" placeholder="1" title="Weight">
-                <input type="time" name="new_task_time_{{ area_key }}" value="" title="Optional day-plan time on Today.">
-                <input type="time" name="new_task_notify_time_{{ area_key }}" value="" title="Optional: time to notify when this task has a scheduled dot today. Leave blank to disable.">
+                <input type="time" name="new_task_time_{{ area_key }}" value="" title="Day-plan + reminder time. Blank = no auto reminder.">
+                <input type="time" name="new_task_notify_time_{{ area_key }}" value="" title="Optional push override. Blank = use Time.">
                 <label class="task-at-work" title="Eligible for the Work flex slot">
                     <input type="checkbox" name="new_task_at_work_{{ area_key }}" value="1">
                     <span>Work</span>
