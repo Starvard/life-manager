@@ -3,10 +3,24 @@ daily_flex_slots:
   time: "06:15"
   label: Morning flex
   pool: home
+- key: midmorning
+  time: "09:30"
+  label: Mid-morning flex
+  pool: home
 - key: work
   time: "11:00"
   label: Work flex
   pool: at_work
+  on_days:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+- key: afternoon
+  time: "14:30"
+  label: Afternoon flex
+  pool: home
 - key: evening
   time: "16:30"
   label: Evening flex
