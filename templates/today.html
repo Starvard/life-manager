@@ -47,26 +47,6 @@
   .section-title h2 { font-size: .92rem; margin: 0; letter-spacing: .01em; }
   .section-title .count { font-size: .74rem; color: var(--text-muted); }
 
-  .upnext { border-radius: 18px; padding: 1rem; margin-top: 1.1rem;
-    background: linear-gradient(135deg, rgba(99,179,255,.16), rgba(167,139,250,.16)); border: 1px solid rgba(99,179,255,.28); }
-  .upnext .un-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .09em; color: var(--accent); font-weight: 700; }
-  .upnext .un-name { font-size: 1.25rem; font-weight: 800; margin: .25rem 0 .15rem; letter-spacing: -.02em; }
-  .upnext .un-sub { font-size: .8rem; color: var(--text-muted); }
-  .upnext .un-btn { margin-top: .8rem; width: 100%; border: 0; border-radius: 13px; padding: .85rem; font-size: 1rem; font-weight: 800; color: #06121f;
-    background: linear-gradient(135deg, #7dd3fc, #4ade80); cursor: pointer; box-shadow: 0 8px 22px rgba(74,222,128,.28); }
-  .upnext .un-btn:active { transform: scale(.985); }
-  .upnext.alldone { background: var(--good-dim); border-color: rgba(74,222,128,.4); text-align: center; }
-  .upnext.alldone .un-name { color: var(--good); }
-  .un-actions { display: flex; gap: .5rem; margin-top: .55rem; }
-  .un-actions button { flex: 1; border: 1px solid var(--border); background: rgba(255,255,255,.04); color: var(--text-muted);
-    border-radius: 11px; padding: .6rem; font-size: .85rem; font-weight: 600; cursor: pointer; }
-  .un-actions button:active { transform: scale(.985); }
-  .un-plan-input { margin-top: .55rem; width: 100%; display: none; border: 1px solid var(--border-focus); border-radius: 11px;
-    padding: .7rem; background: rgba(255,255,255,.06); color: var(--text); font-size: .95rem; }
-  .upnext.planning .un-actions { display: none; }
-  .upnext.planning .un-plan-input { display: block; }
-  .un-plan-hint { font-size: .72rem; color: var(--text-muted); margin: .4rem .1rem 0; display: none; }
-  .upnext.planning .un-plan-hint { display: block; }
   .tk.planned { border-left-color: var(--text-light); opacity: .9; }
   .tk.planned .tk-check { font-size: 1rem; border: none; }
 
@@ -173,7 +153,6 @@
     </div>
   </div>
 
-  <div id="up-next"></div>
   <div id="sections"></div>
 
   <div class="card push-reminders-card today-reminders" id="push-reminders-card">

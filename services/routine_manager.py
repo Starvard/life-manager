@@ -23,6 +23,8 @@ _cached_data: dict | None = None
 
 RESTORE_HOME_RECURRING_MIGRATION = "restore_home_recurring_tasks_2026_04_29"
 TIMED_DAILY_ROUTINES_MIGRATION = "timed_daily_routines_2026_07_31"
+# Night-order / floss-brush split / make-dinner / tidy+dishes between kids.
+SCHEDULE_TWEAKS_MIGRATION = "routine_schedule_tweaks_2026_08_01"
 RESTORED_HOME_RECURRING_TASKS = [
     {"name": "Deep Clean Upstairs", "weight": 2.0, "freq": 0.5},
     {"name": "Deep Clean Downstairs", "weight": 2.0, "freq": 0.5},
@@ -74,6 +76,31 @@ def _volume_lacks_timed_daily_schedule(data: dict) -> bool:
     return True
 
 
+def _refresh_volume_routines_from_bundled(data: dict, migration_id: str) -> bool:
+    """Replace the Fly-volume routines.yaml with the bundled schedule.
+
+    Preserves the ``_migrations`` list so prior one-time repairs stay recorded.
+    No-op when running against the bundled file itself (local dev).
+    """
+    if ROUTINES_FILE == ROUTINES_BUNDLED_FILE or not os.path.exists(ROUTINES_BUNDLED_FILE):
+        return False
+    with open(ROUTINES_BUNDLED_FILE, "r") as f:
+        bundled = yaml.safe_load(f) or {}
+    if not isinstance(bundled, dict) or not bundled.get("areas"):
+        return False
+    prev_migrations = list(data.get("_migrations") or [])
+    data.clear()
+    data.update(copy.deepcopy(bundled))
+    merged = list(data.get("_migrations") or [])
+    for m in prev_migrations:
+        if m not in merged:
+            merged.append(m)
+    if migration_id not in merged:
+        merged.append(migration_id)
+    data["_migrations"] = merged
+    return True
+
+
 def _apply_one_time_routine_repairs(data: dict) -> bool:
     """Apply small, one-time data repairs to the persistent routine config.
 
@@ -88,28 +115,22 @@ def _apply_one_time_routine_repairs(data: dict) -> bool:
     # day-plan rewrite left the volume on the old task list — Today then had
     # only three flex slots and promoted overdue Trash as Up Next.
     if TIMED_DAILY_ROUTINES_MIGRATION not in migrations:
-        if (
-            ROUTINES_FILE != ROUTINES_BUNDLED_FILE
-            and os.path.exists(ROUTINES_BUNDLED_FILE)
-            and _volume_lacks_timed_daily_schedule(data)
-        ):
-            with open(ROUTINES_BUNDLED_FILE, "r") as f:
-                bundled = yaml.safe_load(f) or {}
-            if isinstance(bundled, dict) and bundled.get("areas"):
-                prev_migrations = list(migrations)
-                data.clear()
-                data.update(copy.deepcopy(bundled))
-                merged = list(data.get("_migrations") or [])
-                for m in prev_migrations:
-                    if m not in merged:
-                        merged.append(m)
-                if TIMED_DAILY_ROUTINES_MIGRATION not in merged:
-                    merged.append(TIMED_DAILY_ROUTINES_MIGRATION)
-                data["_migrations"] = merged
-                migrations = data["_migrations"]
+        if _volume_lacks_timed_daily_schedule(data):
+            if _refresh_volume_routines_from_bundled(data, TIMED_DAILY_ROUTINES_MIGRATION):
+                migrations = data.setdefault("_migrations", [])
                 changed = True
         if TIMED_DAILY_ROUTINES_MIGRATION not in migrations:
             migrations.append(TIMED_DAILY_ROUTINES_MIGRATION)
+            changed = True
+
+    # Later schedule tweaks (night order, floss/brush AM+PM, make dinner, etc.)
+    # must re-copy the bundled file even when times already exist on the volume.
+    if SCHEDULE_TWEAKS_MIGRATION not in migrations:
+        if _refresh_volume_routines_from_bundled(data, SCHEDULE_TWEAKS_MIGRATION):
+            migrations = data.setdefault("_migrations", [])
+            changed = True
+        if SCHEDULE_TWEAKS_MIGRATION not in migrations:
+            migrations.append(SCHEDULE_TWEAKS_MIGRATION)
             changed = True
 
     if RESTORE_HOME_RECURRING_MIGRATION not in migrations:

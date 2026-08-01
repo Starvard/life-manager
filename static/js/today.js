@@ -332,7 +332,6 @@
 
   let lastRows = [];
   let lastDayItems = [];
-  let lastUpNext = null;
 
   function renderHero(dayItems) {
     const prog = computeProgress(dayItems);
@@ -403,45 +402,12 @@
       '</button>';
   }
 
-  function pickUpNext(dayItems) {
-    for (let i = 0; i < dayItems.length; i++) {
-      const it = dayItems[i];
-      if (it.flex && it.flex.empty) continue;
-      const r = it.row;
-      if (!r || r.complete || r.plannedDate || skipped.has(r.id)) continue;
-      return { row: r, item: it };
-    }
-    return null;
-  }
-
   function render(justId) {
     const rows = buildRows();
     lastRows = rows;
     const { items, usedIds } = buildDayPlan(rows);
     lastDayItems = items;
     const prog = renderHero(items);
-
-    const upWrap = document.getElementById('up-next');
-    const next = pickUpNext(items);
-    lastUpNext = next ? next.row : null;
-    if (!next) {
-      upWrap.innerHTML = '<div class="upnext alldone"><div class="un-label">All done</div><div class="un-name">Day plan clear</div><div class="un-sub">Everything on today\'s timeline is checked off. Bonus is optional.</div></div>';
-    } else {
-      const r = next.row;
-      const flexLabel = next.item.flex ? next.item.flex.label : null;
-      const sub = (flexLabel ? flexLabel + ' · ' : '') +
-        (r.kind === 'daily'
-          ? (r.areaName + (r.total > 1 ? ' · ' + r.done + '/' + r.total : ''))
-          : ((r.label || '') + ' · ' + r.areaName));
-      const planDefault = (r.dueIso && r.dueIso > SEL) ? r.dueIso : iso(addDays(parseIso(SEL), 1));
-      upWrap.innerHTML = '<div class="upnext"><div class="un-label">Up next' +
-        (next.item.sortTime ? ' · ' + esc(formatTime(next.item.sortTime)) : '') +
-        '</div><div class="un-name">' + esc(r.name) + '</div><div class="un-sub">' + esc(sub) + '</div>' +
-        '<button type="button" class="un-btn" data-id="' + esc(r.id) + '">Do it ✓</button>' +
-        '<div class="un-actions"><button type="button" data-act="skip">Skip for now</button><button type="button" data-act="plan">📅 Plan a date</button></div>' +
-        '<input type="date" class="un-plan-input" data-plan-input min="' + esc(iso(addDays(parseIso(SEL), 1))) + '" value="' + esc(planDefault) + '">' +
-        '<div class="un-plan-hint">Pick the day you\'ll actually do it — it\'ll wait in “Planned” until then.</div></div>';
-    }
 
     let html = '<div class="section"><div class="section-title"><h2>Day plan</h2><span class="count">' +
       items.filter((it) => !(it.flex && it.flex.empty)).length + '</span></div>';
@@ -634,31 +600,12 @@
       onActivate(btn.getAttribute('data-id'), e.clientX, e.clientY);
     }
     document.getElementById('sections').addEventListener('click', handler);
-    document.getElementById('up-next').addEventListener('click', handler);
     document.getElementById('sections').addEventListener('click', (e) => {
       if (e.target.id === 'show-bonus') { const l = document.getElementById('bonus-list'); if (l) l.style.display = 'block'; e.target.style.display = 'none'; return; }
       const un = e.target.closest('[data-unplan]');
       if (un) { clearPlan(un.getAttribute('data-unplan')); render(); }
     });
     bindSwipeSkip(document.getElementById('sections'));
-
-    document.getElementById('up-next').addEventListener('click', (e) => {
-      const act = e.target.closest('[data-act]');
-      if (!act || !lastUpNext) return;
-      const a = act.getAttribute('data-act');
-      if (a === 'skip') { skipForNow(lastUpNext.id); }
-      else if (a === 'plan') {
-        const up = act.closest('.upnext');
-        const inp = up && up.querySelector('[data-plan-input]');
-        if (up) up.classList.add('planning');
-        if (inp) { inp.focus(); if (inp.showPicker) { try { inp.showPicker(); } catch (err) {} } }
-      }
-    });
-    document.getElementById('up-next').addEventListener('change', (e) => {
-      const inp = e.target.closest('[data-plan-input]');
-      if (!inp || !lastUpNext) return;
-      if (inp.value) { setPlan(planKeyOf(lastUpNext), inp.value); haptic(10); render(); }
-    });
 
     document.getElementById('celebrate-close').addEventListener('click', closeCelebrate);
     document.getElementById('celebrate').addEventListener('click', (e) => { if (e.target.id === 'celebrate') closeCelebrate(); });
