@@ -1227,7 +1227,15 @@ def _sync_task_schedule_meta_from_routines(cards: dict[str, dict]) -> bool:
 def default_daily_flex_slots() -> list[dict]:
     return [
         {"key": "morning", "time": "06:15", "label": "Morning flex", "pool": "home"},
-        {"key": "work", "time": "11:00", "label": "Work flex", "pool": "at_work"},
+        {"key": "midmorning", "time": "09:30", "label": "Mid-morning flex", "pool": "home"},
+        {
+            "key": "work",
+            "time": "11:00",
+            "label": "Work flex",
+            "pool": "at_work",
+            "on_days": [0, 1, 2, 3, 4],
+        },
+        {"key": "afternoon", "time": "14:30", "label": "Afternoon flex", "pool": "home"},
         {"key": "evening", "time": "16:30", "label": "Evening flex", "pool": "home"},
     ]
 
@@ -1250,7 +1258,21 @@ def get_daily_flex_slots() -> list[dict]:
             pool = "home"
         key = str(slot.get("key") or f"flex{i}").strip() or f"flex{i}"
         label = str(slot.get("label") or key).strip() or key
-        out.append({"key": key, "time": hhmm, "label": label, "pool": pool})
+        row: dict = {"key": key, "time": hhmm, "label": label, "pool": pool}
+        # Optional weekday filter (0=Mon .. 6=Sun). Work flex uses Mon–Fri.
+        raw_days = slot.get("on_days")
+        if isinstance(raw_days, list) and raw_days:
+            days: list[int] = []
+            for d in raw_days:
+                try:
+                    di = int(d)
+                except (TypeError, ValueError):
+                    continue
+                if 0 <= di <= 6 and di not in days:
+                    days.append(di)
+            if days:
+                row["on_days"] = sorted(days)
+        out.append(row)
     return out or default_daily_flex_slots()
 
 

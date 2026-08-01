@@ -1,8 +1,8 @@
-/* Today — timed daily plan + flex slots + bonus.
+ /* Today — timed daily plan + flex slots + bonus.
  *
- * Day plan = timed tasks for today (sorted by time) plus up to three flex
- * slots that each pull one due non-daily from the right pool. Bonus holds
- * remaining non-dailies and does not count toward the progress ring.
+ * Day plan = timed tasks for today (sorted by time) plus flex slots that
+ * each pull one due non-daily from the right pool. Bonus holds remaining
+ * non-dailies and does not count toward the progress ring.
  */
 (function () {
   const BOOT = window.__TODAY__ || {};
@@ -145,7 +145,9 @@
           });
         } else {
           const st = recurringStatus(task, areaKey, hist);
-          const onTimeline = !!time && (st.status === 'overdue' || st.status === 'due' || st.status === 'done' || schedToday);
+          // Weekday-only timed tasks (work Mon–Fri, trash Tue) only belong on
+          // the day plan when scheduled today — not as weekend overdue clutter.
+          const onTimeline = !!time && schedToday;
           rows.push({
             id, kind: 'recurring', areaKey, areaName, task, taskIndex,
             name: task.name || '', time, atWork,
@@ -205,6 +207,8 @@
     FLEX_SLOTS.forEach((slot) => {
       const t = normTime(slot.time);
       if (!t) return;
+      const days = Array.isArray(slot.on_days) ? slot.on_days.map(Number) : null;
+      if (days && days.length && days.indexOf(DAY_INDEX) < 0) return; // e.g. work flex Mon–Fri only
       const pick = pickFlex(rows, slot.pool || 'home', used);
       if (!pick) {
         items.push({
@@ -422,6 +426,7 @@
 
     const bonus = rows.filter((r) =>
       !r.complete && !r.plannedDate && r.kind === 'recurring' && !usedIds.has(r.id) && !skipped.has(r.id) &&
+      !pinnedToOtherWeekday(r.task) &&
       (r.status === 'overdue' || r.status === 'due' || r.status === 'upcoming')
     ).sort((a, b) => flexPriority(a) - flexPriority(b) || (a.dueIso || '').localeCompare(b.dueIso || ''));
     if (bonus.length) {
