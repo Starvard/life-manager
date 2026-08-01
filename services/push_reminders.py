@@ -1,14 +1,13 @@
 """
 Web Push routine reminders.
 
-Two kinds of sends, both driven by ``run_reminder_scan``:
+Driven by ``run_reminder_scan``:
 
-- **Periodic nudge**: every few hours during the day (default 3h, 7am-10pm),
-  spotlighting the next open task with a Done action. Skipped when everything
-  is done. One send per time slot (``last_routine_ping``).
-- **Per-task notify-time reminders**: tasks with a ``notify_time`` set on the
-  /routines editor ping once per day after that time while today's scheduled
-  dot is still empty (``last_sent`` keyed by tag + date).
+- **Schedule-time reminders**: each task with a day-plan ``time`` (or an
+  optional ``notify_time`` override) pings once per day after that clock
+  time while today's scheduled dot is still empty.
+- **Periodic nudge** (off by default): legacy every-few-hours check-in.
+  Re-enable with ``LM_REMINDER_PERIODIC_NUDGE=1`` if you want it back.
 
 Stable notification tags (one per task row + list) let Android replace
 duplicate nags instead of stacking them.
@@ -147,30 +146,45 @@ def collect_today_nags(week_key: str, day_idx: int) -> list[dict]:
     return out
 
 
+def _normalize_hhmm(raw) -> str | None:
+    if raw is None or raw == "":
+        return None
+    s = str(raw).strip()
+    if not s:
+        return None
+    parts = s.replace(".", ":").split(":")
+    if len(parts) < 2:
+        return None
+    try:
+        h = max(0, min(23, int(parts[0])))
+        m = max(0, min(59, int(parts[1])))
+    except ValueError:
+        return None
+    return f"{h:02d}:{m:02d}"
+
+
 def notify_time_lookup() -> dict[tuple[str, str], str]:
-    """(area_key, task_name) -> 'HH:MM' from routines.yaml (local server time)."""
+    """(area_key, task_name) -> 'HH:MM' for push reminders.
+
+    Uses the day-plan ``time`` by default so reminders match Today's schedule.
+    An explicit ``notify_time`` (or legacy ``notify_at``) overrides when set.
+    """
     data = load_routines()
     out: dict[tuple[str, str], str] = {}
     for ak, area in data.get("areas", {}).items():
         for t in area.get("tasks", []):
             name = (t.get("name") or "").strip()
-            raw = t.get("notify_time") if "notify_time" in t else t.get("notify_at")
             if not name:
                 continue
-            if raw is None or raw == "":
-                continue
-            s = str(raw).strip()
-            if not s:
-                continue
-            parts = s.replace(".", ":").split(":")
-            if len(parts) < 2:
-                continue
-            try:
-                h = max(0, min(23, int(parts[0])))
-                m = max(0, min(59, int(parts[1])))
-            except ValueError:
-                continue
-            out[(ak, name)] = f"{h:02d}:{m:02d}"
+            override = None
+            if "notify_time" in t:
+                override = _normalize_hhmm(t.get("notify_time"))
+            elif "notify_at" in t:
+                override = _normalize_hhmm(t.get("notify_at"))
+            sched = _normalize_hhmm(t.get("time"))
+            hhmm = override or sched
+            if hhmm:
+                out[(ak, name)] = hhmm
     return out
 
 
@@ -312,7 +326,7 @@ def _task_action_fields(nag: dict) -> dict:
 
 
 def _send_notify_time_reminders(subs: list[dict], nags: list[dict], state: dict) -> int:
-    """Per-task reminders for tasks with a Notify time set on /routines.
+    """Per-task reminders at each task's day-plan time (or Notify override).
 
     Fires once per task per day, after the configured time, while the task
     still has an incomplete scheduled dot. The notification carries a Done ✓
@@ -323,7 +337,12 @@ def _send_notify_time_reminders(subs: list[dict], nags: list[dict], state: dict)
     today_iso = local_today().isoformat()
     last_sent = state.get("last_sent") or {}
     sent = 0
-    for nag in nags:
+    # Fire in schedule order so earlier slots are recorded first if many are due.
+    ordered = sorted(
+        nags,
+        key=lambda n: times.get((n["area_key"], n["task_name"])) or "99:99",
+    )
+    for nag in ordered:
         hhmm = times.get((nag["area_key"], nag["task_name"]))
         if not hhmm or not _notify_time_reached(hhmm):
             continue
@@ -331,20 +350,24 @@ def _send_notify_time_reminders(subs: list[dict], nags: list[dict], state: dict)
             continue
         payload = {
             "title": f"⏰ {nag['task_name']}",
-            "body": f"{nag['area_name']} — planned for today. Hit Done ✓ when it's finished.",
+            "body": f"{nag['area_name']} · scheduled {hhmm}. Hit Done ✓ when it's finished.",
             "tag": nag["tag"],
             "url": "/today",
-            # The user asked for this exact reminder — keep it on screen
-            # until they act on it (desktop; Android keeps it in the tray).
             "requireInteraction": True,
             **_task_action_fields(nag),
         }
         if _send_to_all(subs, payload) > 0:
             last_sent[nag["tag"]] = today_iso
             sent += 1
-    # Keep only today's entries so the state file doesn't grow forever.
     state["last_sent"] = {k: v for k, v in last_sent.items() if v == today_iso}
     return sent
+
+
+def _periodic_nudge_enabled() -> bool:
+    """Legacy 3h check-in — off by default now that schedule times drive pushes."""
+    return os.environ.get("LM_REMINDER_PERIODIC_NUDGE", "").strip().lower() in (
+        "1", "true", "yes", "on",
+    )
 
 
 def _send_periodic_nudge(subs: list[dict], nags: list[dict], state: dict) -> int:
@@ -410,8 +433,8 @@ def _send_periodic_nudge(subs: list[dict], nags: list[dict], state: dict) -> int
 def run_reminder_scan() -> dict:
     """Send any due routine reminders. Called by the in-process scheduler and
     by POST /api/push/run-reminders (external cron backstop for when the Fly
-    machine was asleep). Safe to call repeatedly: the periodic nudge sends
-    once per time slot and per-task reminders once per task per day.
+    machine was asleep). Safe to call repeatedly: each schedule-time reminder
+    sends at most once per task per day.
 
     Returns a small summary dict for the HTTP endpoint / logs."""
     summary = {"subscriptions": 0, "task_reminders_sent": 0, "nudge_deliveries": 0}
@@ -430,6 +453,10 @@ def run_reminder_scan() -> dict:
 
     state = _load_state()
     summary["task_reminders_sent"] = _send_notify_time_reminders(subs, nags, state)
-    summary["nudge_deliveries"] = _send_periodic_nudge(subs, nags, state)
+    if _periodic_nudge_enabled():
+        summary["nudge_deliveries"] = _send_periodic_nudge(subs, nags, state)
+    else:
+        summary["nudge_deliveries"] = 0
+        summary["periodic_nudge"] = "off"
     _save_state(state)
     return summary

@@ -53,5 +53,5 @@ WEEK_START_DAY = 0
 
 DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-# Per-task push reminders default to blank (opt-in). Set a Notify time on a
-# task in the /routines edit page to start receiving reminders for it.
+# Timed tasks push at their day-plan Time (Notify is an optional override).
+# Set LM_REMINDER_PERIODIC_NUDGE=1 to also keep the legacy every-few-hours check-in.
