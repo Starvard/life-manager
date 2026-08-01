@@ -23,11 +23,11 @@ areas:
   hygiene:
     name: Hygiene
     tasks:
-    - name: Floss
+    - name: Floss (morning)
       weight: 2.0
       freq: 7.0
       time: "06:00"
-    - name: Brush
+    - name: Brush (morning)
       weight: 2.0
       freq: 7.0
       time: "06:02"
@@ -35,10 +35,18 @@ areas:
       weight: 2.0
       freq: 7.0
       time: "16:15"
+    - name: Floss (evening)
+      weight: 2.0
+      freq: 7.0
+      time: "21:10"
+    - name: Brush (evening)
+      weight: 2.0
+      freq: 7.0
+      time: "21:12"
     - name: Moisturize
       weight: 1.5
       freq: 7.0
-      time: "21:00"
+      time: "21:20"
     - name: Trim Nails
       weight: 1.0
       freq: 1.0
@@ -71,7 +79,7 @@ areas:
     - name: Drink Water (evening)
       weight: 1.0
       freq: 7.0
-      time: "21:15"
+      time: "21:25"
     - name: Meditate
       weight: 2.0
       freq: 2.0
@@ -98,18 +106,18 @@ areas:
       weight: 3.0
       freq: 7.0
       time: "07:30"
-    - name: Jenna Night Routine
-      weight: 4.0
-      freq: 7.0
-      time: "19:30"
-    - name: Rosemary Night Routine
-      weight: 4.0
-      freq: 7.0
-      time: "20:00"
     - name: Rowan Night Routine
       weight: 4.0
       freq: 7.0
-      time: "20:30"
+      time: "19:30"
+    - name: Jenna Night Routine
+      weight: 4.0
+      freq: 7.0
+      time: "20:00"
+    - name: Rosemary Night Routine
+      weight: 4.0
+      freq: 7.0
+      time: "21:00"
     - name: Jenna 1:1 Date
       weight: 3.5
       freq: 0.25
@@ -139,20 +147,24 @@ areas:
       weight: 2.0
       freq: 7.0
       time: "06:55"
-    - name: Tidy Up
-      weight: 2.0
+    - name: Make dinner
+      weight: 2.5
       freq: 7.0
-      time: "16:45"
-    - name: Dishes (evening)
-      weight: 2.0
-      freq: 7.0
-      time: "18:30"
+      time: "18:00"
     - name: Take out Trash
       weight: 2.0
       freq: 1.0
       time: "19:00"
       on_days:
       - 1
+    - name: Tidy Up
+      weight: 2.0
+      freq: 7.0
+      time: "20:15"
+    - name: Dishes (evening)
+      weight: 2.0
+      freq: 7.0
+      time: "20:30"
     - name: Plant Care
       weight: 1.5
       freq: 3.0
