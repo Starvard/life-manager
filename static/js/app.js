@@ -511,7 +511,7 @@ document.addEventListener("alpine:init", () => {
 
     /* ── Alpine.js: Budget Page ────────────────────────────────── */
 
-    Alpine.data("budgetPage", (initialTxns, initialReport, initialPlan, initialCategories, currentMonth, months, initialOverview, initialBudgets, budgetCategoryList, initialPlaidItems, plaidConfigured, initialPlaidStatus) => ({
+    Alpine.data("budgetPage", (initialTxns, initialReport, initialPlan, initialCategories, currentMonth, months, initialOverview, initialBudgets, budgetCategoryList, initialPlaidItems, plaidConfigured, initialPlaidStatus, initialCustomCategories) => ({
         transactions: initialTxns || [],
         report: initialReport || {
             total_income: 0,
@@ -587,6 +587,12 @@ document.addEventListener("alpine:init", () => {
         newRuleCategory: "",
         catPickerForId: null,
         catFilter: "",
+        /** When true, category changes also learn a keyword rule ("Always"). Default: this transaction only. */
+        categoryLearnAlways: false,
+        customCategories: initialCustomCategories || [],
+        newCustomCategory: "",
+        addingCustomCat: false,
+        removingCustomCat: "",
         /** @type {Record<string, boolean>} */
         selectedTxnIds: {},
         incomeModalOpen: false,
@@ -843,8 +849,13 @@ document.addEventListener("alpine:init", () => {
                 return;
             }
             tx.category_override = cat;
-            await api("PATCH", `/api/budget/transactions/${tx.id}/category`, { category: cat });
-            await this.loadRules();
+            await api("PATCH", `/api/budget/transactions/${tx.id}/category`, {
+                category: cat,
+                learn: !!this.categoryLearnAlways,
+            });
+            if (this.categoryLearnAlways) {
+                await this.loadRules();
+            }
             await this.refreshReport();
             this.closeCatPicker();
         },
@@ -884,9 +895,11 @@ document.addEventListener("alpine:init", () => {
         async applyBulkCategory(cat) {
             if (!cat || this.selectedTxnCount === 0) return;
             const ids = Object.keys(this.selectedTxnIds);
+            const learn = !!this.categoryLearnAlways;
             const res = await api("POST", "/api/budget/transactions/bulk-category", {
                 category: cat,
                 ids,
+                learn,
             });
             if (res && res.ok) {
                 for (const id of ids) {
@@ -894,7 +907,7 @@ document.addEventListener("alpine:init", () => {
                     if (tx) tx.category_override = cat;
                 }
                 this.clearTxnSelection();
-                await this.loadRules();
+                if (learn) await this.loadRules();
                 await this.refreshReport();
                 this.filterTxns();
                 this.importMsg = res.updated
@@ -1605,6 +1618,75 @@ document.addEventListener("alpine:init", () => {
             const res = await fetch(`/api/budget/rules/${encodeURIComponent(r.keyword)}`, { method: "DELETE" });
             const data = await res.json();
             if (data) this.rules = data.rules || [];
+        },
+
+        _mergeCategoryLists(managed, existingAll) {
+            const out = [];
+            const seen = new Set();
+            for (const c of (managed || [])) {
+                if (!c || seen.has(c)) continue;
+                seen.add(c);
+                out.push(c);
+            }
+            for (const c of (existingAll || [])) {
+                if (!c || seen.has(c)) continue;
+                seen.add(c);
+                out.push(c);
+            }
+            return out;
+        },
+
+        async addCustomCategory() {
+            const name = (this.newCustomCategory || "").trim();
+            if (!name) return;
+            this.addingCustomCat = true;
+            const res = await api("POST", "/api/budget/categories", { name });
+            this.addingCustomCat = false;
+            if (res && res.ok) {
+                this.customCategories = res.custom || [];
+                this.budgetCategoryList = res.categories || this.budgetCategoryList;
+                this.allCategories = this._mergeCategoryLists(res.categories, this.allCategories);
+                this.newCustomCategory = "";
+                this.importMsg = `Added category “${name}”.`;
+                setTimeout(() => { this.importMsg = ""; }, 4000);
+            } else {
+                this.errorMsg = (res && res.error) || "Could not add category.";
+                setTimeout(() => { this.errorMsg = ""; }, 5000);
+            }
+        },
+
+        async removeCustomCategory(name) {
+            if (!name) return;
+            if (!window.confirm(
+                `Remove “${name}” from your categories?\n\nTransactions already tagged with it stay as-is. Use “Rename or merge” below if you want to move them first.`
+            )) {
+                return;
+            }
+            this.removingCustomCat = name;
+            const res = await fetch(
+                `/api/budget/categories/${encodeURIComponent(name)}`,
+                {
+                    method: "DELETE",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({}),
+                }
+            );
+            const data = await res.json().catch(() => null);
+            this.removingCustomCat = "";
+            if (data && data.ok) {
+                this.customCategories = data.custom || [];
+                this.budgetCategoryList = data.categories || this.budgetCategoryList;
+                this.allCategories = this._mergeCategoryLists(
+                    data.categories,
+                    (this.allCategories || []).filter((c) => c !== name)
+                );
+                this.importMsg = `Removed category “${name}”.`;
+                setTimeout(() => { this.importMsg = ""; }, 5000);
+                await this.refreshReport();
+            } else {
+                this.errorMsg = (data && data.error) || "Could not remove category.";
+                setTimeout(() => { this.errorMsg = ""; }, 5000);
+            }
         },
     }));
 

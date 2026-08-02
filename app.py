@@ -55,12 +55,13 @@ from services.budget_store import (
 from services.budget_import import import_from_directory
 from services.budget_dedupe import merge_new_transactions
 from services.budget_categorizer import (
-    get_all_categories, get_display_category,
+    get_all_categories, get_display_category, get_managed_categories,
     BUDGET_CATEGORIES, infer_category, recategorize_all,
     list_keyword_rules, upsert_keyword_rule, delete_keyword_rule,
     learn_rule_from_override,
     bulk_set_category,
     replace_budget_category_globally,
+    list_custom_categories, add_custom_category, remove_custom_category,
 )
 from services.budget_csv_import import parse_csv_text
 from services import plaid_client, plaid_credentials
@@ -830,6 +831,8 @@ def budget_page():
         if _k and _k not in _seen:
             categories.append(_k)
             _seen.add(_k)
+    managed_categories = get_managed_categories()
+    custom_categories = list_custom_categories()
     overview = load_overview(current_month) or {}
     plaid_items = plaid_client.list_items_public()
     _creds = plaid_credentials.get_credentials()
@@ -853,9 +856,10 @@ def budget_page():
         report=report,
         plan=plan,
         categories=categories,
+        custom_categories=custom_categories,
         overview=overview,
         budgets=budgets,
-        budget_categories=BUDGET_CATEGORIES,
+        budget_categories=managed_categories,
         plaid_items=plaid_items,
         plaid_configured=plaid_client.is_configured(),
         plaid_status=plaid_status,
@@ -931,7 +935,8 @@ def api_budget_transactions():
 def api_budget_update_category(tx_id):
     body = request.get_json(force=True) or {}
     new_cat = (body.get("category") or "").strip()
-    learn = bool(body.get("learn", True))
+    # Default: this transaction only. Pass learn=true to also create a keyword rule.
+    learn = bool(body.get("learn", False))
     if not new_cat:
         return jsonify({"ok": False, "error": "Missing category"}), 400
     txns = load_transactions()
@@ -950,7 +955,7 @@ def api_budget_bulk_category():
     """Set the same category on many transactions (e.g. after multi-select)."""
     body = request.get_json(force=True) or {}
     new_cat = (body.get("category") or "").strip()
-    learn = bool(body.get("learn", True))
+    learn = bool(body.get("learn", False))
     ids = body.get("ids")
     if not new_cat:
         return jsonify({"ok": False, "error": "Missing category"}), 400
@@ -1025,7 +1030,34 @@ def api_budget_categories():
     return jsonify({
         "categories": cats,
         "defaults": BUDGET_CATEGORIES,
+        "managed": get_managed_categories(),
+        "custom": list_custom_categories(),
     })
+
+
+@app.route("/api/budget/categories", methods=["POST"])
+def api_budget_add_category():
+    """Add a user-defined category (stored in categories.json → custom)."""
+    body = request.get_json(force=True) or {}
+    name = (body.get("name") or body.get("category") or "").strip()
+    result = add_custom_category(name)
+    if not result.get("ok"):
+        return jsonify(result), 400
+    return jsonify(result)
+
+
+@app.route("/api/budget/categories/<path:name>", methods=["DELETE"])
+def api_budget_delete_category(name):
+    """Remove a user-defined category. Optional ?merge_into= or JSON body."""
+    body = request.get_json(silent=True) or {}
+    merge_into = (
+        (body.get("merge_into") or body.get("to") or request.args.get("merge_into") or "")
+        .strip()
+    ) or None
+    result = remove_custom_category(name, merge_into=merge_into)
+    if not result.get("ok"):
+        return jsonify(result), 400
+    return jsonify(result)
 
 
 @app.route("/api/budget/categories/replace", methods=["POST"])

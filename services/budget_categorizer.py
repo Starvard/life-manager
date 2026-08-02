@@ -338,9 +338,35 @@ def set_category_override(tx: dict, new_category: str) -> dict:
     return tx
 
 
-def get_all_categories(transactions: list[dict]) -> list[str]:
-    """Return display categories: canonical emoji list first, then any extras."""
+def list_custom_categories() -> list[str]:
+    """Return user-added category names from ``categories.json`` → ``custom``."""
+    cats = load_categories()
+    raw = cats.get("custom") or []
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in raw:
+        name = str(item or "").strip()
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        out.append(name)
+    return out
+
+
+def get_managed_categories() -> list[str]:
+    """Built-in categories plus user-defined custom ones (picker / budgets list)."""
     canon = list(BUDGET_CATEGORIES)
+    seen = set(canon)
+    for name in list_custom_categories():
+        if name not in seen:
+            canon.append(name)
+            seen.add(name)
+    return canon
+
+
+def get_all_categories(transactions: list[dict]) -> list[str]:
+    """Return display categories: managed list first, then any extras from txns."""
+    canon = get_managed_categories()
     canon_set = set(canon)
     extra_set: set[str] = set()
     for tx in transactions or []:
@@ -349,6 +375,59 @@ def get_all_categories(transactions: list[dict]) -> list[str]:
             extra_set.add(c)
     extras = sorted(extra_set, key=category_sort_key)
     return canon + extras
+
+
+def add_custom_category(name: str) -> dict:
+    """Append a user category to ``categories.json``. Returns status dict."""
+    clean = (name or "").strip()
+    if not clean:
+        return {"ok": False, "error": "Category name is required."}
+    if clean in BUDGET_CATEGORIES:
+        return {"ok": False, "error": "That category is already a built-in."}
+    cats = load_categories()
+    custom = [str(c).strip() for c in (cats.get("custom") or []) if str(c).strip()]
+    if clean in custom:
+        return {"ok": False, "error": "That custom category already exists."}
+    custom.append(clean)
+    cats["custom"] = custom
+    save_categories(cats)
+    return {"ok": True, "custom": list_custom_categories(), "categories": get_managed_categories()}
+
+
+def remove_custom_category(name: str, *, merge_into: str | None = None) -> dict:
+    """Remove a user category. Optionally merge activity into another category first."""
+    clean = (name or "").strip()
+    if not clean:
+        return {"ok": False, "error": "Category name is required."}
+    if clean in BUDGET_CATEGORIES:
+        return {"ok": False, "error": "Built-in categories cannot be removed."}
+    cats = load_categories()
+    custom = [str(c).strip() for c in (cats.get("custom") or []) if str(c).strip()]
+    if clean not in custom:
+        return {"ok": False, "error": "That custom category was not found."}
+
+    merge_result = None
+    target = (merge_into or "").strip()
+    if target:
+        if target == clean:
+            return {"ok": False, "error": "Cannot merge a category into itself."}
+        merge_result = replace_budget_category_globally(clean, target)
+        if not merge_result.get("ok"):
+            return merge_result
+        # replace may have rewritten categories.json; reload before editing custom
+        cats = load_categories()
+        custom = [str(c).strip() for c in (cats.get("custom") or []) if str(c).strip()]
+
+    cats["custom"] = [c for c in custom if c != clean]
+    save_categories(cats)
+    out: dict = {
+        "ok": True,
+        "custom": list_custom_categories(),
+        "categories": get_managed_categories(),
+    }
+    if merge_result:
+        out["merged"] = merge_result
+    return out
 
 
 def list_keyword_rules() -> list[dict]:
