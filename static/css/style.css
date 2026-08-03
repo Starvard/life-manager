@@ -1674,7 +1674,13 @@ button.budget-summary-card:focus-visible {
 
 /* Simple weekly menu (plain list) */
 .rcp-week { max-width: 36rem; }
-.rcp-week-hint { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 1.25rem; }
+.rcp-week-hint { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 0.65rem; }
+.rcp-week-note {
+    font-size: 0.85rem; line-height: 1.45; color: var(--text);
+    background: var(--surface-hover); border-left: 3px solid var(--accent);
+    padding: 0.65rem 0.85rem; border-radius: var(--radius-sm); margin: 0 0 1.25rem;
+}
+.rcp-week-note strong { color: var(--text-bright); font-weight: 700; }
 .rcp-week-section { margin-bottom: 1.5rem; }
 .rcp-week-heading {
     font-size: 1.05rem; font-weight: 700; color: var(--text-bright);
