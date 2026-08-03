@@ -20,10 +20,10 @@ PERSISTENT_DATA_DIR = os.environ.get("LM_DATA_DIR", "")
 
 def _run_idempotent_app_seeds():
     try:
-        from services.may25_recipe_seed import seed_may25_recipes
-        seed_may25_recipes()
+        from services.easy_weekly_seed import seed_easy_weekly_menu
+        seed_easy_weekly_menu()
     except Exception as exc:
-        print(f"[seed] May 25 recipe seed skipped/failed: {exc}")
+        print(f"[seed] Easy weekly menu seed skipped/failed: {exc}")
 
 
 def seed():

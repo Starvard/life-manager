@@ -315,7 +315,7 @@ def dashboard():
         {
             "key": "recipes",
             "label": "Recipes",
-            "description": "Menu, saved recipes, grocery, and inventory.",
+            "description": "This week’s easy meals and a clickable grocery list.",
             "href": url_for("recipes_page"),
         },
         {
@@ -1503,16 +1503,22 @@ def api_fantasy_trade_refresh():
 @app.route("/recipes")
 def recipes_page():
     week_key = recipes_store.current_week_key()
+    menu = recipes_store.get_week_menu(week_key)
+    # Prefer showing the seeded week when it matches the active easy-weekly seed.
+    try:
+        from services.easy_weekly_seed import WEEK_KEY as SEEDED_WEEK, SEED_ID
+        if recipes_store.get_active_seed() == SEED_ID:
+            menu = recipes_store.get_week_menu(SEEDED_WEEK)
+            week_key = SEEDED_WEEK
+    except Exception:
+        pass
     return render_template(
         "recipes.html",
         recipes_bootstrap={
             "recipes": recipes_store.list_recipes(),
             "grocery": recipes_store.list_grocery(),
-            "inventory": recipes_store.list_inventory(),
-            "menu": recipes_store.get_week_menu(week_key),
-            "categories": recipes_store.DEFAULT_CATEGORIES,
+            "menu": menu,
             "menu_slots": recipes_store.MENU_SLOTS,
-            "menu_targets": recipes_store.MENU_SLOT_TARGETS,
             "current_week": week_key,
             "today": local_today().isoformat(),
         },

@@ -1,0 +1,63 @@
+{
+  "weeks": {
+    "2026-W32": {
+      "breakfast": [
+        {
+          "id": "6da50b259793",
+          "recipe_id": "461e7b1a1d86",
+          "name": "Eggs + turkey bacon + micro greens",
+          "notes": ""
+        },
+        {
+          "id": "7aef73b666e4",
+          "recipe_id": "e3e24a61197f",
+          "name": "Protein pancakes + peaches",
+          "notes": ""
+        }
+      ],
+      "lunch": [
+        {
+          "id": "f5444a9b7513",
+          "recipe_id": "d5ac28626bc8",
+          "name": "Leftovers from dinner",
+          "notes": ""
+        }
+      ],
+      "dinner": [
+        {
+          "id": "c791023ff1fe",
+          "recipe_id": "99ca10d6880b",
+          "name": "Roasted potatoes and veggies with Steak Strips",
+          "notes": ""
+        },
+        {
+          "id": "7aa3ac9444da",
+          "recipe_id": "a461635daff2",
+          "name": "Edamame with Korean turkey lettuce wraps",
+          "notes": ""
+        },
+        {
+          "id": "05b79846229f",
+          "recipe_id": "807ee49f6d6f",
+          "name": "Couscous halloumi and chicken salad",
+          "notes": ""
+        },
+        {
+          "id": "e5c0c9132543",
+          "recipe_id": "35ef537c7974",
+          "name": "Mushroom gravy, steak and shishito peppers",
+          "notes": ""
+        },
+        {
+          "id": "a9e46e1399b7",
+          "recipe_id": "f5c00ce3f507",
+          "name": "Grilled Lemon-Herb Chicken with kale salad",
+          "notes": ""
+        }
+      ],
+      "snack": []
+    }
+  },
+  "version": 2,
+  "active_seed": "easy-weekly-2026-w32-v1"
+}

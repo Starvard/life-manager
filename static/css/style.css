@@ -1672,6 +1672,40 @@ button.budget-summary-card:focus-visible {
 .rcp-field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.5rem; }
 .rcp-step-num { font-size: 0.75rem; color: var(--text-muted); padding-top: 0.4rem; min-width: 1.2rem; }
 
+/* Simple weekly menu (plain list) */
+.rcp-week { max-width: 36rem; }
+.rcp-week-hint { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 1.25rem; }
+.rcp-week-section { margin-bottom: 1.5rem; }
+.rcp-week-heading {
+    font-size: 1.05rem; font-weight: 700; color: var(--text-bright);
+    margin: 0 0 0.45rem; letter-spacing: -0.01em;
+}
+.rcp-week-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.rcp-week-list li { margin: 0; }
+.rcp-week-meal {
+    display: block; width: 100%; text-align: left;
+    background: transparent; border: none; padding: 0.4rem 0.15rem;
+    font: inherit; font-size: 0.95rem; line-height: 1.45; color: var(--text);
+    cursor: default; border-radius: var(--radius-sm);
+}
+.rcp-week-meal.has-recipe { cursor: pointer; }
+.rcp-week-meal.has-recipe:hover { color: var(--accent); background: var(--accent-glow); }
+.rcp-week-empty { margin: 0; font-size: 0.9rem; color: var(--text-light); }
+.rcp-week-actions { margin-top: 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--border-light); }
+
+/* Simple clickable grocery list */
+.rcp-simple-grocery { max-width: 36rem; }
+.rcp-simple-add { display: flex; gap: 0.45rem; margin-bottom: 0.85rem; align-items: center; }
+.rcp-click-list { list-style: none; padding: 0; margin: 0; }
+.rcp-click-item {
+    display: flex; align-items: center; gap: 0.7rem;
+    padding: 0.7rem 0.35rem; border-bottom: 1px solid var(--border-light);
+    cursor: pointer; user-select: none;
+}
+.rcp-click-item:active { background: var(--surface-hover); }
+.rcp-click-item.checked .rcp-click-name { color: var(--text-light); text-decoration: line-through; }
+.rcp-click-name { flex: 1; min-width: 0; font-size: 0.95rem; line-height: 1.35; }
+
 @media (max-width: 768px) {
     .rcp-recipe-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
     .rcp-tab { padding: 0.45rem 0.65rem; font-size: 0.78rem; }

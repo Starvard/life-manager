@@ -1,0 +1,600 @@
+[
+  {
+    "id": "461e7b1a1d86",
+    "created": "2026-08-03T19:39:01Z",
+    "updated": "2026-08-03T19:39:01Z",
+    "name": "Eggs + turkey bacon + micro greens",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "2",
+    "prep_time": "5 min",
+    "cook_time": "10 min",
+    "notes": "High-protein, low-effort breakfast. Micro greens add crunch without a full salad.",
+    "tags": [
+      "easy weekly",
+      "breakfast",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "eggs",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "turkey bacon",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "micro greens",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "olive oil or butter",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black pepper",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "hot sauce (optional)",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Cook turkey bacon in a skillet over medium heat until crisp; set aside on a paper towel.",
+      "In the same pan (or a lightly oiled nonstick), cook 2–3 eggs soft-scrambled or sunny-side up.",
+      "Season eggs with salt and pepper.",
+      "Plate eggs with bacon and a generous handful of micro greens on top or on the side.",
+      "Optional: a few drops of hot sauce."
+    ]
+  },
+  {
+    "id": "e3e24a61197f",
+    "created": "2026-08-03T19:39:01Z",
+    "updated": "2026-08-03T19:39:01Z",
+    "name": "Protein pancakes + peaches",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "2",
+    "prep_time": "8 min",
+    "cook_time": "10 min",
+    "notes": "Fluffy, filling, and not dessert-level sweet. Frozen peaches work great thawed or warmed in a pan.",
+    "tags": [
+      "easy weekly",
+      "breakfast",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "eggs",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cottage cheese or Greek yogurt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "oat flour or rolled oats (blended)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "protein powder (vanilla or unflavored)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "baking powder",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "peaches (fresh or frozen)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cinnamon",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "maple syrup or honey (optional)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cooking spray or butter",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Blend 2 eggs, 1/2 cup cottage cheese or Greek yogurt, 1/2 cup oats/oat flour, 1 scoop protein powder, 1/2 tsp baking powder, and a pinch of cinnamon until smooth.",
+      "Heat a nonstick pan over medium-low; lightly grease.",
+      "Pour small pancakes; cook until bubbles form, flip, cook 1–2 minutes more.",
+      "Warm or slice peaches; serve on top of pancakes.",
+      "Drizzle a little maple or honey only if you want sweetness."
+    ]
+  },
+  {
+    "id": "d5ac28626bc8",
+    "created": "2026-08-03T19:39:01Z",
+    "updated": "2026-08-03T19:39:01Z",
+    "name": "Leftovers from dinner",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "1–2",
+    "prep_time": "2 min",
+    "cook_time": "5 min",
+    "notes": "Default lunch every day this week. Cook dinner with lunch leftovers in mind.",
+    "tags": [
+      "easy weekly",
+      "lunch",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "dinner leftovers",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salad greens (optional)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "lemon or hot sauce (optional)",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Pull last night’s dinner from the fridge.",
+      "Reheat gently until hot (or eat cold if it tastes better that way — salads and wraps often do).",
+      "Add a handful of greens or a squeeze of lemon/hot sauce to freshen it up."
+    ]
+  },
+  {
+    "id": "99ca10d6880b",
+    "created": "2026-08-03T19:39:01Z",
+    "updated": "2026-08-03T19:39:01Z",
+    "name": "Roasted potatoes and veggies with Steak Strips",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "15 min",
+    "cook_time": "30 min",
+    "notes": "Sheet-pan heavy lifting + a quick steak sear. Slice extra steak for lunch leftovers.",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "steak (sirloin, flank, or strip)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "baby potatoes or Yukon gold potatoes",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "broccoli or green beans",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "bell pepper",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "red onion",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "olive oil",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic powder",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "smoked paprika",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black pepper",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "lemon",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Heat oven to 425°F. Cut potatoes into 1-inch pieces; toss with olive oil, salt, pepper, garlic powder, and paprika. Roast 15 minutes.",
+      "Toss broccoli, bell pepper, and onion with oil and salt; add to the pan and roast another 12–15 minutes until potatoes are crisp and veggies tender.",
+      "Pat steak dry; season well with salt and pepper. Sear in a hot skillet 3–5 minutes per side (doneness to taste). Rest 5 minutes.",
+      "Slice steak into strips against the grain; squeeze lemon over everything and serve."
+    ]
+  },
+  {
+    "id": "a461635daff2",
+    "created": "2026-08-03T19:39:01Z",
+    "updated": "2026-08-03T19:39:01Z",
+    "name": "Edamame with Korean turkey lettuce wraps",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "12 min",
+    "cook_time": "15 min",
+    "notes": "Light, spicy, high-protein. Leftover filling is excellent over greens for lunch.",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "ground turkey",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "butter lettuce or romaine leaves",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "frozen edamame",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "fresh ginger (or ginger paste)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "soy sauce or coconut aminos",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "sesame oil",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "rice vinegar or lime juice",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "gochujang or sriracha",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "green onions",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "sesame seeds (optional)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cucumber (optional)",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Steam or microwave edamame; salt lightly and set aside as the side.",
+      "Brown ground turkey in a skillet, breaking it up. Add minced garlic and ginger; cook 1 minute.",
+      "Stir in soy sauce, a drizzle of sesame oil, rice vinegar/lime, and gochujang/sriracha to taste. Simmer 2–3 minutes until saucy.",
+      "Spoon turkey into lettuce cups. Top with green onions, sesame seeds, and sliced cucumber if using.",
+      "Serve with the edamame."
+    ]
+  },
+  {
+    "id": "807ee49f6d6f",
+    "created": "2026-08-03T19:39:01Z",
+    "updated": "2026-08-03T19:39:01Z",
+    "name": "Couscous halloumi and chicken salad",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "15 min",
+    "cook_time": "20 min",
+    "notes": "Bright Mediterranean plate. Holds well for leftovers — pack the halloumi separate if reheating.",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "couscous",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cooked chicken or chicken breast",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "halloumi cheese",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cucumber",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cherry tomatoes",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "red onion",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "fresh parsley or mint",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "lemon",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "olive oil",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black pepper",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Cook couscous per package (usually pour boiling water, cover 5 minutes, fluff).",
+      "Season chicken with salt, pepper, garlic, and olive oil; grill or pan-sear until cooked. Slice.",
+      "Pan-sear halloumi slices 1–2 minutes per side until golden.",
+      "Chop cucumber, tomatoes, onion, and herbs. Toss with couscous, lemon juice, olive oil, salt, and pepper.",
+      "Top with chicken and halloumi. Serve warm or room temp."
+    ]
+  },
+  {
+    "id": "35ef537c7974",
+    "created": "2026-08-03T19:39:01Z",
+    "updated": "2026-08-03T19:39:01Z",
+    "name": "Mushroom gravy, steak and shishito peppers",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "15 min",
+    "cook_time": "25 min",
+    "notes": "Steakhouse vibes without the heaviness. Shishitos are mild — about 1 in 10 is spicy.",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "steak (sirloin or ribeye)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "shishito peppers",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "mushrooms (cremini or baby bella)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "beef broth or bone broth",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "onion",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "butter or olive oil",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "flour or cornstarch (optional thickener)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "thyme (fresh or dried)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black pepper",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "lemon",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Pat steak dry; season with salt and pepper. Sear in a hot skillet with a little oil/butter to preferred doneness. Rest under foil.",
+      "In the same pan, blister shishitos over medium-high heat with a pinch of salt until soft and charred in spots (5–7 min). Squeeze lemon; set aside.",
+      "Lower heat. Sauté sliced mushrooms and onion in butter until browned. Add garlic and thyme.",
+      "Pour in broth; simmer 3–5 minutes. Thicken with a small slurry of cornstarch + water if you want gravy-like sauce. Season to taste.",
+      "Slice steak; spoon mushroom gravy over top. Serve with shishitos."
+    ]
+  },
+  {
+    "id": "f5c00ce3f507",
+    "created": "2026-08-03T19:39:01Z",
+    "updated": "2026-08-03T19:39:01Z",
+    "name": "Grilled Lemon-Herb Chicken with kale salad",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "3+",
+    "prep_time": "15 min",
+    "cook_time": "20 min",
+    "notes": "Massaging the kale is the secret — it turns bitter leaves into a tender salad. Extra chicken = easy leftovers.",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "chicken thighs or breasts",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "kale",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "lemon",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "olive oil",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "dried oregano or Italian seasoning",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "Dijon mustard",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "parmesan (optional)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cherry tomatoes or cucumber",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black pepper",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Marinate chicken 10+ minutes in olive oil, lemon juice/zest, garlic, oregano, salt, and pepper.",
+      "Grill or pan-sear chicken until cooked through (165°F). Rest, then slice.",
+      "Strip kale from stems; massage with olive oil, lemon, Dijon, salt, and pepper until softer and darker.",
+      "Toss kale with tomatoes/cucumber and optional parmesan.",
+      "Serve chicken over or beside the kale salad."
+    ]
+  }
+]
