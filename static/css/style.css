@@ -1702,6 +1702,11 @@ button.budget-summary-card:focus-visible {
 /* Simple clickable grocery list */
 .rcp-simple-grocery { max-width: 36rem; }
 .rcp-simple-add { display: flex; gap: 0.45rem; margin-bottom: 0.85rem; align-items: center; }
+.rcp-grocery-section-head {
+    font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; color: var(--text-muted); margin: 1rem 0 0.35rem;
+}
+.rcp-grocery-have { opacity: 0.85; }
 .rcp-click-list { list-style: none; padding: 0; margin: 0; }
 .rcp-click-item {
     display: flex; align-items: center; gap: 0.7rem;
@@ -1710,6 +1715,11 @@ button.budget-summary-card:focus-visible {
 }
 .rcp-click-item:active { background: var(--surface-hover); }
 .rcp-click-item.checked .rcp-click-name { color: var(--text-light); text-decoration: line-through; }
+.rcp-click-item.checked .rcp-click-amt { color: var(--text-light); text-decoration: line-through; }
+.rcp-click-amt {
+    flex: 0 0 5.5rem; max-width: 5.5rem; font-size: 0.85rem; font-weight: 700;
+    color: var(--text-bright); line-height: 1.3;
+}
 .rcp-click-name { flex: 1; min-width: 0; font-size: 0.95rem; line-height: 1.35; }
 
 @media (max-width: 768px) {

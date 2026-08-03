@@ -10,7 +10,7 @@ from services import recipes_store
 
 # Week of Aug 3, 2026 (ISO 2026-W32)
 WEEK_KEY = "2026-W32"
-SEED_ID = "easy-weekly-2026-w32-v4"
+SEED_ID = "easy-weekly-2026-w32-v6"
 
 # Each dinner should cover dinner + next-day lunch for 2 adults + 1 kid.
 FAMILY_DINNER_SERVINGS = "5–6"
@@ -273,81 +273,90 @@ RECIPES = [
     ),
 ]
 
-# Curated grocery list for the week (simple, shoppable names).
-# Seed merges these in — it will not re-add or uncheck items already on the list.
+# Grocery rows: (name, category, qty, unit)
+# Amounts sized for dinner + next-day lunch (2 adults + 1 kid) across the week.
+# Seed syncs amounts onto existing rows and will not uncheck items you already have.
 GROCERY = [
     # Produce
-    ("micro greens", "Produce"),
-    ("peaches", "Produce"),
-    ("baby potatoes or Yukon gold potatoes", "Produce"),
-    ("broccoli or green beans", "Produce"),
-    ("bell pepper", "Produce"),
-    ("red onion", "Produce"),
-    ("red bell peppers", "Produce"),
-    ("zucchini", "Produce"),
-    ("lemon", "Produce"),
-    ("butter lettuce or romaine", "Produce"),
-    ("garlic", "Produce"),
-    ("fresh ginger", "Produce"),
-    ("green onions", "Produce"),
-    ("fresh basil", "Produce"),
-    ("fresh chanterelle mushrooms", "Produce"),
-    ("kale", "Produce"),
-    ("cherry tomatoes or cucumber", "Produce"),
-    # Snack produce (buy plenty — we usually underbuy)
-    ("carrots", "Produce"),
-    ("bananas", "Produce"),
-    ("apples", "Produce"),
-    ("grapes or berries", "Produce"),
-    ("celery", "Produce"),
-    # Meat — sized for dinner + next-day lunch (2 adults + 1 kid)
-    ("turkey bacon", "Meat & Seafood"),
-    ("steak (sirloin/flank) 2–2.5 lb", "Meat & Seafood"),
-    ("beef fillets (8-oz) × 5–6", "Meat & Seafood"),
-    ("ground turkey 2 lb", "Meat & Seafood"),
-    ("chicken thighs or breasts 2.5–3 lb", "Meat & Seafood"),
+    ("micro greens", "Produce", "1", "clamshell"),
+    ("peaches", "Produce", "6", ""),
+    ("baby potatoes or Yukon gold potatoes", "Produce", "2.5", "lb"),
+    ("broccoli or green beans", "Produce", "1.5", "lb"),
+    ("bell pepper", "Produce", "2", ""),
+    ("red onion", "Produce", "2", ""),
+    ("red bell peppers", "Produce", "3", ""),
+    ("zucchini", "Produce", "4", ""),
+    ("lemon", "Produce", "4", ""),
+    ("butter lettuce or romaine", "Produce", "2", "heads"),
+    ("garlic", "Produce", "1", "bulb"),
+    ("fresh ginger", "Produce", "1", "knob"),
+    ("green onions", "Produce", "1", "bunch"),
+    ("fresh basil", "Produce", "1", "bunch"),
+    ("fresh chanterelle mushrooms", "Produce", "1.5", "lb"),
+    ("kale", "Produce", "2", "bunches"),
+    ("cherry tomatoes or cucumber", "Produce", "1", "pint / 2 cukes"),
+    ("carrots", "Produce", "2", "lb"),
+    ("bananas", "Produce", "1", "bunch (~8)"),
+    ("apples", "Produce", "6", ""),
+    ("grapes or berries", "Produce", "1", "lb"),
+    ("celery", "Produce", "1", "bunch"),
+    # Meat
+    ("turkey bacon", "Meat & Seafood", "1", "pack"),
+    ("steak (sirloin/flank)", "Meat & Seafood", "2–2.5", "lb"),
+    ("beef fillets (8-oz)", "Meat & Seafood", "5–6", "fillets"),
+    ("ground turkey", "Meat & Seafood", "2", "lb"),
+    ("chicken thighs or breasts", "Meat & Seafood", "2.5–3", "lb"),
     # Dairy
-    ("eggs", "Dairy"),
-    ("cottage cheese or Greek yogurt", "Dairy"),
-    ("halloumi cheese (8-oz blocks) × 2", "Dairy"),
-    ("unsalted butter", "Dairy"),
-    ("heavy cream", "Dairy"),
-    ("parmesan (optional)", "Dairy"),
-    ("string cheese or cheese sticks", "Dairy"),
-    ("milk", "Dairy"),
+    ("eggs", "Dairy", "18", "ct"),
+    ("cottage cheese or Greek yogurt", "Dairy", "32", "oz"),
+    ("halloumi cheese (8-oz blocks)", "Dairy", "2", "blocks"),
+    ("unsalted butter", "Dairy", "1", "stick+"),
+    ("heavy cream", "Dairy", "1.25", "cups"),
+    ("parmesan (optional)", "Dairy", "1", "small"),
+    ("string cheese or cheese sticks", "Dairy", "1", "pack"),
+    ("milk", "Dairy", "1", "half-gal"),
+    ("hummus", "Dairy", "1", "tub"),
     # Bakery / snacks
-    ("bread (sandwich loaf)", "Bakery"),
-    ("tortillas or wraps", "Bakery"),
-    ("crackers", "Snacks"),
-    ("granola bars or granola", "Snacks"),
-    ("peanut butter", "Pantry"),
-    ("hummus", "Dairy"),
+    ("bread (sandwich loaf)", "Bakery", "1", "loaf"),
+    ("tortillas or wraps", "Bakery", "1", "pack"),
+    ("crackers", "Snacks", "1", "box"),
+    ("granola bars or granola", "Snacks", "1", "box"),
+    ("peanut butter", "Pantry", "1", "jar"),
     # Frozen / Pantry
-    ("frozen edamame", "Frozen"),
-    ("oat flour or rolled oats", "Pantry"),
-    ("protein powder", "Pantry"),
-    ("orzo", "Pantry"),
-    ("olive oil vinaigrette", "Pantry"),
-    ("balsamic glaze", "Pantry"),
-    ("olive oil", "Pantry"),
-    ("neutral oil (corn or canola)", "Pantry"),
-    ("dry marsala wine", "Pantry"),
-    ("soy sauce or coconut aminos", "Pantry"),
-    ("sesame oil", "Pantry"),
-    ("rice vinegar", "Pantry"),
-    ("gochujang or sriracha", "Pantry"),
-    ("Dijon mustard", "Pantry"),
-    ("baking powder", "Pantry"),
-    ("garlic powder", "Pantry"),
-    ("smoked paprika", "Pantry"),
-    ("dried oregano or Italian seasoning", "Pantry"),
-    ("fresh thyme", "Pantry"),
-    ("sesame seeds (optional)", "Pantry"),
-    ("maple syrup or honey (optional)", "Pantry"),
-    ("hot sauce (optional)", "Pantry"),
-    ("salt", "Pantry"),
-    ("black pepper", "Pantry"),
+    ("frozen edamame", "Frozen", "1.5", "lb"),
+    ("oat flour or rolled oats", "Pantry", "1", "bag"),
+    ("protein powder", "Pantry", "", "on hand?"),
+    ("orzo", "Pantry", "1", "box (16 oz)"),
+    ("olive oil vinaigrette", "Pantry", "1", "bottle"),
+    ("balsamic glaze", "Pantry", "1", "bottle"),
+    ("olive oil", "Pantry", "", "on hand?"),
+    ("neutral oil (corn or canola)", "Pantry", "", "on hand?"),
+    ("dry marsala wine", "Pantry", "1", "small bottle"),
+    ("soy sauce or coconut aminos", "Pantry", "", "on hand?"),
+    ("sesame oil", "Pantry", "", "on hand?"),
+    ("rice vinegar", "Pantry", "", "on hand?"),
+    ("gochujang or sriracha", "Pantry", "", "on hand?"),
+    ("Dijon mustard", "Pantry", "", "on hand?"),
+    ("baking powder", "Pantry", "", "on hand?"),
+    ("garlic powder", "Pantry", "", "on hand?"),
+    ("smoked paprika", "Pantry", "", "on hand?"),
+    ("dried oregano or Italian seasoning", "Pantry", "", "on hand?"),
+    ("fresh thyme", "Produce", "1", "pack"),
+    ("sesame seeds (optional)", "Pantry", "", "on hand?"),
+    ("maple syrup or honey (optional)", "Pantry", "", "on hand?"),
+    ("hot sauce (optional)", "Pantry", "", "on hand?"),
+    ("salt", "Pantry", "", "on hand?"),
+    ("black pepper", "Pantry", "", "on hand?"),
 ]
+
+# Old seed names → canonical names (avoid duplicates after renames)
+GROCERY_ALIASES = {
+    "steak (sirloin/flank) 2–2.5 lb": "steak (sirloin/flank)",
+    "beef fillets (8-oz) × 5–6": "beef fillets (8-oz)",
+    "ground turkey 2 lb": "ground turkey",
+    "chicken thighs or breasts 2.5–3 lb": "chicken thighs or breasts",
+    "halloumi cheese (8-oz blocks) × 2": "halloumi cheese (8-oz blocks)",
+}
 
 
 MENU = {
@@ -418,17 +427,28 @@ def seed_easy_weekly_menu() -> dict:
             slots[slot] = entries
 
         recipes_store.set_week_menu(WEEK_KEY, slots)
-        # Merge only — never wipe or uncheck items already on the list.
-        grocery_result = recipes_store.merge_grocery_items([
-            {"name": name, "category": cat, "qty": "", "unit": "", "checked": False}
-            for name, cat in GROCERY
-        ])
+        # Sync amounts onto existing rows; never uncheck items already marked have.
+        grocery_result = recipes_store.merge_grocery_items(
+            [
+                {
+                    "name": name,
+                    "category": cat,
+                    "qty": qty,
+                    "unit": unit,
+                    "checked": False,
+                }
+                for name, cat, qty, unit in GROCERY
+            ],
+            aliases=GROCERY_ALIASES,
+        )
         recipes_store.set_active_seed(SEED_ID)
         applied = True
         print(
             f"[recipes] Applied easy weekly menu seed {SEED_ID} for {WEEK_KEY} "
             f"(grocery +{grocery_result.get('added', 0)}, "
-            f"kept {grocery_result.get('skipped', 0)} existing)."
+            f"updated {grocery_result.get('updated', 0)}, "
+            f"removed dupes {grocery_result.get('removed', 0)}, "
+            f"unchanged {grocery_result.get('skipped', 0)})."
         )
     else:
         print(f"[recipes] Easy weekly seed {SEED_ID} already active.")

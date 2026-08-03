@@ -306,39 +306,106 @@ def replace_grocery_items(items: list[dict]) -> list[dict]:
     return out
 
 
-def merge_grocery_items(items: list[dict]) -> dict:
-    """Add grocery items that aren't already on the list (case-insensitive).
+def merge_grocery_items(items: list[dict], *, aliases: dict[str, str] | None = None) -> dict:
+    """Sync grocery items with amounts without wiping checked-off items.
 
-    Never removes, renames, or unchecks existing items — so checked-off
-    pantry staples stay checked when a weekly seed refreshes.
-    Returns {added, skipped, items}.
+    - Matching names (case-insensitive): update qty/unit/category; never uncheck
+    - New names: append
+    - `aliases` maps old_name_lower -> canonical_name so renamed seed rows
+      update the existing line instead of adding a duplicate at the bottom
+    - Optionally drop obsolete alias duplicates after updating the canonical row
+
+    Returns {added, updated, removed, skipped, items}.
     """
     data = _load_grocery()
-    existing_names = {(it.get("name") or "").lower().strip() for it in data["items"]}
+    alias_map = {k.lower().strip(): v for k, v in (aliases or {}).items()}
+    by_name: dict[str, dict] = {}
+    for it in data["items"]:
+        key = (it.get("name") or "").lower().strip()
+        if key and key not in by_name:
+            by_name[key] = it
+
     added = 0
+    updated = 0
     skipped = 0
     for raw in items or []:
         name = (raw.get("name") or "").strip()
         if not name:
             continue
         key = name.lower()
-        if key in existing_names:
-            skipped += 1
+        qty = str(raw.get("qty", "")).strip()
+        unit = (raw.get("unit") or "").strip()
+        category = (raw.get("category") or "Other").strip() or "Other"
+
+        existing = by_name.get(key)
+        if not existing:
+            # Find via alias: any current item whose name aliases to this canonical name
+            for old_key, canon in alias_map.items():
+                if canon.lower().strip() == key and old_key in by_name:
+                    existing = by_name[old_key]
+                    existing["name"] = name  # rename to clean canonical name
+                    break
+
+        if existing:
+            changed = False
+            if qty and existing.get("qty") != qty:
+                existing["qty"] = qty
+                changed = True
+            if unit and existing.get("unit") != unit:
+                existing["unit"] = unit
+                changed = True
+            if category and existing.get("category") != category:
+                existing["category"] = category
+                changed = True
+            if (existing.get("name") or "") != name:
+                existing["name"] = name
+                changed = True
+            if changed:
+                updated += 1
+            else:
+                skipped += 1
+            by_name[key] = existing
             continue
-        data["items"].append({
+
+        item = {
             "id": raw.get("id") or _new_id(),
             "name": name,
-            "qty": str(raw.get("qty", "")).strip(),
-            "unit": (raw.get("unit") or "").strip(),
-            "category": (raw.get("category") or "Other").strip() or "Other",
+            "qty": qty,
+            "unit": unit,
+            "category": category,
             "checked": bool(raw.get("checked", False)),
             "recipe_id": raw.get("recipe_id") or None,
             "added": raw.get("added") or _now_iso(),
-        })
-        existing_names.add(key)
+        }
+        data["items"].append(item)
+        by_name[key] = item
         added += 1
+
+    # Drop obsolete duplicates whose names are alias keys for a canonical row
+    removed = 0
+    if alias_map:
+        canon_keys = {v.lower().strip() for v in alias_map.values()}
+        keep = []
+        for it in data["items"]:
+            key = (it.get("name") or "").lower().strip()
+            if key in alias_map and alias_map[key].lower().strip() in canon_keys:
+                # Keep only if it is the same object as the canonical entry
+                canon_name = alias_map[key].lower().strip()
+                canon_item = by_name.get(canon_name)
+                if canon_item is not None and it is not canon_item and it.get("id") != canon_item.get("id"):
+                    removed += 1
+                    continue
+            keep.append(it)
+        data["items"] = keep
+
     _save(GROCERY_FILE, data)
-    return {"added": added, "skipped": skipped, "items": data["items"]}
+    return {
+        "added": added,
+        "updated": updated,
+        "removed": removed,
+        "skipped": skipped,
+        "items": data["items"],
+    }
 
 
 def add_recipe_ingredients_to_grocery(recipe_id: str) -> dict:
