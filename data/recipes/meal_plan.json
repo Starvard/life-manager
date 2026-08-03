@@ -3,13 +3,13 @@
     "2026-W32": {
       "breakfast": [
         {
-          "id": "b757a491bace",
+          "id": "df45add387c7",
           "recipe_id": "461e7b1a1d86",
           "name": "Eggs + turkey bacon + micro greens",
           "notes": ""
         },
         {
-          "id": "022fcbef7e16",
+          "id": "9bcc3f0b846b",
           "recipe_id": "e3e24a61197f",
           "name": "Protein pancakes + peaches",
           "notes": ""
@@ -17,7 +17,7 @@
       ],
       "lunch": [
         {
-          "id": "f8619d1b5ec9",
+          "id": "cc86970a2903",
           "recipe_id": "d5ac28626bc8",
           "name": "Leftovers from dinner",
           "notes": ""
@@ -25,31 +25,31 @@
       ],
       "dinner": [
         {
-          "id": "14aa8d04e7a0",
+          "id": "a408ae19fafe",
           "recipe_id": "99ca10d6880b",
           "name": "Roasted potatoes and veggies with Steak Strips",
           "notes": ""
         },
         {
-          "id": "d9b88d0b4abc",
+          "id": "2feee764d4a2",
           "recipe_id": "a461635daff2",
           "name": "Edamame with Korean turkey lettuce wraps",
           "notes": ""
         },
         {
-          "id": "089e0e5d7b1a",
+          "id": "41ac45be55a9",
           "recipe_id": "9fdc10b8b1ce",
           "name": "Grilled Halloumi Orzo Salad",
           "notes": ""
         },
         {
-          "id": "20fad20b4bac",
+          "id": "0641bcba4134",
           "recipe_id": "8cdbf1d8af3e",
           "name": "Beef Fillet with Chanterelle Marsala Sauce",
           "notes": ""
         },
         {
-          "id": "d766a48e7ad7",
+          "id": "2dcad8ad34a6",
           "recipe_id": "f5c00ce3f507",
           "name": "Grilled Lemon-Herb Chicken with kale salad",
           "notes": ""
@@ -57,43 +57,43 @@
       ],
       "snack": [
         {
-          "id": "368a50a27808",
+          "id": "a18115d5f699",
           "recipe_id": null,
           "name": "Carrots + hummus",
           "notes": ""
         },
         {
-          "id": "2927a6aa752a",
+          "id": "47c503efb165",
           "recipe_id": null,
           "name": "Bananas",
           "notes": ""
         },
         {
-          "id": "0e70ca50f5cc",
+          "id": "2f8795815efb",
           "recipe_id": null,
           "name": "Apples",
           "notes": ""
         },
         {
-          "id": "8613ee58113d",
+          "id": "3220c5f164b5",
           "recipe_id": null,
           "name": "Bread / toast + peanut butter",
           "notes": ""
         },
         {
-          "id": "388c7ed72058",
+          "id": "e1514a02233b",
           "recipe_id": null,
           "name": "Cheese + crackers",
           "notes": ""
         },
         {
-          "id": "98f5e77bd43c",
+          "id": "0917eefc1a1e",
           "recipe_id": null,
           "name": "Yogurt",
           "notes": ""
         },
         {
-          "id": "656e07f2143c",
+          "id": "a0a16c0d9d7e",
           "recipe_id": null,
           "name": "Granola bars",
           "notes": ""
@@ -102,5 +102,5 @@
     }
   },
   "version": 2,
-  "active_seed": "easy-weekly-2026-w32-v4"
+  "active_seed": "easy-weekly-2026-w32-v6"
 }

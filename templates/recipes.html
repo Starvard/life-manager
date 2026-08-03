@@ -61,6 +61,10 @@
     <div class="rcp-simple-add">
         <input type="text" class="rcp-input rcp-input-grow" placeholder="Add item…"
                x-model="newGrocery.name" @keydown.enter.prevent="addGrocery()">
+        <input type="text" class="rcp-input rcp-input-narrow" placeholder="Amt"
+               x-model="newGrocery.qty" @keydown.enter.prevent="addGrocery()">
+        <input type="text" class="rcp-input rcp-input-narrow" placeholder="Unit"
+               x-model="newGrocery.unit" @keydown.enter.prevent="addGrocery()">
         <button type="button" class="btn btn-primary btn-sm" @click="addGrocery()">Add</button>
     </div>
 
@@ -71,18 +75,42 @@
         </button>
     </div>
 
-    <ul class="rcp-click-list">
-        <template x-for="item in grocery" :key="item.id">
-            <li class="rcp-click-item" :class="{checked: item.checked}" @click="toggleGrocery(item)">
-                <label class="rcp-check" @click.stop>
-                    <input type="checkbox" :checked="item.checked" @change="toggleGrocery(item)">
-                    <span></span>
-                </label>
-                <span class="rcp-click-name" x-text="item.name"></span>
-                <button type="button" class="rcp-row-del" @click.stop="deleteGrocery(item)" title="Remove">×</button>
-            </li>
-        </template>
-    </ul>
+    <div x-show="needGrocery.length">
+        <h3 class="rcp-grocery-section-head">Need to buy</h3>
+        <ul class="rcp-click-list">
+            <template x-for="item in needGrocery" :key="item.id">
+                <li class="rcp-click-item" @click="toggleGrocery(item)">
+                    <label class="rcp-check" @click.stop>
+                        <input type="checkbox" :checked="item.checked" @change="toggleGrocery(item)">
+                        <span></span>
+                    </label>
+                    <span class="rcp-click-amt" x-show="item.qty || item.unit"
+                          x-text="formatAmt(item)"></span>
+                    <span class="rcp-click-name" x-text="item.name"></span>
+                    <button type="button" class="rcp-row-del" @click.stop="deleteGrocery(item)" title="Remove">×</button>
+                </li>
+            </template>
+        </ul>
+    </div>
+
+    <div x-show="haveGrocery.length" class="rcp-grocery-have">
+        <h3 class="rcp-grocery-section-head">Already have</h3>
+        <ul class="rcp-click-list">
+            <template x-for="item in haveGrocery" :key="item.id">
+                <li class="rcp-click-item checked" @click="toggleGrocery(item)">
+                    <label class="rcp-check" @click.stop>
+                        <input type="checkbox" :checked="item.checked" @change="toggleGrocery(item)">
+                        <span></span>
+                    </label>
+                    <span class="rcp-click-amt" x-show="item.qty || item.unit"
+                          x-text="formatAmt(item)"></span>
+                    <span class="rcp-click-name" x-text="item.name"></span>
+                    <button type="button" class="rcp-row-del" @click.stop="deleteGrocery(item)" title="Remove">×</button>
+                </li>
+            </template>
+        </ul>
+    </div>
+
     <p class="rcp-empty" x-show="grocery.length === 0">Grocery list is empty.</p>
 </section>
 
@@ -228,11 +256,28 @@ document.addEventListener("alpine:init", () => {
             return this.grocery.filter(i => !i.checked).length;
         },
 
+        get needGrocery() {
+            return this.grocery.filter(i => !i.checked);
+        },
+
+        get haveGrocery() {
+            return this.grocery.filter(i => i.checked);
+        },
+
         get groceryProgressText() {
-            const total = this.grocery.length;
-            if (!total) return "";
-            const done = this.grocery.filter(i => i.checked).length;
-            return `${done} / ${total} checked`;
+            const need = this.needGrocery.length;
+            const have = this.haveGrocery.length;
+            if (!need && !have) return "";
+            if (!need) return `All ${have} checked — already have`;
+            return `${need} to buy · ${have} already have`;
+        },
+
+        formatAmt(item) {
+            if (!item) return "";
+            const qty = (item.qty || "").trim();
+            const unit = (item.unit || "").trim();
+            if (qty && unit) return `${qty} ${unit}`;
+            return qty || unit || "";
         },
 
         async addGrocery() {
