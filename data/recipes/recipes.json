@@ -2,7 +2,7 @@
   {
     "id": "461e7b1a1d86",
     "created": "2026-08-03T19:39:01Z",
-    "updated": "2026-08-03T20:39:03Z",
+    "updated": "2026-08-03T20:46:43Z",
     "name": "Eggs + turkey bacon + micro greens",
     "source": "Life Manager",
     "source_url": "",
@@ -64,7 +64,7 @@
   {
     "id": "e3e24a61197f",
     "created": "2026-08-03T19:39:01Z",
-    "updated": "2026-08-03T20:39:03Z",
+    "updated": "2026-08-03T20:46:43Z",
     "name": "Protein pancakes + peaches",
     "source": "Life Manager",
     "source_url": "",
@@ -136,7 +136,7 @@
   {
     "id": "d5ac28626bc8",
     "created": "2026-08-03T19:39:01Z",
-    "updated": "2026-08-03T20:39:03Z",
+    "updated": "2026-08-03T20:46:43Z",
     "name": "Leftovers from dinner",
     "source": "Life Manager",
     "source_url": "",
@@ -176,15 +176,15 @@
   {
     "id": "99ca10d6880b",
     "created": "2026-08-03T19:39:01Z",
-    "updated": "2026-08-03T20:39:03Z",
+    "updated": "2026-08-03T20:46:43Z",
     "name": "Roasted potatoes and veggies with Steak Strips",
     "source": "Life Manager",
     "source_url": "",
     "image_url": "",
-    "servings": "3+",
+    "servings": "5–6",
     "prep_time": "15 min",
     "cook_time": "30 min",
-    "notes": "Sheet-pan heavy lifting + a quick steak sear. Slice extra steak for lunch leftovers.",
+    "notes": "Cook enough for dinner + tomorrow’s lunch: 2 adults + 1 kid ≈ 5–6 servings. Portion leftovers into lunch containers before sitting down.",
     "tags": [
       "easy weekly",
       "dinner",
@@ -193,27 +193,27 @@
     "ingredients": [
       {
         "name": "steak (sirloin, flank, or strip)",
-        "qty": "",
-        "unit": ""
+        "qty": "2–2.5",
+        "unit": "lb"
       },
       {
         "name": "baby potatoes or Yukon gold potatoes",
-        "qty": "",
-        "unit": ""
+        "qty": "2.5",
+        "unit": "lb"
       },
       {
         "name": "broccoli or green beans",
-        "qty": "",
-        "unit": ""
+        "qty": "1.5",
+        "unit": "lb"
       },
       {
         "name": "bell pepper",
-        "qty": "",
+        "qty": "2",
         "unit": ""
       },
       {
         "name": "red onion",
-        "qty": "",
+        "qty": "1",
         "unit": ""
       },
       {
@@ -251,21 +251,22 @@
       "Heat oven to 425°F. Cut potatoes into 1-inch pieces; toss with olive oil, salt, pepper, garlic powder, and paprika. Roast 15 minutes.",
       "Toss broccoli, bell pepper, and onion with oil and salt; add to the pan and roast another 12–15 minutes until potatoes are crisp and veggies tender.",
       "Pat steak dry; season well with salt and pepper. Sear in a hot skillet 3–5 minutes per side (doneness to taste). Rest 5 minutes.",
-      "Slice steak into strips against the grain; squeeze lemon over everything and serve."
+      "Slice steak into strips against the grain; squeeze lemon over everything and serve.",
+      "Pack lunch leftovers before plating dinner so tomorrow’s lunch is already done."
     ]
   },
   {
     "id": "a461635daff2",
     "created": "2026-08-03T19:39:01Z",
-    "updated": "2026-08-03T20:39:03Z",
+    "updated": "2026-08-03T20:46:43Z",
     "name": "Edamame with Korean turkey lettuce wraps",
     "source": "Life Manager",
     "source_url": "",
     "image_url": "",
-    "servings": "3+",
+    "servings": "5–6",
     "prep_time": "12 min",
     "cook_time": "15 min",
-    "notes": "Light, spicy, high-protein. Leftover filling is excellent over greens for lunch.",
+    "notes": "Cook enough for dinner + tomorrow’s lunch: 2 adults + 1 kid ≈ 5–6 servings. Portion leftovers into lunch containers before sitting down. Light, spicy, high-protein.",
     "tags": [
       "easy weekly",
       "dinner",
@@ -274,18 +275,18 @@
     "ingredients": [
       {
         "name": "ground turkey",
-        "qty": "",
-        "unit": ""
+        "qty": "2",
+        "unit": "lb"
       },
       {
         "name": "butter lettuce or romaine leaves",
-        "qty": "",
-        "unit": ""
+        "qty": "2",
+        "unit": "heads"
       },
       {
         "name": "frozen edamame",
-        "qty": "",
-        "unit": ""
+        "qty": "1.5",
+        "unit": "lb"
       },
       {
         "name": "garlic",
@@ -338,7 +339,7 @@
       "Brown ground turkey in a skillet, breaking it up. Add minced garlic and ginger; cook 1 minute.",
       "Stir in soy sauce, a drizzle of sesame oil, rice vinegar/lime, and gochujang/sriracha to taste. Simmer 2–3 minutes until saucy.",
       "Spoon turkey into lettuce cups. Top with green onions, sesame seeds, and sliced cucumber if using.",
-      "Serve with the edamame."
+      "Serve with the edamame. Save leftover filling for lunch bowls or wraps."
     ]
   },
   {
@@ -518,15 +519,15 @@
   {
     "id": "f5c00ce3f507",
     "created": "2026-08-03T19:39:01Z",
-    "updated": "2026-08-03T20:39:03Z",
+    "updated": "2026-08-03T20:46:43Z",
     "name": "Grilled Lemon-Herb Chicken with kale salad",
     "source": "Life Manager",
     "source_url": "",
     "image_url": "",
-    "servings": "3+",
+    "servings": "5–6",
     "prep_time": "15 min",
     "cook_time": "20 min",
-    "notes": "Massaging the kale is the secret — it turns bitter leaves into a tender salad. Extra chicken = easy leftovers.",
+    "notes": "Cook enough for dinner + tomorrow’s lunch: 2 adults + 1 kid ≈ 5–6 servings. Portion leftovers into lunch containers before sitting down. Massaging the kale is the secret — it turns bitter leaves tender.",
     "tags": [
       "easy weekly",
       "dinner",
@@ -535,13 +536,13 @@
     "ingredients": [
       {
         "name": "chicken thighs or breasts",
-        "qty": "",
-        "unit": ""
+        "qty": "2.5–3",
+        "unit": "lb"
       },
       {
         "name": "kale",
-        "qty": "",
-        "unit": ""
+        "qty": "2",
+        "unit": "bunches"
       },
       {
         "name": "lemon",
@@ -594,21 +595,21 @@
       "Grill or pan-sear chicken until cooked through (165°F). Rest, then slice.",
       "Strip kale from stems; massage with olive oil, lemon, Dijon, salt, and pepper until softer and darker.",
       "Toss kale with tomatoes/cucumber and optional parmesan.",
-      "Serve chicken over or beside the kale salad."
+      "Serve chicken over or beside the kale salad. Pack lunch containers with extra chicken + kale."
     ]
   },
   {
     "id": "9fdc10b8b1ce",
     "created": "2026-08-03T20:39:03Z",
-    "updated": "2026-08-03T20:39:03Z",
+    "updated": "2026-08-03T20:46:43Z",
     "name": "Grilled Halloumi Orzo Salad",
     "source": "eMeals",
     "source_url": "",
     "image_url": "",
-    "servings": "6",
+    "servings": "5–6",
     "prep_time": "15 min",
     "cook_time": "20 min",
-    "notes": "Halloumi tip: cut into ¾-inch-thick slices before grilling. Leftovers keep well cold for lunch.",
+    "notes": "Cook enough for dinner + tomorrow’s lunch: 2 adults + 1 kid ≈ 5–6 servings. Portion leftovers into lunch containers before sitting down. Halloumi tip: cut into ¾-inch-thick slices before grilling.",
     "tags": [
       "easy weekly",
       "dinner",
@@ -617,17 +618,17 @@
     "ingredients": [
       {
         "name": "orzo",
-        "qty": "1 1/2",
+        "qty": "2",
         "unit": "cups"
       },
       {
         "name": "olive oil vinaigrette",
-        "qty": "6",
+        "qty": "8",
         "unit": "Tbsp"
       },
       {
         "name": "halloumi cheese (8-oz blocks)",
-        "qty": "1 1/2",
+        "qty": "2",
         "unit": "blocks"
       },
       {
@@ -637,43 +638,44 @@
       },
       {
         "name": "red bell peppers (halved and seeded)",
-        "qty": "2",
+        "qty": "3",
         "unit": ""
       },
       {
         "name": "zucchini (cut into planks)",
-        "qty": "3",
+        "qty": "4",
         "unit": ""
       },
       {
         "name": "fresh basil (chopped)",
-        "qty": "1/2",
+        "qty": "3/4",
         "unit": "cup"
       },
       {
         "name": "balsamic glaze",
-        "qty": "3",
+        "qty": "4",
         "unit": "Tbsp"
       }
     ],
     "instructions": [
-      "Preheat grill (or grill pan) to medium-high heat. Cook orzo according to package directions; drain, toss with 2 Tbsp vinaigrette.",
-      "Brush cheese, bell peppers, and zucchini with remaining 1/4 cup vinaigrette. Grill vegetables, covered, 8 minutes or until tender and slightly charred. Grill cheese, covered, 2 minutes per side or until grill marks appear.",
-      "Cut bell pepper halves into 1-inch pieces. Divide orzo, vegetables, cheese, and basil among 6 serving bowls; drizzle with balsamic glaze."
+      "Preheat grill (or grill pan) to medium-high heat. Cook orzo according to package directions; drain, toss with 2–3 Tbsp vinaigrette.",
+      "Brush cheese, bell peppers, and zucchini with remaining vinaigrette. Grill vegetables, covered, 8 minutes or until tender and slightly charred. Grill cheese, covered, 2 minutes per side or until grill marks appear.",
+      "Cut bell pepper halves into 1-inch pieces. Divide orzo, vegetables, cheese, and basil among bowls; drizzle with balsamic glaze.",
+      "Pack cold lunch portions before dinner — this salad holds well overnight."
     ]
   },
   {
     "id": "8cdbf1d8af3e",
     "created": "2026-08-03T20:39:03Z",
-    "updated": "2026-08-03T20:39:03Z",
+    "updated": "2026-08-03T20:46:43Z",
     "name": "Beef Fillet with Chanterelle Marsala Sauce",
     "source": "Justin Courson",
     "source_url": "",
     "image_url": "",
-    "servings": "4",
+    "servings": "5–6",
     "prep_time": "15 min",
     "cook_time": "30 min",
-    "notes": "From Justin Courson (Mississippi). Chanterelles pair beautifully with steak; cremini can stand in if chanterelles aren’t available.",
+    "notes": "Cook enough for dinner + tomorrow’s lunch: 2 adults + 1 kid ≈ 5–6 servings. Portion leftovers into lunch containers before sitting down. Cremini can stand in if chanterelles aren’t available.",
     "tags": [
       "easy weekly",
       "dinner",
@@ -682,7 +684,7 @@
     "ingredients": [
       {
         "name": "beef fillets (8-oz)",
-        "qty": "4",
+        "qty": "5–6",
         "unit": ""
       },
       {
@@ -697,49 +699,49 @@
       },
       {
         "name": "neutral oil (corn or canola)",
-        "qty": "1–2",
+        "qty": "2",
         "unit": "Tbsp"
       },
       {
         "name": "unsalted butter",
-        "qty": "5",
+        "qty": "6",
         "unit": "Tbsp"
       },
       {
         "name": "garlic (minced)",
-        "qty": "1",
+        "qty": "2",
         "unit": "tsp"
       },
       {
         "name": "fresh chanterelle mushrooms",
-        "qty": "1",
+        "qty": "1.5",
         "unit": "lb"
       },
       {
         "name": "fresh thyme (chopped)",
-        "qty": "1",
+        "qty": "2",
         "unit": "tsp"
       },
       {
         "name": "dry marsala wine",
-        "qty": "1/2",
+        "qty": "3/4",
         "unit": "cup"
       },
       {
         "name": "heavy cream",
-        "qty": "1",
-        "unit": "cup"
+        "qty": "1 1/4",
+        "unit": "cups"
       }
     ],
     "instructions": [
       "Preheat the oven to 400°F.",
       "Season the beef fillets with salt and pepper to taste.",
-      "Heat a large skillet over high heat until smoking. Add the oil and place the fillets in the skillet. Sear 2–3 minutes until browned and they release easily; flip and brown the other side a couple of minutes.",
+      "Heat a large skillet over high heat until smoking. Add the oil and place the fillets in the skillet (work in batches if needed). Sear 2–3 minutes until browned and they release easily; flip and brown the other side a couple of minutes.",
       "Place the skillet with the meat in the oven and cook 6 minutes for medium-rare (or longer for desired doneness).",
-      "Remove the skillet from the oven, add 4 tablespoons of butter, and baste the meat about 1½ minutes. Transfer meat to a platter and rest 10 minutes.",
-      "In the same skillet, melt the remaining 1 tablespoon butter over medium heat. Add garlic and cook until it starts to sweat (1–2 minutes). Add chanterelles, salt, pepper, and thyme. Cook, stirring frequently, 6–7 minutes until mushrooms release their liquid.",
+      "Remove the skillet from the oven, add most of the butter, and baste the meat about 1½ minutes. Transfer meat to a platter and rest 10 minutes.",
+      "In the same skillet, melt the remaining butter over medium heat. Add garlic and cook until it starts to sweat (1–2 minutes). Add chanterelles, salt, pepper, and thyme. Cook, stirring frequently, 6–7 minutes until mushrooms release their liquid.",
       "Add marsala and cook until reduced by half. Add heavy cream and reduce by about a quarter (~4 minutes) until the sauce takes on a lovely caramel color.",
-      "Serve the fillets covered with the chanterelle marsala sauce."
+      "Serve the fillets covered with the chanterelle marsala sauce. Slice leftover fillets for tomorrow’s lunch."
     ]
   }
 ]

@@ -25,6 +25,10 @@
 <!-- ── Simple weekly menu ───────────────────────────────── -->
 <section x-show="tab === 'menu'" class="rcp-week">
     <p class="rcp-week-hint">Tap a meal for the recipe.</p>
+    <p class="rcp-week-note">
+        Each dinner = dinner + next day’s lunch for 2 adults + 1 kid
+        (about <strong>5–6 servings</strong>). Pack leftovers before you sit down.
+    </p>
 
     <template x-for="slot in menuSlots" :key="slot">
         <div class="rcp-week-section">

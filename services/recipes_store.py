@@ -306,6 +306,41 @@ def replace_grocery_items(items: list[dict]) -> list[dict]:
     return out
 
 
+def merge_grocery_items(items: list[dict]) -> dict:
+    """Add grocery items that aren't already on the list (case-insensitive).
+
+    Never removes, renames, or unchecks existing items — so checked-off
+    pantry staples stay checked when a weekly seed refreshes.
+    Returns {added, skipped, items}.
+    """
+    data = _load_grocery()
+    existing_names = {(it.get("name") or "").lower().strip() for it in data["items"]}
+    added = 0
+    skipped = 0
+    for raw in items or []:
+        name = (raw.get("name") or "").strip()
+        if not name:
+            continue
+        key = name.lower()
+        if key in existing_names:
+            skipped += 1
+            continue
+        data["items"].append({
+            "id": raw.get("id") or _new_id(),
+            "name": name,
+            "qty": str(raw.get("qty", "")).strip(),
+            "unit": (raw.get("unit") or "").strip(),
+            "category": (raw.get("category") or "Other").strip() or "Other",
+            "checked": bool(raw.get("checked", False)),
+            "recipe_id": raw.get("recipe_id") or None,
+            "added": raw.get("added") or _now_iso(),
+        })
+        existing_names.add(key)
+        added += 1
+    _save(GROCERY_FILE, data)
+    return {"added": added, "skipped": skipped, "items": data["items"]}
+
+
 def add_recipe_ingredients_to_grocery(recipe_id: str) -> dict:
     """Push every ingredient of the recipe onto the grocery list, skipping
     items already in inventory or already on the list.

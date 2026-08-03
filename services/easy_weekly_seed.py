@@ -10,7 +10,14 @@ from services import recipes_store
 
 # Week of Aug 3, 2026 (ISO 2026-W32)
 WEEK_KEY = "2026-W32"
-SEED_ID = "easy-weekly-2026-w32-v2"
+SEED_ID = "easy-weekly-2026-w32-v4"
+
+# Each dinner should cover dinner + next-day lunch for 2 adults + 1 kid.
+FAMILY_DINNER_SERVINGS = "5–6"
+FAMILY_DINNER_NOTE = (
+    "Cook enough for dinner + tomorrow’s lunch: 2 adults + 1 kid ≈ 5–6 servings. "
+    "Portion leftovers into lunch containers before sitting down."
+)
 
 
 def _ing(*items) -> list[dict]:
@@ -126,15 +133,15 @@ RECIPES = [
     _recipe(
         "Roasted potatoes and veggies with Steak Strips",
         slot="dinner",
-        servings="3+",
+        servings=FAMILY_DINNER_SERVINGS,
         prep_time="15 min",
         cook_time="30 min",
         ingredients=[
-            "steak (sirloin, flank, or strip)",
-            "baby potatoes or Yukon gold potatoes",
-            "broccoli or green beans",
-            "bell pepper",
-            "red onion",
+            ("steak (sirloin, flank, or strip)", "2–2.5", "lb"),
+            ("baby potatoes or Yukon gold potatoes", "2.5", "lb"),
+            ("broccoli or green beans", "1.5", "lb"),
+            ("bell pepper", "2", ""),
+            ("red onion", "1", ""),
             "olive oil",
             "garlic powder",
             "smoked paprika",
@@ -147,19 +154,20 @@ RECIPES = [
             "Toss broccoli, bell pepper, and onion with oil and salt; add to the pan and roast another 12–15 minutes until potatoes are crisp and veggies tender.",
             "Pat steak dry; season well with salt and pepper. Sear in a hot skillet 3–5 minutes per side (doneness to taste). Rest 5 minutes.",
             "Slice steak into strips against the grain; squeeze lemon over everything and serve.",
+            "Pack lunch leftovers before plating dinner so tomorrow’s lunch is already done.",
         ],
-        notes="Sheet-pan heavy lifting + a quick steak sear. Slice extra steak for lunch leftovers.",
+        notes=FAMILY_DINNER_NOTE,
     ),
     _recipe(
         "Edamame with Korean turkey lettuce wraps",
         slot="dinner",
-        servings="3+",
+        servings=FAMILY_DINNER_SERVINGS,
         prep_time="12 min",
         cook_time="15 min",
         ingredients=[
-            "ground turkey",
-            "butter lettuce or romaine leaves",
-            "frozen edamame",
+            ("ground turkey", "2", "lb"),
+            ("butter lettuce or romaine leaves", "2", "heads"),
+            ("frozen edamame", "1.5", "lb"),
             "garlic",
             "fresh ginger (or ginger paste)",
             "soy sauce or coconut aminos",
@@ -175,74 +183,75 @@ RECIPES = [
             "Brown ground turkey in a skillet, breaking it up. Add minced garlic and ginger; cook 1 minute.",
             "Stir in soy sauce, a drizzle of sesame oil, rice vinegar/lime, and gochujang/sriracha to taste. Simmer 2–3 minutes until saucy.",
             "Spoon turkey into lettuce cups. Top with green onions, sesame seeds, and sliced cucumber if using.",
-            "Serve with the edamame.",
+            "Serve with the edamame. Save leftover filling for lunch bowls or wraps.",
         ],
-        notes="Light, spicy, high-protein. Leftover filling is excellent over greens for lunch.",
+        notes=FAMILY_DINNER_NOTE + " Light, spicy, high-protein.",
     ),
     _recipe(
         "Grilled Halloumi Orzo Salad",
         slot="dinner",
-        servings="6",
+        servings=FAMILY_DINNER_SERVINGS,
         prep_time="15 min",
         cook_time="20 min",
         source="eMeals",
         ingredients=[
-            ("orzo", "1 1/2", "cups"),
-            ("olive oil vinaigrette", "6", "Tbsp"),
-            ("halloumi cheese (8-oz blocks)", "1 1/2", "blocks"),
+            ("orzo", "2", "cups"),
+            ("olive oil vinaigrette", "8", "Tbsp"),
+            ("halloumi cheese (8-oz blocks)", "2", "blocks"),
             ("red onion (small, cut into wedges)", "1", ""),
-            ("red bell peppers (halved and seeded)", "2", ""),
-            ("zucchini (cut into planks)", "3", ""),
-            ("fresh basil (chopped)", "1/2", "cup"),
-            ("balsamic glaze", "3", "Tbsp"),
+            ("red bell peppers (halved and seeded)", "3", ""),
+            ("zucchini (cut into planks)", "4", ""),
+            ("fresh basil (chopped)", "3/4", "cup"),
+            ("balsamic glaze", "4", "Tbsp"),
         ],
         instructions=[
-            "Preheat grill (or grill pan) to medium-high heat. Cook orzo according to package directions; drain, toss with 2 Tbsp vinaigrette.",
-            "Brush cheese, bell peppers, and zucchini with remaining 1/4 cup vinaigrette. Grill vegetables, covered, 8 minutes or until tender and slightly charred. Grill cheese, covered, 2 minutes per side or until grill marks appear.",
-            "Cut bell pepper halves into 1-inch pieces. Divide orzo, vegetables, cheese, and basil among 6 serving bowls; drizzle with balsamic glaze.",
+            "Preheat grill (or grill pan) to medium-high heat. Cook orzo according to package directions; drain, toss with 2–3 Tbsp vinaigrette.",
+            "Brush cheese, bell peppers, and zucchini with remaining vinaigrette. Grill vegetables, covered, 8 minutes or until tender and slightly charred. Grill cheese, covered, 2 minutes per side or until grill marks appear.",
+            "Cut bell pepper halves into 1-inch pieces. Divide orzo, vegetables, cheese, and basil among bowls; drizzle with balsamic glaze.",
+            "Pack cold lunch portions before dinner — this salad holds well overnight.",
         ],
-        notes="Halloumi tip: cut into ¾-inch-thick slices before grilling. Leftovers keep well cold for lunch.",
+        notes=FAMILY_DINNER_NOTE + " Halloumi tip: cut into ¾-inch-thick slices before grilling.",
     ),
     _recipe(
         "Beef Fillet with Chanterelle Marsala Sauce",
         slot="dinner",
-        servings="4",
+        servings=FAMILY_DINNER_SERVINGS,
         prep_time="15 min",
         cook_time="30 min",
         source="Justin Courson",
         ingredients=[
-            ("beef fillets (8-oz)", "4", ""),
+            ("beef fillets (8-oz)", "5–6", ""),
             ("salt", "", ""),
             ("freshly ground black pepper", "", ""),
-            ("neutral oil (corn or canola)", "1–2", "Tbsp"),
-            ("unsalted butter", "5", "Tbsp"),
-            ("garlic (minced)", "1", "tsp"),
-            ("fresh chanterelle mushrooms", "1", "lb"),
-            ("fresh thyme (chopped)", "1", "tsp"),
-            ("dry marsala wine", "1/2", "cup"),
-            ("heavy cream", "1", "cup"),
+            ("neutral oil (corn or canola)", "2", "Tbsp"),
+            ("unsalted butter", "6", "Tbsp"),
+            ("garlic (minced)", "2", "tsp"),
+            ("fresh chanterelle mushrooms", "1.5", "lb"),
+            ("fresh thyme (chopped)", "2", "tsp"),
+            ("dry marsala wine", "3/4", "cup"),
+            ("heavy cream", "1 1/4", "cups"),
         ],
         instructions=[
             "Preheat the oven to 400°F.",
             "Season the beef fillets with salt and pepper to taste.",
-            "Heat a large skillet over high heat until smoking. Add the oil and place the fillets in the skillet. Sear 2–3 minutes until browned and they release easily; flip and brown the other side a couple of minutes.",
+            "Heat a large skillet over high heat until smoking. Add the oil and place the fillets in the skillet (work in batches if needed). Sear 2–3 minutes until browned and they release easily; flip and brown the other side a couple of minutes.",
             "Place the skillet with the meat in the oven and cook 6 minutes for medium-rare (or longer for desired doneness).",
-            "Remove the skillet from the oven, add 4 tablespoons of butter, and baste the meat about 1½ minutes. Transfer meat to a platter and rest 10 minutes.",
-            "In the same skillet, melt the remaining 1 tablespoon butter over medium heat. Add garlic and cook until it starts to sweat (1–2 minutes). Add chanterelles, salt, pepper, and thyme. Cook, stirring frequently, 6–7 minutes until mushrooms release their liquid.",
+            "Remove the skillet from the oven, add most of the butter, and baste the meat about 1½ minutes. Transfer meat to a platter and rest 10 minutes.",
+            "In the same skillet, melt the remaining butter over medium heat. Add garlic and cook until it starts to sweat (1–2 minutes). Add chanterelles, salt, pepper, and thyme. Cook, stirring frequently, 6–7 minutes until mushrooms release their liquid.",
             "Add marsala and cook until reduced by half. Add heavy cream and reduce by about a quarter (~4 minutes) until the sauce takes on a lovely caramel color.",
-            "Serve the fillets covered with the chanterelle marsala sauce.",
+            "Serve the fillets covered with the chanterelle marsala sauce. Slice leftover fillets for tomorrow’s lunch.",
         ],
-        notes="From Justin Courson (Mississippi). Chanterelles pair beautifully with steak; cremini can stand in if chanterelles aren’t available.",
+        notes=FAMILY_DINNER_NOTE + " Cremini can stand in if chanterelles aren’t available.",
     ),
     _recipe(
         "Grilled Lemon-Herb Chicken with kale salad",
         slot="dinner",
-        servings="3+",
+        servings=FAMILY_DINNER_SERVINGS,
         prep_time="15 min",
         cook_time="20 min",
         ingredients=[
-            "chicken thighs or breasts",
-            "kale",
+            ("chicken thighs or breasts", "2.5–3", "lb"),
+            ("kale", "2", "bunches"),
             "lemon",
             "olive oil",
             "garlic",
@@ -258,13 +267,14 @@ RECIPES = [
             "Grill or pan-sear chicken until cooked through (165°F). Rest, then slice.",
             "Strip kale from stems; massage with olive oil, lemon, Dijon, salt, and pepper until softer and darker.",
             "Toss kale with tomatoes/cucumber and optional parmesan.",
-            "Serve chicken over or beside the kale salad.",
+            "Serve chicken over or beside the kale salad. Pack lunch containers with extra chicken + kale.",
         ],
-        notes="Massaging the kale is the secret — it turns bitter leaves into a tender salad. Extra chicken = easy leftovers.",
+        notes=FAMILY_DINNER_NOTE + " Massaging the kale is the secret — it turns bitter leaves tender.",
     ),
 ]
 
 # Curated grocery list for the week (simple, shoppable names).
+# Seed merges these in — it will not re-add or uncheck items already on the list.
 GROCERY = [
     # Produce
     ("micro greens", "Produce"),
@@ -284,19 +294,34 @@ GROCERY = [
     ("fresh chanterelle mushrooms", "Produce"),
     ("kale", "Produce"),
     ("cherry tomatoes or cucumber", "Produce"),
-    # Meat
+    # Snack produce (buy plenty — we usually underbuy)
+    ("carrots", "Produce"),
+    ("bananas", "Produce"),
+    ("apples", "Produce"),
+    ("grapes or berries", "Produce"),
+    ("celery", "Produce"),
+    # Meat — sized for dinner + next-day lunch (2 adults + 1 kid)
     ("turkey bacon", "Meat & Seafood"),
-    ("steak (sirloin/flank)", "Meat & Seafood"),
-    ("beef fillets (8-oz)", "Meat & Seafood"),
-    ("ground turkey", "Meat & Seafood"),
-    ("chicken thighs or breasts", "Meat & Seafood"),
+    ("steak (sirloin/flank) 2–2.5 lb", "Meat & Seafood"),
+    ("beef fillets (8-oz) × 5–6", "Meat & Seafood"),
+    ("ground turkey 2 lb", "Meat & Seafood"),
+    ("chicken thighs or breasts 2.5–3 lb", "Meat & Seafood"),
     # Dairy
     ("eggs", "Dairy"),
     ("cottage cheese or Greek yogurt", "Dairy"),
-    ("halloumi cheese (8-oz blocks)", "Dairy"),
+    ("halloumi cheese (8-oz blocks) × 2", "Dairy"),
     ("unsalted butter", "Dairy"),
     ("heavy cream", "Dairy"),
     ("parmesan (optional)", "Dairy"),
+    ("string cheese or cheese sticks", "Dairy"),
+    ("milk", "Dairy"),
+    # Bakery / snacks
+    ("bread (sandwich loaf)", "Bakery"),
+    ("tortillas or wraps", "Bakery"),
+    ("crackers", "Snacks"),
+    ("granola bars or granola", "Snacks"),
+    ("peanut butter", "Pantry"),
+    ("hummus", "Dairy"),
     # Frozen / Pantry
     ("frozen edamame", "Frozen"),
     ("oat flour or rolled oats", "Pantry"),
@@ -340,7 +365,15 @@ MENU = {
         "Beef Fillet with Chanterelle Marsala Sauce",
         "Grilled Lemon-Herb Chicken with kale salad",
     ],
-    "snack": [],
+    "snack": [
+        "Carrots + hummus",
+        "Bananas",
+        "Apples",
+        "Bread / toast + peanut butter",
+        "Cheese + crackers",
+        "Yogurt",
+        "Granola bars",
+    ],
 }
 
 
@@ -385,13 +418,18 @@ def seed_easy_weekly_menu() -> dict:
             slots[slot] = entries
 
         recipes_store.set_week_menu(WEEK_KEY, slots)
-        recipes_store.replace_grocery_items([
+        # Merge only — never wipe or uncheck items already on the list.
+        grocery_result = recipes_store.merge_grocery_items([
             {"name": name, "category": cat, "qty": "", "unit": "", "checked": False}
             for name, cat in GROCERY
         ])
         recipes_store.set_active_seed(SEED_ID)
         applied = True
-        print(f"[recipes] Applied easy weekly menu seed {SEED_ID} for {WEEK_KEY}.")
+        print(
+            f"[recipes] Applied easy weekly menu seed {SEED_ID} for {WEEK_KEY} "
+            f"(grocery +{grocery_result.get('added', 0)}, "
+            f"kept {grocery_result.get('skipped', 0)} existing)."
+        )
     else:
         print(f"[recipes] Easy weekly seed {SEED_ID} already active.")
 
