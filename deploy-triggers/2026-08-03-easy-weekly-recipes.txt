@@ -1,0 +1,1 @@
+Trigger deploy for easy weekly recipes + simple grocery list (2026-W32).

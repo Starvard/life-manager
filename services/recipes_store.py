@@ -28,12 +28,12 @@ GROCERY_FILE = os.path.join(RECIPES_DIR, "grocery.json")
 INVENTORY_FILE = os.path.join(RECIPES_DIR, "inventory.json")
 MEAL_PLAN_FILE = os.path.join(RECIPES_DIR, "meal_plan.json")
 
-MENU_SLOTS = ["breakfast", "lunch", "snack", "dinner"]
+MENU_SLOTS = ["breakfast", "lunch", "dinner", "snack"]
 MENU_SLOT_TARGETS = {
     "breakfast": {"min": 1, "max": 3},
     "lunch": {"min": 1, "max": 3},
-    "snack": {"min": 4, "max": 10},
     "dinner": {"min": 4, "max": 6},
+    "snack": {"min": 0, "max": 10},
 }
 DEFAULT_CATEGORIES = [
     "Produce",
@@ -283,6 +283,27 @@ def clear_grocery_checked() -> int:
     data["items"] = keep
     _save(GROCERY_FILE, data)
     return removed
+
+
+def replace_grocery_items(items: list[dict]) -> list[dict]:
+    """Replace the entire grocery list with the given items (normalized)."""
+    out = []
+    for raw in items or []:
+        name = (raw.get("name") or "").strip()
+        if not name:
+            continue
+        out.append({
+            "id": raw.get("id") or _new_id(),
+            "name": name,
+            "qty": str(raw.get("qty", "")).strip(),
+            "unit": (raw.get("unit") or "").strip(),
+            "category": (raw.get("category") or "Other").strip() or "Other",
+            "checked": bool(raw.get("checked", False)),
+            "recipe_id": raw.get("recipe_id") or None,
+            "added": raw.get("added") or _now_iso(),
+        })
+    _save(GROCERY_FILE, {"items": out})
+    return out
 
 
 def add_recipe_ingredients_to_grocery(recipe_id: str) -> dict:
@@ -609,6 +630,48 @@ def clear_week_menu(week_key: str | None) -> bool:
         _save(MEAL_PLAN_FILE, plan)
         return True
     return False
+
+
+def set_week_menu(week_key: str | None, slots: dict) -> dict:
+    """Replace an entire week's menu slots. `slots` maps slot -> list of
+    {name, recipe_id?, notes?} entries."""
+    wk = _normalize_week_key(week_key)
+    plan = _load_meal_plan()
+    week = _empty_week()
+    for slot in MENU_SLOTS:
+        entries = []
+        for raw in (slots or {}).get(slot, []) or []:
+            if not isinstance(raw, dict):
+                continue
+            name = (raw.get("name") or "").strip()
+            rid = raw.get("recipe_id") or None
+            if not name and rid:
+                rec = get_recipe(rid)
+                if rec:
+                    name = rec.get("name", "")
+            if not name:
+                continue
+            entries.append({
+                "id": raw.get("id") or _new_id(),
+                "recipe_id": rid,
+                "name": name,
+                "notes": (raw.get("notes") or "").strip(),
+            })
+        week[slot] = entries
+    plan.setdefault("weeks", {})[wk] = week
+    _save(MEAL_PLAN_FILE, plan)
+    return get_week_menu(wk)
+
+
+def get_active_seed() -> str:
+    plan = _load_meal_plan()
+    return str(plan.get("active_seed") or "")
+
+
+def set_active_seed(seed_id: str) -> None:
+    plan = _load_meal_plan()
+    plan["active_seed"] = str(seed_id or "")
+    _save(MEAL_PLAN_FILE, plan)
 
 
 def add_menu_to_grocery(week_key: str | None) -> dict:
