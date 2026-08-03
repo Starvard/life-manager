@@ -3,13 +3,13 @@
     "2026-W32": {
       "breakfast": [
         {
-          "id": "6da50b259793",
+          "id": "57257f1f86e4",
           "recipe_id": "461e7b1a1d86",
           "name": "Eggs + turkey bacon + micro greens",
           "notes": ""
         },
         {
-          "id": "7aef73b666e4",
+          "id": "9cddf31ce8df",
           "recipe_id": "e3e24a61197f",
           "name": "Protein pancakes + peaches",
           "notes": ""
@@ -17,7 +17,7 @@
       ],
       "lunch": [
         {
-          "id": "f5444a9b7513",
+          "id": "0fd95c083af9",
           "recipe_id": "d5ac28626bc8",
           "name": "Leftovers from dinner",
           "notes": ""
@@ -25,31 +25,31 @@
       ],
       "dinner": [
         {
-          "id": "c791023ff1fe",
+          "id": "8dcbe4c3324a",
           "recipe_id": "99ca10d6880b",
           "name": "Roasted potatoes and veggies with Steak Strips",
           "notes": ""
         },
         {
-          "id": "7aa3ac9444da",
+          "id": "973053c5b40f",
           "recipe_id": "a461635daff2",
           "name": "Edamame with Korean turkey lettuce wraps",
           "notes": ""
         },
         {
-          "id": "05b79846229f",
-          "recipe_id": "807ee49f6d6f",
-          "name": "Couscous halloumi and chicken salad",
+          "id": "5277afecf731",
+          "recipe_id": "9fdc10b8b1ce",
+          "name": "Grilled Halloumi Orzo Salad",
           "notes": ""
         },
         {
-          "id": "e5c0c9132543",
-          "recipe_id": "35ef537c7974",
-          "name": "Mushroom gravy, steak and shishito peppers",
+          "id": "0e6f3420c69b",
+          "recipe_id": "8cdbf1d8af3e",
+          "name": "Beef Fillet with Chanterelle Marsala Sauce",
           "notes": ""
         },
         {
-          "id": "a9e46e1399b7",
+          "id": "ee809ae1a1ad",
           "recipe_id": "f5c00ce3f507",
           "name": "Grilled Lemon-Herb Chicken with kale salad",
           "notes": ""
@@ -59,5 +59,5 @@
     }
   },
   "version": 2,
-  "active_seed": "easy-weekly-2026-w32-v1"
+  "active_seed": "easy-weekly-2026-w32-v2"
 }
