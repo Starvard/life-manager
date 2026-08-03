@@ -10,27 +10,40 @@ from services import recipes_store
 
 # Week of Aug 3, 2026 (ISO 2026-W32)
 WEEK_KEY = "2026-W32"
-SEED_ID = "easy-weekly-2026-w32-v1"
+SEED_ID = "easy-weekly-2026-w32-v2"
 
 
-def _ing(*names: str) -> list[dict]:
-    return [{"name": n, "qty": "", "unit": ""} for n in names]
+def _ing(*items) -> list[dict]:
+    """Accept plain names or (name, qty, unit) tuples."""
+    out = []
+    for item in items:
+        if isinstance(item, (list, tuple)):
+            name = str(item[0]).strip()
+            qty = str(item[1]).strip() if len(item) > 1 else ""
+            unit = str(item[2]).strip() if len(item) > 2 else ""
+        else:
+            name = str(item).strip()
+            qty, unit = "", ""
+        if name:
+            out.append({"name": name, "qty": qty, "unit": unit})
+    return out
 
 
 def _recipe(
     name: str,
     *,
     slot: str,
-    ingredients: list[str],
+    ingredients: list,
     instructions: list[str],
     notes: str = "",
     servings: str = "2–3",
     prep_time: str = "10 min",
     cook_time: str = "15 min",
+    source: str = "Life Manager",
 ) -> dict:
     return {
         "name": name,
-        "source": "Life Manager",
+        "source": source,
         "servings": servings,
         "prep_time": prep_time,
         "cook_time": cook_time,
@@ -167,62 +180,59 @@ RECIPES = [
         notes="Light, spicy, high-protein. Leftover filling is excellent over greens for lunch.",
     ),
     _recipe(
-        "Couscous halloumi and chicken salad",
+        "Grilled Halloumi Orzo Salad",
         slot="dinner",
-        servings="3+",
+        servings="6",
         prep_time="15 min",
         cook_time="20 min",
+        source="eMeals",
         ingredients=[
-            "couscous",
-            "cooked chicken or chicken breast",
-            "halloumi cheese",
-            "cucumber",
-            "cherry tomatoes",
-            "red onion",
-            "fresh parsley or mint",
-            "lemon",
-            "olive oil",
-            "salt",
-            "black pepper",
-            "garlic",
+            ("orzo", "1 1/2", "cups"),
+            ("olive oil vinaigrette", "6", "Tbsp"),
+            ("halloumi cheese (8-oz blocks)", "1 1/2", "blocks"),
+            ("red onion (small, cut into wedges)", "1", ""),
+            ("red bell peppers (halved and seeded)", "2", ""),
+            ("zucchini (cut into planks)", "3", ""),
+            ("fresh basil (chopped)", "1/2", "cup"),
+            ("balsamic glaze", "3", "Tbsp"),
         ],
         instructions=[
-            "Cook couscous per package (usually pour boiling water, cover 5 minutes, fluff).",
-            "Season chicken with salt, pepper, garlic, and olive oil; grill or pan-sear until cooked. Slice.",
-            "Pan-sear halloumi slices 1–2 minutes per side until golden.",
-            "Chop cucumber, tomatoes, onion, and herbs. Toss with couscous, lemon juice, olive oil, salt, and pepper.",
-            "Top with chicken and halloumi. Serve warm or room temp.",
+            "Preheat grill (or grill pan) to medium-high heat. Cook orzo according to package directions; drain, toss with 2 Tbsp vinaigrette.",
+            "Brush cheese, bell peppers, and zucchini with remaining 1/4 cup vinaigrette. Grill vegetables, covered, 8 minutes or until tender and slightly charred. Grill cheese, covered, 2 minutes per side or until grill marks appear.",
+            "Cut bell pepper halves into 1-inch pieces. Divide orzo, vegetables, cheese, and basil among 6 serving bowls; drizzle with balsamic glaze.",
         ],
-        notes="Bright Mediterranean plate. Holds well for leftovers — pack the halloumi separate if reheating.",
+        notes="Halloumi tip: cut into ¾-inch-thick slices before grilling. Leftovers keep well cold for lunch.",
     ),
     _recipe(
-        "Mushroom gravy, steak and shishito peppers",
+        "Beef Fillet with Chanterelle Marsala Sauce",
         slot="dinner",
-        servings="3+",
+        servings="4",
         prep_time="15 min",
-        cook_time="25 min",
+        cook_time="30 min",
+        source="Justin Courson",
         ingredients=[
-            "steak (sirloin or ribeye)",
-            "shishito peppers",
-            "mushrooms (cremini or baby bella)",
-            "beef broth or bone broth",
-            "onion",
-            "garlic",
-            "butter or olive oil",
-            "flour or cornstarch (optional thickener)",
-            "thyme (fresh or dried)",
-            "salt",
-            "black pepper",
-            "lemon",
+            ("beef fillets (8-oz)", "4", ""),
+            ("salt", "", ""),
+            ("freshly ground black pepper", "", ""),
+            ("neutral oil (corn or canola)", "1–2", "Tbsp"),
+            ("unsalted butter", "5", "Tbsp"),
+            ("garlic (minced)", "1", "tsp"),
+            ("fresh chanterelle mushrooms", "1", "lb"),
+            ("fresh thyme (chopped)", "1", "tsp"),
+            ("dry marsala wine", "1/2", "cup"),
+            ("heavy cream", "1", "cup"),
         ],
         instructions=[
-            "Pat steak dry; season with salt and pepper. Sear in a hot skillet with a little oil/butter to preferred doneness. Rest under foil.",
-            "In the same pan, blister shishitos over medium-high heat with a pinch of salt until soft and charred in spots (5–7 min). Squeeze lemon; set aside.",
-            "Lower heat. Sauté sliced mushrooms and onion in butter until browned. Add garlic and thyme.",
-            "Pour in broth; simmer 3–5 minutes. Thicken with a small slurry of cornstarch + water if you want gravy-like sauce. Season to taste.",
-            "Slice steak; spoon mushroom gravy over top. Serve with shishitos.",
+            "Preheat the oven to 400°F.",
+            "Season the beef fillets with salt and pepper to taste.",
+            "Heat a large skillet over high heat until smoking. Add the oil and place the fillets in the skillet. Sear 2–3 minutes until browned and they release easily; flip and brown the other side a couple of minutes.",
+            "Place the skillet with the meat in the oven and cook 6 minutes for medium-rare (or longer for desired doneness).",
+            "Remove the skillet from the oven, add 4 tablespoons of butter, and baste the meat about 1½ minutes. Transfer meat to a platter and rest 10 minutes.",
+            "In the same skillet, melt the remaining 1 tablespoon butter over medium heat. Add garlic and cook until it starts to sweat (1–2 minutes). Add chanterelles, salt, pepper, and thyme. Cook, stirring frequently, 6–7 minutes until mushrooms release their liquid.",
+            "Add marsala and cook until reduced by half. Add heavy cream and reduce by about a quarter (~4 minutes) until the sauce takes on a lovely caramel color.",
+            "Serve the fillets covered with the chanterelle marsala sauce.",
         ],
-        notes="Steakhouse vibes without the heaviness. Shishitos are mild — about 1 in 10 is spicy.",
+        notes="From Justin Courson (Mississippi). Chanterelles pair beautifully with steak; cremini can stand in if chanterelles aren’t available.",
     ),
     _recipe(
         "Grilled Lemon-Herb Chicken with kale salad",
@@ -263,46 +273,50 @@ GROCERY = [
     ("broccoli or green beans", "Produce"),
     ("bell pepper", "Produce"),
     ("red onion", "Produce"),
+    ("red bell peppers", "Produce"),
+    ("zucchini", "Produce"),
     ("lemon", "Produce"),
     ("butter lettuce or romaine", "Produce"),
     ("garlic", "Produce"),
     ("fresh ginger", "Produce"),
     ("green onions", "Produce"),
-    ("cucumber", "Produce"),
-    ("cherry tomatoes", "Produce"),
-    ("fresh parsley or mint", "Produce"),
-    ("mushrooms (cremini)", "Produce"),
-    ("shishito peppers", "Produce"),
+    ("fresh basil", "Produce"),
+    ("fresh chanterelle mushrooms", "Produce"),
     ("kale", "Produce"),
-    ("onion", "Produce"),
+    ("cherry tomatoes or cucumber", "Produce"),
     # Meat
     ("turkey bacon", "Meat & Seafood"),
     ("steak (sirloin/flank)", "Meat & Seafood"),
+    ("beef fillets (8-oz)", "Meat & Seafood"),
     ("ground turkey", "Meat & Seafood"),
     ("chicken thighs or breasts", "Meat & Seafood"),
     # Dairy
     ("eggs", "Dairy"),
     ("cottage cheese or Greek yogurt", "Dairy"),
-    ("halloumi cheese", "Dairy"),
-    ("butter", "Dairy"),
+    ("halloumi cheese (8-oz blocks)", "Dairy"),
+    ("unsalted butter", "Dairy"),
+    ("heavy cream", "Dairy"),
     ("parmesan (optional)", "Dairy"),
     # Frozen / Pantry
     ("frozen edamame", "Frozen"),
     ("oat flour or rolled oats", "Pantry"),
     ("protein powder", "Pantry"),
-    ("couscous", "Pantry"),
+    ("orzo", "Pantry"),
+    ("olive oil vinaigrette", "Pantry"),
+    ("balsamic glaze", "Pantry"),
     ("olive oil", "Pantry"),
+    ("neutral oil (corn or canola)", "Pantry"),
+    ("dry marsala wine", "Pantry"),
     ("soy sauce or coconut aminos", "Pantry"),
     ("sesame oil", "Pantry"),
     ("rice vinegar", "Pantry"),
     ("gochujang or sriracha", "Pantry"),
-    ("beef broth", "Pantry"),
     ("Dijon mustard", "Pantry"),
     ("baking powder", "Pantry"),
     ("garlic powder", "Pantry"),
     ("smoked paprika", "Pantry"),
     ("dried oregano or Italian seasoning", "Pantry"),
-    ("thyme", "Pantry"),
+    ("fresh thyme", "Pantry"),
     ("sesame seeds (optional)", "Pantry"),
     ("maple syrup or honey (optional)", "Pantry"),
     ("hot sauce (optional)", "Pantry"),
@@ -322,8 +336,8 @@ MENU = {
     "dinner": [
         "Roasted potatoes and veggies with Steak Strips",
         "Edamame with Korean turkey lettuce wraps",
-        "Couscous halloumi and chicken salad",
-        "Mushroom gravy, steak and shishito peppers",
+        "Grilled Halloumi Orzo Salad",
+        "Beef Fillet with Chanterelle Marsala Sauce",
         "Grilled Lemon-Herb Chicken with kale salad",
     ],
     "snack": [],
@@ -337,10 +351,19 @@ def seed_easy_weekly_menu() -> dict:
         for r in recipes_store.list_recipes()
     }
     created = 0
+    updated = 0
     by_name: dict[str, dict] = {}
+    apply_seed = recipes_store.get_active_seed() != SEED_ID
     for recipe in RECIPES:
         key = recipe["name"].strip().lower()
         if key in existing:
+            if apply_seed:
+                saved = recipes_store.update_recipe(existing[key]["id"], recipe)
+                if saved:
+                    by_name[recipe["name"]] = saved
+                    existing[key] = saved
+                    updated += 1
+                    continue
             by_name[recipe["name"]] = existing[key]
             continue
         saved = recipes_store.create_recipe(recipe)
@@ -349,7 +372,7 @@ def seed_easy_weekly_menu() -> dict:
         created += 1
 
     applied = False
-    if recipes_store.get_active_seed() != SEED_ID:
+    if apply_seed:
         slots = {}
         for slot, names in MENU.items():
             entries = []
@@ -374,4 +397,12 @@ def seed_easy_weekly_menu() -> dict:
 
     if created:
         print(f"[recipes] Created {created} easy weekly recipe(s).")
-    return {"created_recipes": created, "applied_menu": applied, "seed_id": SEED_ID, "week_key": WEEK_KEY}
+    if updated:
+        print(f"[recipes] Updated {updated} easy weekly recipe(s).")
+    return {
+        "created_recipes": created,
+        "updated_recipes": updated,
+        "applied_menu": applied,
+        "seed_id": SEED_ID,
+        "week_key": WEEK_KEY,
+    }
