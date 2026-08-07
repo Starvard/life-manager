@@ -40,6 +40,12 @@ from services.push_reminders import (
     run_reminder_scan,
     send_test_push_to_all,
 )
+from services.day_timeline import (
+    timeline_bootstrap,
+    skip_task_for_day,
+    unskip_task_for_day,
+    sync_completion_stamp,
+)
 from services.card_generator import generate_cards_pdf
 from services.baby_card_generator import generate_baby_cards_pdf
 from services.budget_store import (
@@ -422,6 +428,7 @@ def today_page():
         "cards": cards,
         "history": history,
         "daily_flex_slots": get_daily_flex_slots(),
+        "timeline": timeline_bootstrap(day_str),
     }
     return render_template("today.html", bootstrap=bootstrap)
 
@@ -656,6 +663,7 @@ def api_toggle_dot(week_key, area_key):
     new_val = toggle_routine_dot(
         week_key, area_key, task, day, dot, list_key=list_key
     )
+    sync_completion_stamp(week_key, area_key, task, day, list_key=list_key)
     refresh_reminder_state_after_dot_change(
         week_key, area_key, list_key, task, day
     )
@@ -672,14 +680,16 @@ def api_set_dot(week_key, area_key):
     if list_key not in ("tasks", "extra_tasks"):
         list_key = "tasks"
     value = bool(body.get("value", True))
-    ok = set_routine_dot(
+    new_val = set_routine_dot(
         week_key, area_key, task, day, dot, value, list_key=list_key
     )
-    if ok:
-        refresh_reminder_state_after_dot_change(
-            week_key, area_key, list_key, task, day
-        )
-    return jsonify({"ok": ok})
+    if new_val is None:
+        return jsonify({"ok": False})
+    sync_completion_stamp(week_key, area_key, task, day, list_key=list_key)
+    refresh_reminder_state_after_dot_change(
+        week_key, area_key, list_key, task, day
+    )
+    return jsonify({"ok": True, "value": new_val})
 
 
 @app.route(
@@ -697,10 +707,65 @@ def api_complete_scheduled_day(week_key, area_key):
         week_key, area_key, task, day, list_key=list_key
     )
     if ok:
+        sync_completion_stamp(week_key, area_key, task, day, list_key=list_key)
         refresh_reminder_state_after_dot_change(
             week_key, area_key, list_key, task, day
         )
     return jsonify({"ok": ok})
+
+
+@app.route("/api/routine-day/<day_iso>/skip", methods=["POST"])
+def api_skip_day_task(day_iso):
+    """Skip a day-plan step for today — advances the waterfall timer chain."""
+    body = request.get_json(force=True) or {}
+    area_key = (body.get("area_key") or "").strip()
+    task_name = (body.get("task_name") or "").strip()
+    list_key = body.get("list", "tasks")
+    if list_key not in ("tasks", "extra_tasks"):
+        list_key = "tasks"
+    if not area_key or not task_name:
+        return jsonify({"ok": False, "error": "area_key and task_name required"}), 400
+    try:
+        date.fromisoformat(day_iso)
+    except ValueError:
+        return jsonify({"ok": False, "error": "bad date"}), 400
+    state = skip_task_for_day(day_iso, area_key, task_name, list_key=list_key)
+    return jsonify({
+        "ok": True,
+        "resolved": state.get("resolved") or {},
+        "timeline": timeline_bootstrap(day_iso),
+    })
+
+
+@app.route("/api/routine-day/<day_iso>/skip", methods=["DELETE"])
+def api_unskip_day_task(day_iso):
+    body = request.get_json(force=True) or {}
+    area_key = (body.get("area_key") or "").strip()
+    task_name = (body.get("task_name") or "").strip()
+    list_key = body.get("list", "tasks")
+    if list_key not in ("tasks", "extra_tasks"):
+        list_key = "tasks"
+    if not area_key or not task_name:
+        return jsonify({"ok": False, "error": "area_key and task_name required"}), 400
+    try:
+        date.fromisoformat(day_iso)
+    except ValueError:
+        return jsonify({"ok": False, "error": "bad date"}), 400
+    state = unskip_task_for_day(day_iso, area_key, task_name, list_key=list_key)
+    return jsonify({
+        "ok": True,
+        "resolved": state.get("resolved") or {},
+        "timeline": timeline_bootstrap(day_iso),
+    })
+
+
+@app.route("/api/routine-day/<day_iso>/timeline", methods=["GET"])
+def api_day_timeline(day_iso):
+    try:
+        date.fromisoformat(day_iso)
+    except ValueError:
+        return jsonify({"ok": False, "error": "bad date"}), 400
+    return jsonify({"ok": True, "timeline": timeline_bootstrap(day_iso)})
 
 
 @app.route("/api/routine-cards/<week_key>/<area_key>/extra-task", methods=["POST"])
@@ -1825,11 +1890,12 @@ def _start_background_schedulers():
 
     sched = BackgroundScheduler()
     if run_reminder_scan:
+        # Waterfall timers need frequent scans (start / due / every 10 min).
         try:
-            interval = int(os.environ.get("LM_REMINDER_INTERVAL_MINUTES", "30"))
+            interval = int(os.environ.get("LM_REMINDER_INTERVAL_MINUTES", "1"))
         except ValueError:
-            interval = 30
-        interval = max(5, interval)
+            interval = 1
+        interval = max(1, interval)
         sched.add_job(
             run_reminder_scan,
             "interval",

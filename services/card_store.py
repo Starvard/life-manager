@@ -944,20 +944,25 @@ def set_routine_dot(
     dot_idx: int,
     value: bool,
     list_key: str = "tasks",
-) -> bool:
-    """Set a dot to a specific value (for push 'Done' without toggling)."""
+) -> bool | None:
+    """Set a dot to a specific value (for push 'Done' without toggling).
+
+    Returns the new boolean value on success, or ``None`` if the write failed.
+    (Returning the raw value alone used to make ``if ok:`` skip post-hooks when
+    unchecking a dot.)
+    """
     card = get_routine_card(week_key, area_key)
     if card is None:
-        return False
+        return None
     tasks = card.get(list_key, [])
     if task_idx >= len(tasks):
-        return False
+        return None
     days = tasks[task_idx].get("days", [])
     if day_idx >= len(days):
-        return False
+        return None
     dots = days[day_idx]
     if dot_idx >= len(dots):
-        return False
+        return None
     dots[dot_idx] = bool(value)
     save_routine_card(week_key, area_key, card)
     return dots[dot_idx]

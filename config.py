@@ -53,5 +53,7 @@ WEEK_START_DAY = 0
 
 DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-# Timed tasks push at their day-plan Time (Notify is an optional override).
-# Set LM_REMINDER_PERIODIC_NUDGE=1 to also keep the legacy every-few-hours check-in.
+# Day-plan waterfall timers drive push reminders by default (start / due /
+# every 10 min while the current step is open). Set LM_REMINDER_WALL_CLOCK=1
+# for legacy per-task wall-clock pings, or LM_REMINDER_PERIODIC_NUDGE=1 for
+# the every-few-hours check-in. LM_REMINDER_WATERFALL=0 disables the cascade.

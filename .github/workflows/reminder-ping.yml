@@ -2,16 +2,16 @@ name: Routine reminder ping
 
 # Backstop for routine push reminders. The app sends reminders from an
 # in-process scheduler, which only runs while the Fly machine is awake.
-# This cron pings /api/push/run-reminders every 30 minutes; the request
+# This cron pings /api/push/run-reminders every 10 minutes; the request
 # auto-starts the machine if it is stopped, and the endpoint itself is
-# idempotent (each reminder slot / per-task reminder is sent at most once).
+# idempotent (waterfall phases / reminder slots send at most once each).
 #
 # Note: GitHub disables scheduled workflows after ~60 days without repo
 # activity — re-enable it from the Actions tab if reminders ever go quiet.
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "*/10 * * * *"
   workflow_dispatch:
 
 jobs:

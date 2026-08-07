@@ -83,7 +83,9 @@ self.addEventListener("push", (event) => {
       week_key: payload.week_key,
       area_key: payload.area_key,
       task: payload.task,
+      task_name: payload.task_name,
       day: payload.day,
+      day_iso: payload.day_iso,
       dot: payload.dot,
       list: payload.list || "tasks",
     },
@@ -92,6 +94,7 @@ self.addEventListener("push", (event) => {
     actions: [
       { action: "open", title: "Open" },
       { action: "done", title: "Done ✓" },
+      { action: "skip", title: "Skip" },
     ],
   };
   event.waitUntil(
@@ -122,6 +125,32 @@ self.addEventListener("notificationclick", (event) => {
             }),
           }
         )
+          .then(() =>
+            self.registration.getNotifications({ tag }).then((ns) => {
+              ns.forEach((n) => n.close());
+            })
+          )
+          .catch(() => {})
+      );
+    }
+    return;
+  }
+
+  if (event.action === "skip") {
+    const { area_key, list, task_name, day_iso } = d;
+    const dayIso = day_iso || new Date().toISOString().slice(0, 10);
+    if (area_key && task_name) {
+      event.waitUntil(
+        fetch(`${origin}/api/routine-day/${encodeURIComponent(dayIso)}/skip`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            area_key,
+            task_name,
+            list: list || "tasks",
+          }),
+        })
           .then(() =>
             self.registration.getNotifications({ tag }).then((ns) => {
               ns.forEach((n) => n.close());
