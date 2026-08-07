@@ -413,6 +413,7 @@ def _send_waterfall_reminders(subs: list[dict], state: dict) -> int:
             "day_iso": today_iso,
             "dot": item.get("dot", 0),
             "list": item["list_key"],
+            "flex_key": item.get("flex_key") or "",
         }
         if _send_to_all(subs, payload) > 0:
             sent_map[slot] = today_iso

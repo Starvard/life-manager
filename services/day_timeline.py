@@ -8,6 +8,10 @@ task's timer starts from that moment (not the original wall clock).
 Resolved state (done / skipped timestamps) lives in
 ``data/routine-day-state/<YYYY-MM-DD>.json`` so it survives card regenerations
 and does not pollute completion history.
+
+Flex picks use ``flex_skips`` keyed by flex slot: skipping Laundry from
+Morning flex refills that slot from the pool, but Laundry can still appear
+in a later flex the same day.
 """
 
 from __future__ import annotations
@@ -38,19 +42,30 @@ def task_state_key(area_key: str, task_name: str, list_key: str = "tasks") -> st
 def load_day_state(day_iso: str | None = None) -> dict:
     day_iso = day_iso or local_today().isoformat()
     path = _state_path(day_iso)
+    empty = {"date": day_iso, "resolved": {}, "flex_skips": {}}
     if not os.path.isfile(path):
-        return {"date": day_iso, "resolved": {}}
+        return empty
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
         if not isinstance(data, dict):
-            return {"date": day_iso, "resolved": {}}
+            return empty
         if not isinstance(data.get("resolved"), dict):
             data["resolved"] = {}
+        # flex_skips: { flex_key: { task_key: {at, area_key, task_name, list_key} } }
+        # Skipping a task from one flex does not block later flexes the same day.
+        if not isinstance(data.get("flex_skips"), dict):
+            data["flex_skips"] = {}
+        else:
+            cleaned: dict = {}
+            for fk, bucket in data["flex_skips"].items():
+                if isinstance(bucket, dict):
+                    cleaned[str(fk)] = bucket
+            data["flex_skips"] = cleaned
         data["date"] = day_iso
         return data
     except (json.JSONDecodeError, OSError):
-        return {"date": day_iso, "resolved": {}}
+        return empty
 
 
 def save_day_state(state: dict) -> None:
@@ -225,6 +240,72 @@ def unskip_task_for_day(
     return state
 
 
+def skip_flex_slot_task(
+    day_iso: str,
+    flex_key: str,
+    area_key: str,
+    task_name: str,
+    list_key: str = "tasks",
+    at: datetime | None = None,
+) -> dict:
+    """Skip a task from one flex slot only — later flexes may still pick it."""
+    flex_key = (flex_key or "").strip()
+    if not flex_key:
+        raise ValueError("flex_key required")
+    state = load_day_state(day_iso)
+    key = task_state_key(area_key, task_name, list_key)
+    when = at or local_now()
+    bucket = state.setdefault("flex_skips", {}).setdefault(flex_key, {})
+    bucket[key] = {
+        "at": _fmt_iso_dt(when),
+        "area_key": area_key,
+        "task_name": task_name,
+        "list_key": list_key,
+    }
+    save_day_state(state)
+    return state
+
+
+def unskip_flex_slot_task(
+    day_iso: str,
+    flex_key: str,
+    area_key: str,
+    task_name: str,
+    list_key: str = "tasks",
+) -> dict:
+    flex_key = (flex_key or "").strip()
+    state = load_day_state(day_iso)
+    key = task_state_key(area_key, task_name, list_key)
+    bucket = (state.get("flex_skips") or {}).get(flex_key) or {}
+    if key in bucket:
+        del bucket[key]
+        if not bucket and flex_key in (state.get("flex_skips") or {}):
+            del state["flex_skips"][flex_key]
+        save_day_state(state)
+    return state
+
+
+def _flex_skip_keys(state: dict, flex_key: str | None) -> set[str]:
+    if not flex_key:
+        return set()
+    bucket = (state.get("flex_skips") or {}).get(flex_key) or {}
+    return set(bucket.keys()) if isinstance(bucket, dict) else set()
+
+
+def _latest_flex_skip_at(state: dict, flex_key: str | None) -> datetime | None:
+    if not flex_key:
+        return None
+    bucket = (state.get("flex_skips") or {}).get(flex_key) or {}
+    latest: datetime | None = None
+    for entry in bucket.values():
+        if not isinstance(entry, dict):
+            continue
+        dt = _parse_iso_dt(entry.get("at"))
+        if dt and (latest is None or dt > latest):
+            latest = dt
+    return latest
+
+
 def sync_completion_stamp(
     week_key: str,
     area_key: str,
@@ -293,11 +374,13 @@ def _pick_flex(
     pool: str,
     used_keys: set[str],
     day_idx: int,
+    slot_skip_keys: set[str] | None = None,
 ) -> dict | None:
     pool = (pool or "home").lower()
+    skip_keys = slot_skip_keys or set()
     cand = []
     for c in candidates:
-        if c["key"] in used_keys:
+        if c["key"] in used_keys or c["key"] in skip_keys:
             continue
         if c.get("time"):
             continue  # timed stay on clock timeline
@@ -397,13 +480,17 @@ def build_day_plan_items(
         on_days = slot.get("on_days")
         if isinstance(on_days, list) and on_days and day_idx not in {int(d) for d in on_days}:
             continue
-        pick = _pick_flex(candidates, slot.get("pool") or "home", used, day_idx)
+        flex_key = str(slot.get("key") or "").strip()
+        slot_skips = _flex_skip_keys(state, flex_key)
+        pick = _pick_flex(
+            candidates, slot.get("pool") or "home", used, day_idx, slot_skips
+        )
         if not pick:
             raw_items.append({
                 "sort_time": t,
                 "kind": "flex_empty",
                 "flex": {
-                    "key": slot.get("key"),
+                    "key": flex_key or slot.get("key"),
                     "label": slot.get("label") or "Flex",
                     "pool": slot.get("pool") or "home",
                     "empty": True,
@@ -416,7 +503,7 @@ def build_day_plan_items(
             "sort_time": t,
             "kind": "task",
             "flex": {
-                "key": slot.get("key"),
+                "key": flex_key or slot.get("key"),
                 "label": slot.get("label") or "Flex",
                 "pool": slot.get("pool") or "home",
                 "empty": False,
@@ -442,13 +529,22 @@ def build_day_plan_items(
     out: list[dict] = []
 
     for it in raw_items:
+        flex_meta = it.get("flex") or {}
+        flex_key = flex_meta.get("key")
+        latest_flex_skip = _latest_flex_skip_at(state, flex_key)
+
         if it["kind"] == "flex_empty":
+            # Skipped-through empty flex still hands the cascade forward.
+            if not locked and latest_flex_skip is not None:
+                if prev_finish is None or latest_flex_skip > prev_finish:
+                    prev_finish = latest_flex_skip
             out.append({
                 "sort_time": it["sort_time"],
                 "scheduled_time": it["sort_time"],
                 "duration_min": it["duration_min"],
                 "kind": "flex_empty",
                 "flex": it["flex"],
+                "flex_key": flex_key,
                 "resolved": False,
                 "complete": False,
                 "skipped": False,
@@ -474,6 +570,9 @@ def build_day_plan_items(
                 effective_start = _combine_local(day, scheduled)
             else:
                 effective_start = prev_finish
+            # A prior skip inside this flex slot starts the replacement pick now.
+            if latest_flex_skip is not None and latest_flex_skip > effective_start:
+                effective_start = latest_flex_skip
             effective_due = effective_start + timedelta(minutes=dur)
             current = not resolved
 
@@ -518,6 +617,7 @@ def build_day_plan_items(
             "duration_min": dur,
             "kind": "task",
             "flex": it["flex"],
+            "flex_key": flex_key,
             "area_key": c["area_key"],
             "area_name": c["area_name"],
             "list_key": c["list_key"],
@@ -560,6 +660,7 @@ def timeline_bootstrap(day_iso: str | None = None) -> dict[str, Any]:
         "overdue_repeat_min": OVERDUE_REPEAT_MIN,
         "items": items,
         "resolved": state.get("resolved") or {},
+        "flex_skips": state.get("flex_skips") or {},
         "current_key": (current_timeline_task(items) or {}).get("key"),
     }
 
