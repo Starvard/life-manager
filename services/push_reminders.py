@@ -3,14 +3,16 @@ Web Push routine reminders.
 
 Driven by ``run_reminder_scan``:
 
-- **Schedule-time reminders**: each task with a day-plan ``time`` (or an
-  optional ``notify_time`` override) pings once per day after that clock
-  time while today's scheduled dot is still empty.
+- **Waterfall timers** (default): the current day-plan task pings when its
+  cascaded timer starts, when the timer ends, and every 10 minutes while
+  still open. Completing or skipping advances the cascade.
+- **Legacy wall-clock reminders**: each task's ``time`` / ``notify_time``
+  once per day. Re-enable with ``LM_REMINDER_WALL_CLOCK=1``.
 - **Periodic nudge** (off by default): legacy every-few-hours check-in.
   Re-enable with ``LM_REMINDER_PERIODIC_NUDGE=1`` if you want it back.
 
-Stable notification tags (one per task row + list) let Android replace
-duplicate nags instead of stacking them.
+Stable notification tags let Android replace duplicate nags instead of
+stacking them.
 """
 
 from __future__ import annotations
@@ -45,16 +47,18 @@ def _week_key_containing_today(today: date | None = None) -> str:
 def _load_state() -> dict:
     path = config.PUSH_REMINDER_STATE_FILE
     if not os.path.isfile(path):
-        return {"last_sent": {}}
+        return {"last_sent": {}, "waterfall_sent": {}}
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
         if not isinstance(data.get("last_sent"), dict):
             data["last_sent"] = {}
+        if not isinstance(data.get("waterfall_sent"), dict):
+            data["waterfall_sent"] = {}
         data.pop("daily_scheduled", None)  # legacy per-dot cooldown state
         return data
     except (json.JSONDecodeError, OSError):
-        return {"last_sent": {}}
+        return {"last_sent": {}, "waterfall_sent": {}}
 
 
 def _save_state(state: dict) -> None:
@@ -326,18 +330,13 @@ def _task_action_fields(nag: dict) -> dict:
 
 
 def _send_notify_time_reminders(subs: list[dict], nags: list[dict], state: dict) -> int:
-    """Per-task reminders at each task's day-plan time (or Notify override).
-
-    Fires once per task per day, after the configured time, while the task
-    still has an incomplete scheduled dot. The notification carries a Done ✓
-    action so the task can be completed from the lock screen."""
+    """Legacy per-task wall-clock reminders (opt-in via LM_REMINDER_WALL_CLOCK)."""
     times = notify_time_lookup()
     if not times:
         return 0
     today_iso = local_today().isoformat()
     last_sent = state.get("last_sent") or {}
     sent = 0
-    # Fire in schedule order so earlier slots are recorded first if many are due.
     ordered = sorted(
         nags,
         key=lambda n: times.get((n["area_key"], n["task_name"])) or "99:99",
@@ -360,6 +359,76 @@ def _send_notify_time_reminders(subs: list[dict], nags: list[dict], state: dict)
             last_sent[nag["tag"]] = today_iso
             sent += 1
     state["last_sent"] = {k: v for k, v in last_sent.items() if v == today_iso}
+    return sent
+
+
+def _waterfall_reminders_enabled() -> bool:
+    """On by default; set LM_REMINDER_WATERFALL=0 to disable."""
+    raw = os.environ.get("LM_REMINDER_WATERFALL", "1").strip().lower()
+    return raw not in ("0", "false", "no", "off")
+
+
+def _wall_clock_reminders_enabled() -> bool:
+    """Off by default now that waterfall timers drive pushes."""
+    return os.environ.get("LM_REMINDER_WALL_CLOCK", "").strip().lower() in (
+        "1", "true", "yes", "on",
+    )
+
+
+def _send_waterfall_reminders(subs: list[dict], state: dict) -> int:
+    """Ping the current cascaded task: start, due, then every 10 min overdue."""
+    from services.day_timeline import due_reminder_actions
+
+    today_iso = local_today().isoformat()
+    sent_map = state.get("waterfall_sent") or {}
+    # Drop other days so the file stays small.
+    sent_map = {k: v for k, v in sent_map.items() if str(v).startswith(today_iso) or v == today_iso}
+    sent = 0
+    try:
+        actions = due_reminder_actions()
+    except Exception:
+        traceback.print_exc()
+        actions = []
+
+    # One notification per scan: prefer overdue > due > start so a late
+    # catch-up doesn't spam every phase at once.
+    phase_rank = {"overdue": 0, "due": 1, "start": 2}
+    actions = sorted(actions, key=lambda a: phase_rank.get(a.get("phase"), 9))
+    for action in actions:
+        slot = action["slot_key"]
+        if sent_map.get(slot) == today_iso:
+            continue
+        item = action["item"]
+        payload = {
+            "title": action["title"],
+            "body": action["body"],
+            "tag": action["tag"],
+            "url": "/today",
+            "requireInteraction": True,
+            "week_key": item["week_key"],
+            "area_key": item["area_key"],
+            "task": item["task_idx"],
+            "task_name": item["task_name"],
+            "day": item["day_index"],
+            "day_iso": today_iso,
+            "dot": item.get("dot", 0),
+            "list": item["list_key"],
+        }
+        if _send_to_all(subs, payload) > 0:
+            sent_map[slot] = today_iso
+            sent += 1
+            # Mark milder phases for this task as handled so we don't
+            # follow an overdue ping with a stale "time to start" ping.
+            tag = action["tag"]
+            tag_base = tag
+            for suffix in ("-overdue", "-due", "-start"):
+                if tag.endswith(suffix):
+                    tag_base = tag[: -len(suffix)]
+                    break
+            sent_map[f"{tag_base}-start"] = today_iso
+            sent_map[f"{tag_base}-due"] = today_iso
+            break
+    state["waterfall_sent"] = sent_map
     return sent
 
 
@@ -433,11 +502,16 @@ def _send_periodic_nudge(subs: list[dict], nags: list[dict], state: dict) -> int
 def run_reminder_scan() -> dict:
     """Send any due routine reminders. Called by the in-process scheduler and
     by POST /api/push/run-reminders (external cron backstop for when the Fly
-    machine was asleep). Safe to call repeatedly: each schedule-time reminder
-    sends at most once per task per day.
+    machine was asleep). Safe to call repeatedly: waterfall phases and
+    legacy wall-clock reminders are idempotent per slot.
 
     Returns a small summary dict for the HTTP endpoint / logs."""
-    summary = {"subscriptions": 0, "task_reminders_sent": 0, "nudge_deliveries": 0}
+    summary = {
+        "subscriptions": 0,
+        "waterfall_reminders_sent": 0,
+        "task_reminders_sent": 0,
+        "nudge_deliveries": 0,
+    }
     if webpush is None:
         summary["skipped"] = "pywebpush not installed"
         return summary
@@ -452,7 +526,14 @@ def run_reminder_scan() -> dict:
     summary["open_today"] = len(nags)
 
     state = _load_state()
-    summary["task_reminders_sent"] = _send_notify_time_reminders(subs, nags, state)
+    if _waterfall_reminders_enabled():
+        summary["waterfall_reminders_sent"] = _send_waterfall_reminders(subs, state)
+    else:
+        summary["waterfall"] = "off"
+    if _wall_clock_reminders_enabled():
+        summary["task_reminders_sent"] = _send_notify_time_reminders(subs, nags, state)
+    else:
+        summary["wall_clock"] = "off"
     if _periodic_nudge_enabled():
         summary["nudge_deliveries"] = _send_periodic_nudge(subs, nags, state)
     else:

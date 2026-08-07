@@ -62,15 +62,25 @@
   .tk.daily { border-left-color: var(--daily); }
   .tk.due { border-left-color: var(--due); background: linear-gradient(90deg, var(--due-dim), transparent 60%); }
   .tk.overdue { border-left-color: var(--late); background: linear-gradient(90deg, var(--late-dim), transparent 60%); }
+  .tk.current { border-left-color: var(--accent); box-shadow: 0 0 0 1px rgba(99,179,255,.35) inset; }
+  .tk.timer-overdue { border-left-color: var(--late); background: linear-gradient(90deg, var(--late-dim), transparent 60%); }
   .tk.done { border-left-color: var(--good); opacity: .62; }
   .tk.done .tk-name { text-decoration: line-through; }
+  .tk.skipped { border-left-color: var(--text-light); opacity: .7; }
+  .tk.skipped .tk-name { text-decoration: line-through; }
+  .tk.locked { opacity: .78; }
   .tk-check { flex: 0 0 auto; display: grid; place-items: center; width: 2.3rem; height: 2.3rem; border-radius: 999px;
     border: 2px solid rgba(255,255,255,.18); font-size: 1.15rem; font-weight: 800; transition: all .2s ease; }
   .tk.done .tk-check { background: var(--good); border-color: var(--good); color: #06210f; }
+  .tk.skipped .tk-check { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); }
   .tk-body { flex: 1; min-width: 0; }
   .tk-name { font-weight: 700; font-size: 1rem; }
   .tk-sub { font-size: .76rem; color: var(--text-muted); margin-top: .12rem; }
   .tk-pill { flex: 0 0 auto; font-size: .72rem; font-weight: 700; color: var(--text-muted); padding: .22rem .5rem; border-radius: 999px; background: rgba(255,255,255,.06); }
+  .tk-timer { flex: 0 0 auto; font-size: .68rem; font-weight: 800; font-variant-numeric: tabular-nums;
+    padding: .22rem .45rem; border-radius: 8px; background: rgba(99,179,255,.14); color: var(--accent); min-width: 3.2rem; text-align: center; }
+  .tk-timer.over { background: var(--late-dim); color: var(--late); }
+  .tk-timer.wait { background: rgba(255,255,255,.06); color: var(--text-muted); font-weight: 600; }
   .tk-time { flex: 0 0 3.4rem; font-size: .72rem; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
   .tk-flex-tag { display: inline-block; margin-left: .4rem; font-size: .65rem; font-weight: 700; color: var(--text-muted); padding: .1rem .4rem; border-radius: 999px; background: rgba(255,255,255,.08); vertical-align: middle; }
   .tk.flex-slot { border-left-color: #c084fc; }
@@ -157,7 +167,7 @@
 
   <div class="card push-reminders-card today-reminders" id="push-reminders-card">
     <div class="card-title">🔔 Routine reminders</div>
-    <p class="push-reminders-hint">Pings at each task’s scheduled time (with Done ✓ on the notification). Enable on this device, then send a test.</p>
+    <p class="push-reminders-hint">Timers cascade through your day plan — ping when a step starts, when its timer ends, and every 10 minutes until you Done ✓ or swipe-skip. Enable on this device, then send a test.</p>
     <div class="push-reminders-actions">
       <button type="button" class="btn-push" id="push-enable-btn">Enable reminders</button>
       <button type="button" class="btn-push btn-push-secondary" id="push-disable-btn" hidden>Disable</button>

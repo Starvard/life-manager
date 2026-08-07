@@ -1,8 +1,11 @@
- /* Today — timed daily plan + flex slots + bonus.
+ /* Today — timed daily plan + flex slots + bonus + waterfall timers.
  *
  * Day plan = timed tasks for today (sorted by time) plus flex slots that
  * each pull one due non-daily from the right pool. Bonus holds remaining
  * non-dailies and does not count toward the progress ring.
+ *
+ * Timers cascade: each step's duration is the gap to the next timeline
+ * anchor; completing or swipe-skipping starts the next step from "now".
  */
 (function () {
   const BOOT = window.__TODAY__ || {};
@@ -11,6 +14,7 @@
   const DAY_INDEX = Number(BOOT.day_index || 0);
   const cards = BOOT.cards || {};
   const FLEX_SLOTS = Array.isArray(BOOT.daily_flex_slots) ? BOOT.daily_flex_slots : [];
+  let timeline = BOOT.timeline || { items: [], resolved: {}, now: null };
   const MS_DAY = 86400000;
   const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -24,7 +28,8 @@
   function getXp() { return Math.max(0, parseInt(localStorage.getItem(XP_KEY) || '0', 10) || 0); }
   function setXp(v) { localStorage.setItem(XP_KEY, String(Math.max(0, v))); }
 
-  const skipped = new Set();
+  // Session-only skip for Bonus recurrings. Day-plan skips persist via API.
+  const sessionSkipped = new Set();
   const PLAN_KEY = 'lm:today:plans';
   function getPlans() {
     let p = {};
@@ -46,6 +51,7 @@
   function isDaily(freq) { return Number(freq || 0) >= 7; }
   function intervalDays(freq) { const f = Number(freq || 0); if (!Number.isFinite(f) || f <= 0) return 9999; if (f >= 7) return 1; return Math.max(1, Math.round(7 / f)); }
   function keyOf(areaKey, name) { return areaKey + '::' + name; }
+  function stateKeyOf(r) { return (r.areaKey || '') + '::' + (r.listKey || 'tasks') + '::' + (r.name || ''); }
   function dateLabel(dIso) { return parseIso(dIso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' }); }
   function normTime(t) {
     if (!t) return null;
@@ -62,6 +68,39 @@
     const ap = h >= 12 ? 'pm' : 'am';
     h = h % 12; if (h === 0) h = 12;
     return h + ':' + m + ap;
+  }
+  function parseDt(s) {
+    if (!s) return null;
+    const d = new Date(s);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  function formatCountdown(ms) {
+    const abs = Math.abs(ms);
+    const totalSec = Math.floor(abs / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    if (m >= 60) {
+      const h = Math.floor(m / 60);
+      const rm = m % 60;
+      return h + 'h ' + rm + 'm';
+    }
+    return m + ':' + String(s).padStart(2, '0');
+  }
+  function timelineByKey() {
+    const map = {};
+    (timeline.items || []).forEach((it) => {
+      if (it && it.key) map[it.key] = it;
+    });
+    return map;
+  }
+  function isPersistedSkipped(r) {
+    const entry = (timeline.resolved || {})[stateKeyOf(r)];
+    return !!(entry && entry.status === 'skipped');
+  }
+  function applyTimeline(tl) {
+    if (!tl) return;
+    timeline = tl;
+    BOOT.timeline = tl;
   }
 
   function buildHistory() {
@@ -138,7 +177,7 @@
           let done = 0;
           for (let i = 0; i < total; i++) if (row[i]) done++;
           rows.push({
-            id, kind: 'daily', areaKey, areaName, task, taskIndex,
+            id, kind: 'daily', areaKey, areaName, task, taskIndex, listKey: 'tasks',
             name: task.name || '', time, atWork, total, done,
             complete: done >= total,
             onPlan: !!time && (isDaily(task.freq) || schedToday),
@@ -149,7 +188,7 @@
           // the day plan when scheduled today — not as weekend overdue clutter.
           const onTimeline = !!time && schedToday;
           rows.push({
-            id, kind: 'recurring', areaKey, areaName, task, taskIndex,
+            id, kind: 'recurring', areaKey, areaName, task, taskIndex, listKey: 'tasks',
             name: task.name || '', time, atWork,
             status: st.status, label: st.label, dueIso: st.dueIso,
             complete: st.status === 'done',
@@ -184,7 +223,7 @@
 
   function pickFlex(rows, pool, usedIds) {
     const cand = rows.filter((r) => {
-      if (usedIds.has(r.id) || r.complete || r.plannedDate || skipped.has(r.id)) return false;
+      if (usedIds.has(r.id) || r.complete || r.plannedDate || sessionSkipped.has(r.id) || isPersistedSkipped(r)) return false;
       if (r.kind !== 'recurring') return false;
       if (r.time) return false; // timed rows stay on the clock timeline, never flex
       if (pinnedToOtherWeekday(r.task)) return false;
@@ -197,10 +236,18 @@
   function buildDayPlan(rows) {
     const used = new Set();
     const items = [];
+    const tmap = timelineByKey();
 
     rows.forEach((r) => {
-      if (!r.onPlan || !r.time || r.plannedDate || skipped.has(r.id)) return;
-      items.push({ sortTime: r.time, row: r, flex: null });
+      if (!r.onPlan || !r.time || r.plannedDate || sessionSkipped.has(r.id) || isPersistedSkipped(r)) return;
+      const tl = tmap[stateKeyOf(r)];
+      items.push({
+        sortTime: r.time,
+        displayTime: tl && tl.effective_start ? tl.effective_start : r.time,
+        row: r,
+        flex: null,
+        timeline: tl || null,
+      });
       used.add(r.id);
     });
 
@@ -219,10 +266,13 @@
         return;
       }
       used.add(pick.id);
+      const tl = tmap[stateKeyOf(pick)];
       items.push({
         sortTime: t,
+        displayTime: tl && tl.effective_start ? tl.effective_start : t,
         row: pick,
         flex: { key: slot.key, label: slot.label || 'Flex', empty: false, pool: slot.pool },
+        timeline: tl || null,
       });
     });
 
@@ -230,7 +280,7 @@
     return { items, usedIds: used };
   }
 
-  function computeProgress(dayItems) {
+  function computeProgress(dayItems, rows) {
     let total = 0, done = 0;
     dayItems.forEach((it) => {
       if (it.flex && it.flex.empty) return; // empty flex does not inflate the goal
@@ -238,6 +288,12 @@
       if (!r || r.plannedDate) return;
       if (r.kind === 'daily') { total += r.total; done += r.done; }
       else { total += 1; if (r.complete) done += 1; }
+    });
+    // Persisted day-plan skips count toward the ring so the day can still clear.
+    (rows || []).forEach((r) => {
+      if (!r.onPlan || !isPersistedSkipped(r) || r.complete) return;
+      if (r.kind === 'daily') { total += r.total; done += r.total; }
+      else { total += 1; done += 1; }
     });
     return { total, done, pct: total ? Math.round((done / total) * 100) : 100 };
   }
@@ -337,8 +393,38 @@
   let lastRows = [];
   let lastDayItems = [];
 
+  function timerBits(tl) {
+    if (!tl || tl.resolved) return null;
+    const now = new Date();
+    const start = parseDt(tl.effective_start);
+    const due = parseDt(tl.effective_due);
+    if (!start || !due) {
+      return { cls: 'wait', text: 'queued', sub: 'Waiting on earlier step' };
+    }
+    if (now < start) {
+      return { cls: 'wait', text: formatCountdown(start - now), sub: 'Starts in' };
+    }
+    if (now < due) {
+      return { cls: '', text: formatCountdown(due - now), sub: (tl.duration_min || '?') + ' min · left' };
+    }
+    return { cls: 'over', text: formatCountdown(now - due), sub: 'Overdue' };
+  }
+
+  function effectiveTimeLabel(it) {
+    const tl = it.timeline;
+    if (tl && tl.effective_start) {
+      const d = parseDt(tl.effective_start);
+      if (d) {
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        return formatTime(hh + ':' + mm);
+      }
+    }
+    return formatTime(it.sortTime);
+  }
+
   function renderHero(dayItems) {
-    const prog = computeProgress(dayItems);
+    const prog = computeProgress(dayItems, lastRows);
     const ring = document.getElementById('ring');
     const C = 2 * Math.PI * 82;
     document.getElementById('ring-fg').setAttribute('stroke-dashoffset', String(C * (1 - prog.pct / 100)));
@@ -359,9 +445,17 @@
 
   function taskCardHtml(r, opts) {
     opts = opts || {};
-    let cls = 'tk', icon = '○', sub = '', pill = '';
-    const swipeable = r.kind === 'recurring' && !r.complete;
-    if (r.kind === 'daily') {
+    let cls = 'tk', icon = '○', sub = '', pill = '', timerHtml = '';
+    const skippedDay = !!opts.skipped || isPersistedSkipped(r);
+    const tl = opts.timeline || timelineByKey()[stateKeyOf(r)] || null;
+    const onDayPlan = !!r.onPlan || !!opts.onDayPlan;
+    // Day-plan steps (incl. dailies) and bonus recurrings can swipe-skip.
+    const swipeable = !r.complete && !skippedDay && (onDayPlan || r.kind === 'recurring');
+    if (skippedDay) {
+      cls += ' skipped';
+      icon = '–';
+      sub = 'Skipped today · tap to undo · ' + r.areaName;
+    } else if (r.kind === 'daily') {
       cls += ' daily' + (r.complete ? ' done' : '');
       icon = r.complete ? '✓' : '○';
       sub = r.areaName;
@@ -370,10 +464,20 @@
       cls += ' ' + (r.complete ? 'done' : r.status);
       icon = r.complete ? '✓' : (r.status === 'overdue' ? '!' : '○');
       sub = (r.label || '') + ' · ' + r.areaName;
-      if (swipeable) {
-        cls += ' swipeable';
-        sub += ' · swipe to skip';
-      }
+    }
+    if (swipeable) {
+      cls += ' swipeable';
+      sub += onDayPlan ? ' · swipe to skip today' : ' · swipe to skip';
+    }
+    if (tl && tl.current && !r.complete && !skippedDay) cls += ' current';
+    if (tl && tl.locked && !r.complete && !skippedDay) cls += ' locked';
+    const bits = (!r.complete && !skippedDay) ? timerBits(tl) : null;
+    if (bits) {
+      if (bits.cls === 'over') cls += ' timer-overdue';
+      timerHtml = '<span class="tk-timer ' + bits.cls + '" data-timer-key="' + esc(stateKeyOf(r)) + '">' + esc(bits.text) + '</span>';
+      if (bits.sub) sub = bits.sub + (sub ? ' · ' + sub : '');
+    } else if (tl && !r.complete && !skippedDay && tl.duration_min) {
+      sub = tl.duration_min + ' min step' + (sub ? ' · ' + sub : '');
     }
     if (r.atWork) cls += ' at-work';
     if (opts.flexLabel) cls += ' flex-slot';
@@ -384,11 +488,12 @@
       ? '<span class="tk-flex-tag">' + esc(opts.flexLabel) + '</span>'
       : '';
     return '<button type="button" class="' + cls + '" data-id="' + esc(r.id) + '"' +
-      (swipeable ? ' data-swipe-skip="1"' : '') + '>' +
+      (swipeable ? ' data-swipe-skip="1"' : '') +
+      (skippedDay ? ' data-unskip="1"' : '') + '>' +
       timeBit +
       '<span class="tk-check">' + icon + '</span>' +
       '<span class="tk-body"><span class="tk-name">' + esc(r.name) + flexBit + '</span><span class="tk-sub">' + esc(sub) + '</span></span>' +
-      pill + '</button>';
+      timerHtml + pill + '</button>';
   }
 
   function emptyFlexHtml(it) {
@@ -418,14 +523,17 @@
     items.forEach((it) => {
       if (it.flex && it.flex.empty) { html += emptyFlexHtml(it); return; }
       html += taskCardHtml(it.row, {
-        timeLabel: formatTime(it.sortTime),
+        timeLabel: effectiveTimeLabel(it),
         flexLabel: it.flex ? it.flex.label : null,
+        timeline: it.timeline,
+        onDayPlan: true,
       });
     });
     html += '</div>';
 
     const bonus = rows.filter((r) =>
-      !r.complete && !r.plannedDate && r.kind === 'recurring' && !usedIds.has(r.id) && !skipped.has(r.id) &&
+      !r.complete && !r.plannedDate && r.kind === 'recurring' && !usedIds.has(r.id) &&
+      !sessionSkipped.has(r.id) && !isPersistedSkipped(r) &&
       !pinnedToOtherWeekday(r.task) &&
       (r.status === 'overdue' || r.status === 'due' || r.status === 'upcoming')
     ).sort((a, b) => flexPriority(a) - flexPriority(b) || (a.dueIso || '').localeCompare(b.dueIso || ''));
@@ -439,6 +547,12 @@
     if (planned.length) {
       html += '<div class="section"><div class="section-title"><h2>Planned</h2><span class="count">' + planned.length + '</span></div>' +
         planned.map(plannedCardHtml).join('') + '</div>';
+    }
+
+    const skippedRows = rows.filter((r) => isPersistedSkipped(r) && !r.complete);
+    if (skippedRows.length) {
+      html += '<div class="section"><div class="section-title"><h2>Skipped today</h2><span class="count">' + skippedRows.length + '</span></div>' +
+        skippedRows.map((r) => taskCardHtml(r, { skipped: true })).join('') + '</div>';
     }
 
     const done = rows.filter((r) => r.complete);
@@ -456,6 +570,28 @@
     }
 
     if (prog.total > 0 && prog.done >= prog.total) celebrate();
+    refreshTimerLabels();
+  }
+
+  function refreshTimerLabels() {
+    const map = timelineByKey();
+    document.querySelectorAll('[data-timer-key]').forEach((el) => {
+      const tl = map[el.getAttribute('data-timer-key')];
+      const bits = timerBits(tl);
+      if (!bits) return;
+      el.textContent = bits.text;
+      el.classList.toggle('over', bits.cls === 'over');
+      el.classList.toggle('wait', bits.cls === 'wait');
+    });
+  }
+
+  function refreshTimeline() {
+    return fetch('/api/routine-day/' + encodeURIComponent(SEL) + '/timeline')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && data.ok && data.timeline) applyTimeline(data.timeline);
+      })
+      .catch(() => {});
   }
 
   function findRow(id) { return lastRows.find((r) => r.id === id); }
@@ -481,6 +617,10 @@
   function onActivate(id, x, y) {
     const r = findRow(id);
     if (!r) return;
+    if (isPersistedSkipped(r)) {
+      unskipDay(r);
+      return;
+    }
     const res = applyToggle(r);
     if (!res) return;
 
@@ -497,8 +637,11 @@
 
     fetch('/api/routine-cards/' + encodeURIComponent(WEEK_KEY) + '/' + encodeURIComponent(r.areaKey) + '/set-dot', {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ task: r.taskIndex, day: DAY_INDEX, dot: res.dot, value: res.value, list: 'tasks' }),
-    }).then((resp) => { if (!resp.ok) throw new Error('save failed'); }).catch(() => {
+      body: JSON.stringify({ task: r.taskIndex, day: DAY_INDEX, dot: res.dot, value: res.value, list: r.listKey || 'tasks' }),
+    }).then((resp) => {
+      if (!resp.ok) throw new Error('save failed');
+      return refreshTimeline().then(() => render(id));
+    }).catch(() => {
       const card = cards[r.areaKey];
       if (card && card.tasks[r.taskIndex] && card.tasks[r.taskIndex].days[DAY_INDEX]) {
         card.tasks[r.taskIndex].days[DAY_INDEX][res.dot] = !res.value;
@@ -522,15 +665,57 @@
   }
 
   function skipForNow(id) {
-    if (!id || skipped.has(id)) return;
-    skipped.add(id);
+    const r = findRow(id);
+    if (!r || r.complete || isPersistedSkipped(r)) return;
     haptic(12);
+    if (r.onPlan || (timelineByKey()[stateKeyOf(r)] && timelineByKey()[stateKeyOf(r)].kind === 'task')) {
+      // Persist day-plan skip so the waterfall advances for reminders too.
+      fetch('/api/routine-day/' + encodeURIComponent(SEL) + '/skip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          area_key: r.areaKey,
+          task_name: r.name,
+          list: r.listKey || 'tasks',
+        }),
+      }).then((resp) => resp.json()).then((data) => {
+        if (data && data.ok && data.timeline) applyTimeline(data.timeline);
+        else if (data && data.ok) {
+          timeline.resolved = timeline.resolved || {};
+          timeline.resolved[stateKeyOf(r)] = { status: 'skipped', at: new Date().toISOString() };
+        }
+        render();
+      }).catch(() => {
+        sessionSkipped.add(id);
+        render();
+      });
+      return;
+    }
+    sessionSkipped.add(id);
     render();
   }
 
+  function unskipDay(r) {
+    if (!r) return;
+    haptic(10);
+    fetch('/api/routine-day/' + encodeURIComponent(SEL) + '/skip', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        area_key: r.areaKey,
+        task_name: r.name,
+        list: r.listKey || 'tasks',
+      }),
+    }).then((resp) => resp.json()).then((data) => {
+      if (data && data.ok && data.timeline) applyTimeline(data.timeline);
+      else if (timeline.resolved) delete timeline.resolved[stateKeyOf(r)];
+      render();
+    }).catch(() => {});
+  }
+
   function bindSwipeSkip(root) {
-    // Swipe left on non-daily rows = same as Up Next "Skip for now".
-    // Vertical scrolls stay normal; dailies are not swipeable.
+    // Swipe left = skip. Day-plan steps persist for the day (waterfall);
+    // Bonus recurrings stay session-only. Vertical scrolls stay normal.
     let startX = 0, startY = 0, tracking = null, moved = false, lastDx = 0, blockedClick = false;
     const THRESH = 72;
 
@@ -598,6 +783,10 @@
     setHeadline();
     refreshPrefButtons();
     render();
+    // Keep countdown labels live; re-fetch waterfall every minute so
+    // effective times stay aligned after completions on other devices.
+    setInterval(refreshTimerLabels, 1000);
+    setInterval(() => { refreshTimeline().then(() => render()); }, 60000);
 
     function handler(e) {
       const btn = e.target.closest('[data-id]');
