@@ -44,6 +44,8 @@ from services.day_timeline import (
     timeline_bootstrap,
     skip_task_for_day,
     unskip_task_for_day,
+    skip_flex_slot_task,
+    unskip_flex_slot_task,
     sync_completion_stamp,
 )
 from services.card_generator import generate_cards_pdf
@@ -716,11 +718,13 @@ def api_complete_scheduled_day(week_key, area_key):
 
 @app.route("/api/routine-day/<day_iso>/skip", methods=["POST"])
 def api_skip_day_task(day_iso):
-    """Skip a day-plan step for today — advances the waterfall timer chain."""
+    """Skip a day-plan step — timed tasks skip for the day; flex picks skip
+    only that flex slot so a later flex can still pull the same task."""
     body = request.get_json(force=True) or {}
     area_key = (body.get("area_key") or "").strip()
     task_name = (body.get("task_name") or "").strip()
     list_key = body.get("list", "tasks")
+    flex_key = (body.get("flex_key") or "").strip()
     if list_key not in ("tasks", "extra_tasks"):
         list_key = "tasks"
     if not area_key or not task_name:
@@ -729,10 +733,16 @@ def api_skip_day_task(day_iso):
         date.fromisoformat(day_iso)
     except ValueError:
         return jsonify({"ok": False, "error": "bad date"}), 400
-    state = skip_task_for_day(day_iso, area_key, task_name, list_key=list_key)
+    if flex_key:
+        state = skip_flex_slot_task(
+            day_iso, flex_key, area_key, task_name, list_key=list_key
+        )
+    else:
+        state = skip_task_for_day(day_iso, area_key, task_name, list_key=list_key)
     return jsonify({
         "ok": True,
         "resolved": state.get("resolved") or {},
+        "flex_skips": state.get("flex_skips") or {},
         "timeline": timeline_bootstrap(day_iso),
     })
 
@@ -743,6 +753,7 @@ def api_unskip_day_task(day_iso):
     area_key = (body.get("area_key") or "").strip()
     task_name = (body.get("task_name") or "").strip()
     list_key = body.get("list", "tasks")
+    flex_key = (body.get("flex_key") or "").strip()
     if list_key not in ("tasks", "extra_tasks"):
         list_key = "tasks"
     if not area_key or not task_name:
@@ -751,10 +762,16 @@ def api_unskip_day_task(day_iso):
         date.fromisoformat(day_iso)
     except ValueError:
         return jsonify({"ok": False, "error": "bad date"}), 400
-    state = unskip_task_for_day(day_iso, area_key, task_name, list_key=list_key)
+    if flex_key:
+        state = unskip_flex_slot_task(
+            day_iso, flex_key, area_key, task_name, list_key=list_key
+        )
+    else:
+        state = unskip_task_for_day(day_iso, area_key, task_name, list_key=list_key)
     return jsonify({
         "ok": True,
         "resolved": state.get("resolved") or {},
+        "flex_skips": state.get("flex_skips") or {},
         "timeline": timeline_bootstrap(day_iso),
     })
 

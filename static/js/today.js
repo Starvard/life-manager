@@ -97,6 +97,11 @@
     const entry = (timeline.resolved || {})[stateKeyOf(r)];
     return !!(entry && entry.status === 'skipped');
   }
+  function flexSkipKeys(flexKey) {
+    if (!flexKey) return new Set();
+    const bucket = (timeline.flex_skips || {})[flexKey] || {};
+    return new Set(Object.keys(bucket));
+  }
   function applyTimeline(tl) {
     if (!tl) return;
     timeline = tl;
@@ -221,9 +226,11 @@
     return sched.some((n) => Number(n || 0) > 0);
   }
 
-  function pickFlex(rows, pool, usedIds) {
+  function pickFlex(rows, pool, usedIds, flexKey) {
+    const slotSkipped = flexSkipKeys(flexKey);
     const cand = rows.filter((r) => {
       if (usedIds.has(r.id) || r.complete || r.plannedDate || sessionSkipped.has(r.id) || isPersistedSkipped(r)) return false;
+      if (slotSkipped.has(stateKeyOf(r))) return false; // skipped in THIS flex only
       if (r.kind !== 'recurring') return false;
       if (r.time) return false; // timed rows stay on the clock timeline, never flex
       if (pinnedToOtherWeekday(r.task)) return false;
@@ -239,7 +246,8 @@
     const tmap = timelineByKey();
 
     rows.forEach((r) => {
-      if (!r.onPlan || !r.time || r.plannedDate || sessionSkipped.has(r.id) || isPersistedSkipped(r)) return;
+      // Completed / day-skipped timed steps leave the day plan (Done / Skipped).
+      if (!r.onPlan || !r.time || r.plannedDate || r.complete || sessionSkipped.has(r.id) || isPersistedSkipped(r)) return;
       const tl = tmap[stateKeyOf(r)];
       items.push({
         sortTime: r.time,
@@ -256,7 +264,7 @@
       if (!t) return;
       const days = Array.isArray(slot.on_days) ? slot.on_days.map(Number) : null;
       if (days && days.length && days.indexOf(DAY_INDEX) < 0) return; // e.g. work flex Mon–Fri only
-      const pick = pickFlex(rows, slot.pool || 'home', used);
+      const pick = pickFlex(rows, slot.pool || 'home', used, slot.key);
       if (!pick) {
         items.push({
           sortTime: t,
@@ -289,9 +297,15 @@
       if (r.kind === 'daily') { total += r.total; done += r.done; }
       else { total += 1; if (r.complete) done += 1; }
     });
-    // Persisted day-plan skips count toward the ring so the day can still clear.
+    // Completed timed steps (moved to Done) and day-skips still count for the ring.
     (rows || []).forEach((r) => {
-      if (!r.onPlan || !isPersistedSkipped(r) || r.complete) return;
+      if (!r.onPlan || r.plannedDate) return;
+      if (r.complete) {
+        if (r.kind === 'daily') { total += r.total; done += r.total; }
+        else { total += 1; done += 1; }
+        return;
+      }
+      if (!isPersistedSkipped(r)) return;
       if (r.kind === 'daily') { total += r.total; done += r.total; }
       else { total += 1; done += 1; }
     });
@@ -487,8 +501,10 @@
     const flexBit = opts.flexLabel
       ? '<span class="tk-flex-tag">' + esc(opts.flexLabel) + '</span>'
       : '';
+    const flexKey = opts.flexKey || (opts.flexLabel && opts.timeline && opts.timeline.flex_key) || '';
     return '<button type="button" class="' + cls + '" data-id="' + esc(r.id) + '"' +
       (swipeable ? ' data-swipe-skip="1"' : '') +
+      (flexKey ? ' data-flex-key="' + esc(flexKey) + '"' : '') +
       (skippedDay ? ' data-unskip="1"' : '') + '>' +
       timeBit +
       '<span class="tk-check">' + icon + '</span>' +
@@ -525,6 +541,7 @@
       html += taskCardHtml(it.row, {
         timeLabel: effectiveTimeLabel(it),
         flexLabel: it.flex ? it.flex.label : null,
+        flexKey: it.flex ? it.flex.key : '',
         timeline: it.timeline,
         onDayPlan: true,
       });
@@ -633,14 +650,26 @@
       haptic(8);
     }
 
-    render(id);
+    const finishing = !!res.value && (r.onPlan || !!document.querySelector('[data-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]'));
+    const el = finishing
+      ? document.querySelector('[data-id="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"].tk')
+      : null;
+    const paint = () => {
+      render(finishing ? null : id);
+    };
+    if (el && finishing && !reduceMotion) {
+      el.classList.add('swipe-out');
+      setTimeout(paint, 180);
+    } else {
+      paint();
+    }
 
     fetch('/api/routine-cards/' + encodeURIComponent(WEEK_KEY) + '/' + encodeURIComponent(r.areaKey) + '/set-dot', {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ task: r.taskIndex, day: DAY_INDEX, dot: res.dot, value: res.value, list: r.listKey || 'tasks' }),
     }).then((resp) => {
       if (!resp.ok) throw new Error('save failed');
-      return refreshTimeline().then(() => render(id));
+      return refreshTimeline().then(() => render(finishing ? null : id));
     }).catch(() => {
       const card = cards[r.areaKey];
       if (card && card.tasks[r.taskIndex] && card.tasks[r.taskIndex].days[DAY_INDEX]) {
@@ -664,25 +693,35 @@
     hb.textContent = hapticsOn ? '📳 Haptics on' : '📴 Haptics off'; hb.classList.toggle('on', hapticsOn);
   }
 
-  function skipForNow(id) {
+  function skipForNow(id, flexKey) {
     const r = findRow(id);
     if (!r || r.complete || isPersistedSkipped(r)) return;
     haptic(12);
-    if (r.onPlan || (timelineByKey()[stateKeyOf(r)] && timelineByKey()[stateKeyOf(r)].kind === 'task')) {
-      // Persist day-plan skip so the waterfall advances for reminders too.
+    const onDayPlan = !!r.onPlan || !!(flexKey) ||
+      (timelineByKey()[stateKeyOf(r)] && timelineByKey()[stateKeyOf(r)].kind === 'task');
+    if (onDayPlan) {
+      const body = {
+        area_key: r.areaKey,
+        task_name: r.name,
+        list: r.listKey || 'tasks',
+      };
+      // Flex picks skip only that slot; timed routines skip the whole day.
+      if (flexKey) body.flex_key = flexKey;
       fetch('/api/routine-day/' + encodeURIComponent(SEL) + '/skip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          area_key: r.areaKey,
-          task_name: r.name,
-          list: r.listKey || 'tasks',
-        }),
+        body: JSON.stringify(body),
       }).then((resp) => resp.json()).then((data) => {
         if (data && data.ok && data.timeline) applyTimeline(data.timeline);
         else if (data && data.ok) {
-          timeline.resolved = timeline.resolved || {};
-          timeline.resolved[stateKeyOf(r)] = { status: 'skipped', at: new Date().toISOString() };
+          if (flexKey) {
+            timeline.flex_skips = timeline.flex_skips || {};
+            timeline.flex_skips[flexKey] = timeline.flex_skips[flexKey] || {};
+            timeline.flex_skips[flexKey][stateKeyOf(r)] = { at: new Date().toISOString() };
+          } else {
+            timeline.resolved = timeline.resolved || {};
+            timeline.resolved[stateKeyOf(r)] = { status: 'skipped', at: new Date().toISOString() };
+          }
         }
         render();
       }).catch(() => {
@@ -757,13 +796,14 @@
       if (!tracking) return;
       const btn = tracking;
       const id = btn.getAttribute('data-id');
+      const flexKey = btn.getAttribute('data-flex-key') || '';
       const dx = lastDx;
       tracking = null;
       lastDx = 0;
       if (moved && dx <= -THRESH) {
         blockedClick = true;
         btn.classList.add('swipe-out');
-        setTimeout(() => skipForNow(id), reduceMotion ? 0 : 180);
+        setTimeout(() => skipForNow(id, flexKey), reduceMotion ? 0 : 180);
       } else {
         btn.style.transform = '';
         btn.classList.remove('swiping', 'swipe-ready');

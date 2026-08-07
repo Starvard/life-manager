@@ -88,6 +88,7 @@ self.addEventListener("push", (event) => {
       day_iso: payload.day_iso,
       dot: payload.dot,
       list: payload.list || "tasks",
+      flex_key: payload.flex_key || "",
     },
     icon: "/static/icons/icon-192.png",
     badge: "/static/icons/icon-192.png",
@@ -137,19 +138,21 @@ self.addEventListener("notificationclick", (event) => {
   }
 
   if (event.action === "skip") {
-    const { area_key, list, task_name, day_iso } = d;
+    const { area_key, list, task_name, day_iso, flex_key } = d;
     const dayIso = day_iso || new Date().toISOString().slice(0, 10);
     if (area_key && task_name) {
+      const body = {
+        area_key,
+        task_name,
+        list: list || "tasks",
+      };
+      if (flex_key) body.flex_key = flex_key;
       event.waitUntil(
         fetch(`${origin}/api/routine-day/${encodeURIComponent(dayIso)}/skip`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            area_key,
-            task_name,
-            list: list || "tasks",
-          }),
+          body: JSON.stringify(body),
         })
           .then(() =>
             self.registration.getNotifications({ tag }).then((ns) => {
