@@ -481,7 +481,9 @@
     }
     if (swipeable) {
       cls += ' swipeable';
-      sub += onDayPlan ? ' · swipe to skip today' : ' · swipe to skip';
+      if (opts.flexKey) sub += ' · swipe to skip this flex';
+      else if (onDayPlan) sub += ' · swipe to skip today';
+      else sub += ' · swipe to skip';
     }
     if (tl && tl.current && !r.complete && !skippedDay) cls += ' current';
     if (tl && tl.locked && !r.complete && !skippedDay) cls += ' locked';
