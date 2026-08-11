@@ -1,8 +1,9 @@
  /* Today — timed daily plan + flex slots + bonus + waterfall timers.
  *
  * Day plan = timed tasks for today (sorted by time) plus flex slots that
- * each pull one due non-daily from the right pool. Bonus holds remaining
- * non-dailies and does not count toward the progress ring.
+ * each pull one overdue/due non-daily from the right pool. Flex picks and
+ * swipe-skips do not count toward the progress ring. Exhausted flex slots
+ * hide instead of showing an empty placeholder.
  *
  * Timers cascade: each step's duration is the gap to the next timeline
  * anchor; completing or swipe-skipping starts the next step from "now".
@@ -232,6 +233,8 @@
       if (usedIds.has(r.id) || r.complete || r.plannedDate || sessionSkipped.has(r.id) || isPersistedSkipped(r)) return false;
       if (slotSkipped.has(stateKeyOf(r))) return false; // skipped in THIS flex only
       if (r.kind !== 'recurring') return false;
+      // Flex slots only surface overdue / due-today — never upcoming or later.
+      if (r.status !== 'overdue' && r.status !== 'due') return false;
       if (r.time) return false; // timed rows stay on the clock timeline, never flex
       if (pinnedToOtherWeekday(r.task)) return false;
       if (pool === 'at_work') return !!r.atWork;
@@ -291,21 +294,19 @@
   function computeProgress(dayItems, rows) {
     let total = 0, done = 0;
     dayItems.forEach((it) => {
-      if (it.flex && it.flex.empty) return; // empty flex does not inflate the goal
+      // Flex picks (and empty flex anchors) never count toward the day goal.
+      if (it.flex) return;
       const r = it.row;
       if (!r || r.plannedDate) return;
       if (r.kind === 'daily') { total += r.total; done += r.done; }
       else { total += 1; if (r.complete) done += 1; }
     });
-    // Completed timed steps (moved to Done) and day-skips still count for the ring.
+    // Completed timed steps (moved to Done) still count for the ring.
+    // Swipe-skips do not — they are excluded from the day goal entirely.
     (rows || []).forEach((r) => {
       if (!r.onPlan || r.plannedDate) return;
-      if (r.complete) {
-        if (r.kind === 'daily') { total += r.total; done += r.total; }
-        else { total += 1; done += 1; }
-        return;
-      }
-      if (!isPersistedSkipped(r)) return;
+      if (isPersistedSkipped(r)) return;
+      if (!r.complete) return;
       if (r.kind === 'daily') { total += r.total; done += r.total; }
       else { total += 1; done += 1; }
     });
@@ -536,10 +537,11 @@
     lastDayItems = items;
     const prog = renderHero(items);
 
+    // Hide exhausted flex slots (all candidates swiped / nothing overdue).
+    const visibleItems = items.filter((it) => !(it.flex && it.flex.empty));
     let html = '<div class="section"><div class="section-title"><h2>Day plan</h2><span class="count">' +
-      items.filter((it) => !(it.flex && it.flex.empty)).length + '</span></div>';
-    items.forEach((it) => {
-      if (it.flex && it.flex.empty) { html += emptyFlexHtml(it); return; }
+      visibleItems.length + '</span></div>';
+    visibleItems.forEach((it) => {
       html += taskCardHtml(it.row, {
         timeLabel: effectiveTimeLabel(it),
         flexLabel: it.flex ? it.flex.label : null,
