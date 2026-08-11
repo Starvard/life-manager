@@ -11,7 +11,8 @@ and does not pollute completion history.
 
 Flex picks use ``flex_skips`` keyed by flex slot: skipping Laundry from
 Morning flex refills that slot from the pool, but Laundry can still appear
-in a later flex the same day.
+in a later flex the same day. Flex picks only include overdue or due-today
+recurrings (never upcoming or later).
 """
 
 from __future__ import annotations
@@ -22,7 +23,11 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 import config
-from services.card_store import get_daily_flex_slots, get_routine_cards
+from services.card_store import (
+    get_daily_flex_slots,
+    get_routine_cards,
+    routine_completion_history,
+)
 from services.local_time import local_now, local_today, local_tz
 from services.score_helpers import today_weekday_index
 from services.week_planner import iso_week_key, week_start_date
@@ -361,12 +366,97 @@ def _flex_priority(status: str) -> int:
     return 3
 
 
-def _recurring_due_status(task: dict, day_iso: str) -> str:
-    """Lightweight due/overdue for flex picks (scheduled-week heuristic)."""
-    sched = task.get("scheduled") or []
-    # If scheduled today → due; if any earlier weekday scheduled and not done → overdue-ish.
-    # Callers already filter incomplete tasks.
-    return "due"
+def _interval_days(freq) -> int:
+    try:
+        f = float(freq or 0)
+    except (TypeError, ValueError):
+        return 9999
+    if f <= 0:
+        return 9999
+    if f >= 7:
+        return 1
+    return max(1, int(round(7 / f)))
+
+
+def _overlay_current_week_history(
+    hist: dict[str, list[str]],
+    cards: dict[str, dict],
+    day_iso: str,
+) -> dict[str, list[str]]:
+    """Merge this week's filled dots into past-week history (matches Today JS)."""
+    out: dict[str, list[str]] = {
+        k: list(v) for k, v in (hist or {}).items() if isinstance(v, list)
+    }
+    for area_key, card in cards.items():
+        ws = card.get("week_start")
+        if not ws:
+            continue
+        try:
+            ws_date = date.fromisoformat(str(ws)[:10])
+        except (ValueError, TypeError):
+            continue
+        ak = card.get("area_key", area_key)
+        for task in card.get("tasks") or []:
+            name = (task.get("name") or "").strip()
+            if not name:
+                continue
+            key = f"{ak}::{name}"
+            for di, row in enumerate(task.get("days") or []):
+                if not isinstance(row, list) or not any(row):
+                    continue
+                done_iso = (ws_date + timedelta(days=di)).isoformat()
+                if done_iso > day_iso:
+                    continue
+                out.setdefault(key, []).append(done_iso)
+    for k in list(out.keys()):
+        out[k] = sorted(set(out[k]))
+    return out
+
+
+def _recurring_due_status(
+    task: dict,
+    area_key: str,
+    day_iso: str,
+    hist: dict[str, list[str]],
+    week_start: date,
+) -> str:
+    """Match Today JS recurringStatus: last completion + interval → due date."""
+    name = (task.get("name") or "").strip()
+    key = f"{area_key}::{name}"
+    completions = sorted(d for d in (hist.get(key) or []) if d <= day_iso)
+    if day_iso in completions:
+        return "done"
+    last = completions[-1] if completions else None
+    interval = _interval_days(task.get("freq"))
+    if last:
+        try:
+            due = date.fromisoformat(last[:10]) + timedelta(days=interval)
+            due_iso = due.isoformat()
+        except ValueError:
+            due_iso = day_iso
+    else:
+        sched_dates: list[str] = []
+        for di, n in enumerate(task.get("scheduled") or []):
+            try:
+                if int(n or 0) > 0:
+                    sched_dates.append((week_start + timedelta(days=di)).isoformat())
+            except (TypeError, ValueError):
+                continue
+        due_iso = next((d for d in sched_dates if d >= day_iso), None)
+        if not due_iso:
+            earlier = [d for d in sched_dates if d <= day_iso]
+            due_iso = earlier[-1] if earlier else day_iso
+    try:
+        delta = (date.fromisoformat(day_iso[:10]) - date.fromisoformat(due_iso[:10])).days
+    except ValueError:
+        return "due"
+    if delta > 0:
+        return "overdue"
+    if delta == 0:
+        return "due"
+    if delta >= -10:
+        return "upcoming"
+    return "later"
 
 
 def _pick_flex(
@@ -386,6 +476,9 @@ def _pick_flex(
             continue  # timed stay on clock timeline
         if c.get("complete") or c.get("skipped"):
             continue
+        # Flex slots only surface overdue / due-today — never upcoming or later.
+        if c.get("due_status") not in ("overdue", "due"):
+            continue
         # Pinned to other weekday (has schedule elsewhere, not today)
         sched = c["task"].get("scheduled") or []
         today_n = _scheduled_count(c["task"], day_idx)
@@ -401,11 +494,19 @@ def _pick_flex(
     return cand[0] if cand else None
 
 
-def _collect_task_candidates(cards: dict[str, dict], day_idx: int, state: dict) -> list[dict]:
+def _collect_task_candidates(
+    cards: dict[str, dict],
+    day_idx: int,
+    state: dict,
+    day_iso: str,
+    hist: dict[str, list[str]],
+    week_start: date,
+) -> list[dict]:
     resolved = state.get("resolved") or {}
     out: list[dict] = []
     for area_key, card in cards.items():
         area_name = card.get("area_name", area_key)
+        ak = card.get("area_key", area_key)
         for list_key in ("tasks", "extra_tasks"):
             for task_idx, task in enumerate(card.get(list_key) or []):
                 name = (task.get("name") or "").strip()
@@ -425,6 +526,13 @@ def _collect_task_candidates(cards: dict[str, dict], day_idx: int, state: dict) 
                     freq = 0.0
                 daily = _is_daily(freq)
                 on_plan = bool(time_hhmm and (daily or sched_n > 0))
+                due_status = "due"
+                if not daily and not (time_hhmm and sched_n > 0):
+                    due_status = _recurring_due_status(
+                        task, ak, day_iso, hist, week_start
+                    )
+                    if due_status == "done":
+                        complete = True
                 out.append({
                     "key": key,
                     "area_key": area_key,
@@ -441,7 +549,7 @@ def _collect_task_candidates(cards: dict[str, dict], day_idx: int, state: dict) 
                     "skipped": skipped,
                     "resolved_entry": entry,
                     "on_plan": on_plan,
-                    "due_status": _recurring_due_status(task, ""),
+                    "due_status": due_status,
                 })
     return out
 
@@ -458,7 +566,11 @@ def build_day_plan_items(
     day_idx = (day - monday).days
     cards = get_routine_cards(week_key)
     state = load_day_state(day_iso)
-    candidates = _collect_task_candidates(cards, day_idx, state)
+    past_hist = routine_completion_history(day_iso, 20)
+    hist = _overlay_current_week_history(past_hist, cards, day_iso)
+    candidates = _collect_task_candidates(
+        cards, day_idx, state, day_iso, hist, monday
+    )
     used: set[str] = set()
     raw_items: list[dict] = []
 
