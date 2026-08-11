@@ -11,8 +11,8 @@ and does not pollute completion history.
 
 Flex picks use ``flex_skips`` keyed by flex slot: skipping Laundry from
 Morning flex refills that slot from the pool, but Laundry can still appear
-in a later flex the same day. Flex picks only include overdue or due-today
-recurrings (never upcoming).
+in a later flex the same day. Flex picks only include overdue recurrings
+(never due-today, upcoming, or later).
 """
 
 from __future__ import annotations
@@ -476,8 +476,8 @@ def _pick_flex(
             continue  # timed stay on clock timeline
         if c.get("complete") or c.get("skipped"):
             continue
-        # Flex slots only surface overdue / due-today — never upcoming or later.
-        if c.get("due_status") not in ("overdue", "due"):
+        # Flex slots only surface overdue recurrings — never due/upcoming/later.
+        if c.get("due_status") != "overdue":
             continue
         # Pinned to other weekday (has schedule elsewhere, not today)
         sched = c["task"].get("scheduled") or []
