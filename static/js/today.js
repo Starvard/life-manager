@@ -1,7 +1,7 @@
  /* Today — timed daily plan + flex slots + bonus + waterfall timers.
  *
  * Day plan = timed tasks for today (sorted by time) plus flex slots that
- * each pull one overdue non-daily from the right pool. Flex picks and
+ * each pull one overdue/due non-daily from the right pool. Flex picks and
  * swipe-skips do not count toward the progress ring. Exhausted flex slots
  * hide instead of showing an empty placeholder.
  *
@@ -233,8 +233,8 @@
       if (usedIds.has(r.id) || r.complete || r.plannedDate || sessionSkipped.has(r.id) || isPersistedSkipped(r)) return false;
       if (slotSkipped.has(stateKeyOf(r))) return false; // skipped in THIS flex only
       if (r.kind !== 'recurring') return false;
-      // Flex slots only surface overdue recurrings — never due-today, upcoming, or later.
-      if (r.status !== 'overdue') return false;
+      // Flex slots only surface overdue / due-today — never upcoming or later.
+      if (r.status !== 'overdue' && r.status !== 'due') return false;
       if (r.time) return false; // timed rows stay on the clock timeline, never flex
       if (pinnedToOtherWeekday(r.task)) return false;
       if (pool === 'at_work') return !!r.atWork;
