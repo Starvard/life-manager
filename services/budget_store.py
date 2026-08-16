@@ -570,65 +570,103 @@ def compute_cashflow_series(ending_month: str, n_months: int = 12) -> list[dict[
     return out
 
 
-def _income_in_date_range(start_date: str, end_date: str) -> float:
-    """Sum positive real inflows in [start, end] (inclusive, YYYY-MM-DD).
+def compute_current_salary_basis(as_of_month: str) -> dict:
+    """Stable monthly take-home for outlook — not a rolling 2-week window.
 
-    Excludes credit-card payments and internal transfers so only money that
-    actually *came in* (take-home pay, refunds, etc.) is counted.
+    Prefers the salary / income limits on the Budgets tab (current expected
+    pay, e.g. Dyndrite). If those aren't set, uses the last completed month's
+    actual salary deposits, then this month's salary so far.
     """
-    from services.budget_categorizer import get_display_category
+    limits = load_budgets().get("limits") or {}
+    budgeted = _projected_income_from_limits(limits)
+    if budgeted > 0.005:
+        return {
+            "monthly": round(budgeted, 2),
+            "annual": round(budgeted * 12.0, 2),
+            "source": "budgeted_salary",
+            "label": "current salary",
+        }
 
-    total = 0.0
-    for tx in load_transactions():
-        if tx.get("is_duplicate"):
-            continue
-        d = str(tx.get("date") or "")[:10]
-        if not d or d < start_date or d > end_date:
-            continue
-        amt = float(tx.get("amount", 0))
-        if amt <= 0:
-            continue
-        cat = get_display_category(tx) or ""
-        if cat in (CREDIT_CARD_PAYMENT_CATEGORY, INTERNAL_TRANSFER_CATEGORY):
-            continue
-        total += amt
-    return round(total, 2)
+    prior_key = _month_add(as_of_month, -1)
+    prior = aggregate_month_financials(prior_key)
+    prior_sal = max(0.0, float(prior.get("income_salary_actual") or 0))
+    if prior_sal > 0.005:
+        return {
+            "monthly": round(prior_sal, 2),
+            "annual": round(prior_sal * 12.0, 2),
+            "source": "last_month_salary",
+            "label": "last month's salary",
+        }
 
+    cur = aggregate_month_financials(as_of_month)
+    cur_sal = max(0.0, float(cur.get("income_salary_actual") or 0))
+    if cur_sal > 0.005:
+        return {
+            "monthly": round(cur_sal, 2),
+            "annual": round(cur_sal * 12.0, 2),
+            "source": "this_month_salary",
+            "label": "this month's salary so far",
+        }
 
-def compute_recent_income_basis(window_days: int = 14) -> dict | None:
-    """Estimate true earnings from the most recent ``window_days`` of inflows.
-
-    Anchored on the latest transaction date we have (not the wall clock), so it
-    reflects the user's actual recent pay. Designed for weekly earners: a 14-day
-    window normally captures ~2 paychecks, which we annualize as 52 weeks.
-    """
-    from datetime import datetime, timedelta
-
-    dates = [
-        str(t.get("date") or "")[:10]
-        for t in load_transactions()
-        if not t.get("is_duplicate") and t.get("date")
-    ]
-    if not dates:
-        return None
-    anchor = max(dates)
-    try:
-        a = datetime.strptime(anchor, "%Y-%m-%d").date()
-    except ValueError:
-        return None
-    start = a - timedelta(days=max(1, window_days) - 1)
-    income = _income_in_date_range(start.isoformat(), anchor)
-    weeks = max(1, window_days) / 7.0
-    weekly = income / weeks if weeks else 0.0
     return {
-        "window_days": int(window_days),
-        "weeks": round(weeks, 2),
-        "window_start": start.isoformat(),
-        "anchor_date": anchor,
-        "income_in_window": round(income, 2),
-        "weekly": round(weekly, 2),
-        "monthly": round(weekly * 52.0 / 12.0, 2),
-        "annual": round(weekly * 52.0, 2),
+        "monthly": 0.0,
+        "annual": 0.0,
+        "source": "none",
+        "label": "no salary on file",
+    }
+
+
+def compute_monthly_savings_history(ending_month: str, n_months: int = 24) -> dict:
+    """Month-by-month saved or lost (take-home minus everyday spending).
+
+    Credit-card payoff transfers are left out so purchases aren't counted twice.
+    Totals cover the selected year and the last 12 months even when the table
+    window is longer.
+    """
+    all_m = get_available_months()
+    eligible = [m for m in all_m if m <= ending_month]
+    if not eligible:
+        eligible = [ending_month]
+    window = eligible[-max(1, n_months) :] if eligible else [ending_month]
+
+    year = (ending_month or "")[:4]
+    last12_keys: set[str] = set()
+    cursor = ending_month
+    for _ in range(12):
+        last12_keys.add(cursor)
+        cursor = _month_add(cursor, -1)
+
+    months: list[dict] = []
+    running = 0.0
+    ytd = 0.0
+    last12 = 0.0
+    for m in window:
+        a = aggregate_month_financials(m)
+        income = max(0.0, float(a["lifestyle_income"]))
+        outflow = float(a["purchases_spend"])
+        net = round(income - outflow, 2)
+        running = round(running + net, 2)
+        if year and m.startswith(year):
+            ytd = round(ytd + net, 2)
+        if m in last12_keys:
+            last12 = round(last12 + net, 2)
+        months.append(
+            {
+                "month": m,
+                "in": round(income, 2),
+                "out": round(outflow, 2),
+                "net": net,
+                "running": running,
+                "outcome": "save" if net >= 0 else "loss",
+            }
+        )
+
+    return {
+        "months": months,
+        "year": year,
+        "year_to_date": ytd,
+        "last_12": last12,
+        "all_in_window": running,
     }
 
 
@@ -639,8 +677,7 @@ def compute_money_outlook(month: str, lookback: int = 6) -> dict:
     credit-card payoff transfers excluded so purchases aren't double counted)
     with:
       * a rolling average over recent **completed** months (for spending), and
-      * a recent-pay income estimate (last ~2 weeks annualized — best for
-        weekly earners),
+      * current salary (Budgets-tab income limits — stable, not last-2-weeks),
     to project next month's net and a full-year savings figure — i.e. whether
     the household is on track to **save** or come up **short**. ``card_bill_due``
     surfaces the typical credit-card payoff that usually decides it.
@@ -675,12 +712,12 @@ def compute_money_outlook(month: str, lookback: int = 6) -> dict:
     avg_out = sum_out / n
     avg_payoff = sum_payoff / n
 
-    # Predicted income: prefer the recent-pay estimate (best for weekly earners),
-    # falling back to the monthly average if the last two weeks had no inflow.
-    basis = compute_recent_income_basis(14)
-    if basis and basis.get("income_in_window", 0) > 0:
+    # Predicted income: current salary (budgeted take-home), not a 2-week
+    # annualization that jumps whenever a paycheck lands inside/outside the window.
+    basis = compute_current_salary_basis(month)
+    if basis and float(basis.get("monthly") or 0) > 0.005:
         pred_in = round(float(basis["monthly"]), 2)
-        income_source = "recent_weekly"
+        income_source = str(basis.get("source") or "budgeted_salary")
     else:
         pred_in = round(avg_in, 2)
         income_source = "monthly_avg"
@@ -929,6 +966,7 @@ def compute_monthly_report(month: str) -> dict:
         },
         "cash_flow_series": compute_cashflow_series(month, 12),
         "money_outlook": compute_money_outlook(month),
+        "monthly_savings": compute_monthly_savings_history(month, 24),
         "category_average_spend": category_average_spend,
         "transaction_count": len([t for t in txns if not t.get("is_duplicate")]),
         "income_breakdown": income_breakdown,

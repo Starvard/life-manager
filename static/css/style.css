@@ -570,6 +570,65 @@ button.budget-aag-link:hover { color: #99f6e4; }
 .budget-outlook-row.total { margin-top: 0.2rem; padding-top: 0.5rem; border-top: 1px solid var(--border); border-bottom: none; font-size: 0.88rem; }
 .budget-outlook-row.total.pos strong { color: #6ee7b7; }
 .budget-outlook-row.total.neg strong { color: #fca5a5; }
+.budget-outlook-history-btn { margin-top: 0.75rem; }
+
+.budget-savings-card { margin-bottom: 1rem; }
+.budget-savings-summary {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem;
+}
+.budget-savings-stat {
+    background: var(--surface-hover); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 0.6rem 0.7rem; border-left: 4px solid var(--border);
+}
+.budget-savings-stat.pos { border-left-color: #34d399; }
+.budget-savings-stat.neg { border-left-color: #f87171; }
+.budget-savings-stat-lbl { display: block; font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.budget-savings-stat-val { display: block; font-size: 1.2rem; font-weight: 700; margin-top: 0.15rem; font-variant-numeric: tabular-nums; color: var(--text-bright); }
+.budget-savings-stat.pos .budget-savings-stat-val { color: #6ee7b7; }
+.budget-savings-stat.neg .budget-savings-stat-val { color: #fca5a5; }
+
+.budget-savings-list {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden;
+}
+.budget-savings-head, .budget-savings-row {
+    display: grid;
+    grid-template-columns: minmax(7rem, 1.2fr) 5.5rem 5.5rem minmax(7.5rem, 1fr);
+    gap: 0.45rem 0.6rem;
+    align-items: center;
+    padding: 0.55rem 0.85rem;
+}
+.budget-savings-head {
+    font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--text-muted); border-bottom: 1px solid var(--border);
+}
+.budget-savings-row {
+    width: 100%; text-align: left; font: inherit; color: inherit; background: transparent;
+    border: none; border-bottom: 1px solid var(--border-light); cursor: pointer;
+    position: relative;
+}
+.budget-savings-row:last-child { border-bottom: none; }
+.budget-savings-row:hover { background: var(--surface-hover); }
+.budget-savings-row.current { box-shadow: inset 3px 0 0 var(--accent); background: rgba(99,179,255,0.06); }
+.budget-savings-month { display: flex; align-items: center; gap: 0.4rem; color: var(--text-bright); }
+.budget-savings-now {
+    font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--accent); background: rgba(99,179,255,0.14); border-radius: 999px; padding: 0.08rem 0.4rem;
+}
+.budget-savings-num { text-align: right; font-variant-numeric: tabular-nums; font-size: 0.82rem; color: var(--text); }
+.budget-savings-head .budget-savings-num { text-align: right; }
+.budget-savings-net {
+    display: flex; justify-content: flex-end; align-items: baseline; gap: 0.35rem;
+    font-size: 0.72rem; font-weight: 600; text-align: right;
+}
+.budget-savings-net strong { font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+.budget-savings-net.pos, .budget-savings-net.pos strong { color: #6ee7b7; }
+.budget-savings-net.neg, .budget-savings-net.neg strong { color: #fca5a5; }
+.budget-savings-bar-wrap {
+    grid-column: 1 / -1; height: 6px; background: var(--surface-active); border-radius: 999px; overflow: hidden;
+}
+.budget-savings-bar { display: block; height: 100%; border-radius: 999px; min-width: 2px; }
+.budget-savings-bar.pos { background: linear-gradient(90deg, #34d399, #059669); }
+.budget-savings-bar.neg { background: linear-gradient(90deg, #f87171, #b91c1c); }
 
 /* Auto-sync settings (Connect tab) */
 .budget-autosync { margin-top: 1rem; padding-top: 0.9rem; border-top: 1px solid var(--border); }
@@ -1401,6 +1460,12 @@ button.budget-summary-card:focus-visible {
     .budget-report-row { grid-template-columns: 90px 1fr 80px; }
     .budget-tabs { gap: 0; overflow-x: auto; }
     .budget-tab { padding: 0.45rem 0.65rem; font-size: 0.75rem; white-space: nowrap; }
+    .budget-savings-summary { grid-template-columns: 1fr; }
+    .budget-savings-head, .budget-savings-row {
+        grid-template-columns: minmax(5.5rem, 1fr) 4.4rem minmax(6.2rem, 1.1fr);
+    }
+    .budget-savings-head .budget-savings-in,
+    .budget-savings-row .budget-savings-in { display: none; }
     .budget-tx-dupe { grid-template-columns: 64px minmax(0, 1fr) 72px auto !important; }
     .fantasy-form-row { grid-template-columns: 1fr; }
     .fantasy-label { margin-bottom: -0.2rem; }

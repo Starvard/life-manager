@@ -131,12 +131,16 @@
         </div>
         <p class="budget-outlook-annual-note text-muted"
            x-text="'Over 12 months: ' + formatMoney(outlook().annual.predicted_income) + ' in · ' + formatMoney(outlook().annual.predicted_spend) + ' out.'"></p>
+        <button type="button" class="btn btn-sm btn-outline budget-outlook-history-btn" @click="goToSavingsTab()">
+            See savings every month
+        </button>
     </div>
 </div>
 
 {# ── Sub-tabs ──────────────────────────────────────────────── #}
 <div class="budget-tabs">
     <button class="budget-tab" :class="{ active: view === 'status' }" @click="view = 'status'">Status</button>
+    <button class="budget-tab" :class="{ active: view === 'savings' }" @click="view = 'savings'">Savings</button>
     <button class="budget-tab" :class="{ active: view === 'transactions' }" @click="view = 'transactions'">Transactions</button>
     <button class="budget-tab" :class="{ active: view === 'budgets' }" @click="view = 'budgets'">Budgets</button>
     <button class="budget-tab" :class="{ active: view === 'connect' }" @click="goToConnect()">
@@ -215,6 +219,65 @@
             <p>No transactions yet this month. <a href="#" @click.prevent="goToConnect()">Connect a bank</a>
                or <a href="#" @click.prevent="goToConnect()">upload a CSV</a> to get started.</p>
         </div>
+    </div>
+</div>
+
+{# ── Savings history: saved or lost each month ───────────────── #}
+<div x-show="view === 'savings'" x-cloak>
+    <div class="card budget-savings-card">
+        <div class="card-title">Saved or lost each month</div>
+        <p class="text-muted" style="font-size:.85rem; margin:0 0 .85rem;">
+            Take-home minus everyday spending. Credit-card payoffs are left out so
+            purchases aren't counted twice. This month is still in progress.
+        </p>
+        <div class="budget-savings-summary">
+            <div class="budget-savings-stat" :class="monthlySavings().year_to_date >= 0 ? 'pos' : 'neg'">
+                <span class="budget-savings-stat-lbl" x-text="(monthlySavings().year || 'This year') + ' so far'"></span>
+                <span class="budget-savings-stat-val" x-text="formatMoneySigned(monthlySavings().year_to_date)"></span>
+            </div>
+            <div class="budget-savings-stat" :class="monthlySavings().last_12 >= 0 ? 'pos' : 'neg'">
+                <span class="budget-savings-stat-lbl">Last 12 months</span>
+                <span class="budget-savings-stat-val" x-text="formatMoneySigned(monthlySavings().last_12)"></span>
+            </div>
+            <div class="budget-savings-stat" :class="monthlySavings().all_in_window >= 0 ? 'pos' : 'neg'">
+                <span class="budget-savings-stat-lbl">All shown</span>
+                <span class="budget-savings-stat-val" x-text="formatMoneySigned(monthlySavings().all_in_window)"></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="budget-savings-list" x-show="savingsHistoryRows().length > 0">
+        <div class="budget-savings-head">
+            <span>Month</span>
+            <span class="budget-savings-num budget-savings-in">In</span>
+            <span class="budget-savings-num budget-savings-out">Out</span>
+            <span class="budget-savings-num">Saved / lost</span>
+        </div>
+        <template x-for="row in savingsHistoryRows()" :key="row.month">
+            <button type="button" class="budget-savings-row"
+                    :class="{ current: row.isCurrent, pos: row.net >= 0, neg: row.net < 0 }"
+                    @click="openSavingsMonth(row.month)"
+                    :title="row.isCurrent ? 'This is the month you are viewing' : 'Open ' + monthLabel(row.month)">
+                <span class="budget-savings-month">
+                    <strong x-text="monthLabel(row.month)"></strong>
+                    <span class="budget-savings-now" x-show="row.isCurrent">now</span>
+                </span>
+                <span class="budget-savings-num budget-savings-in" x-text="formatMoney(row.in)"></span>
+                <span class="budget-savings-num budget-savings-out" x-text="formatMoney(row.out)"></span>
+                <span class="budget-savings-net" :class="row.net >= 0 ? 'pos' : 'neg'">
+                    <span x-text="row.net >= 0 ? 'Saved' : 'Lost'"></span>
+                    <strong x-text="formatMoney(Math.abs(row.net))"></strong>
+                </span>
+                <span class="budget-savings-bar-wrap" aria-hidden="true">
+                    <span class="budget-savings-bar" :class="row.net >= 0 ? 'pos' : 'neg'"
+                          :style="'width:' + row.barPct + '%'"></span>
+                </span>
+            </button>
+        </template>
+    </div>
+    <div class="budget-empty" x-show="savingsHistoryRows().length === 0">
+        <p>No months to show yet. <a href="#" @click.prevent="goToConnect()">Connect a bank</a>
+           or upload a CSV to see saved vs lost by month.</p>
     </div>
 </div>
 
