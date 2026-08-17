@@ -570,13 +570,43 @@ def compute_cashflow_series(ending_month: str, n_months: int = 12) -> list[dict[
     return out
 
 
-def compute_current_salary_basis(as_of_month: str) -> dict:
-    """Stable monthly take-home for outlook — not a rolling 2-week window.
+def compute_current_salary_basis(as_of_month: str, lookback: int = 4) -> dict:
+    """Stable monthly take-home: average of the last ``lookback`` completed months.
 
-    Prefers the salary / income limits on the Budgets tab (current expected
-    pay, e.g. Dyndrite). If those aren't set, uses the last completed month's
-    actual salary deposits, then this month's salary so far.
+    Uses actual salary / take-home deposits (Dyndrite, Other Income, Jenna Sales,
+    From Savings), not the Budgets-tab limit and not a 2-week snapshot. The
+    selected month is excluded so an in-progress month does not drag the
+    average down. Falls back to the budgeted salary limit, then this month's
+    salary so far, if there is no completed-month history.
     """
+    all_m = get_available_months()
+    prior = [m for m in all_m if m < as_of_month]
+    window = prior[-max(1, lookback) :] if prior else []
+
+    per_month: list[dict] = []
+    total = 0.0
+    for m in window:
+        a = aggregate_month_financials(m)
+        sal = max(
+            0.0,
+            float(a.get("income_salary_actual") or a.get("lifestyle_income") or 0),
+        )
+        total += sal
+        per_month.append({"month": m, "salary": round(sal, 2)})
+
+    n = len(per_month)
+    if n and total > 0.005:
+        monthly = round(total / n, 2)
+        return {
+            "monthly": monthly,
+            "annual": round(monthly * 12.0, 2),
+            "source": "last_4_months_salary",
+            "label": "last 4 months of salary",
+            "months": n,
+            "window": [row["month"] for row in per_month],
+            "per_month": per_month,
+        }
+
     limits = load_budgets().get("limits") or {}
     budgeted = _projected_income_from_limits(limits)
     if budgeted > 0.005:
@@ -585,17 +615,9 @@ def compute_current_salary_basis(as_of_month: str) -> dict:
             "annual": round(budgeted * 12.0, 2),
             "source": "budgeted_salary",
             "label": "current salary",
-        }
-
-    prior_key = _month_add(as_of_month, -1)
-    prior = aggregate_month_financials(prior_key)
-    prior_sal = max(0.0, float(prior.get("income_salary_actual") or 0))
-    if prior_sal > 0.005:
-        return {
-            "monthly": round(prior_sal, 2),
-            "annual": round(prior_sal * 12.0, 2),
-            "source": "last_month_salary",
-            "label": "last month's salary",
+            "months": 0,
+            "window": [],
+            "per_month": [],
         }
 
     cur = aggregate_month_financials(as_of_month)
@@ -606,6 +628,9 @@ def compute_current_salary_basis(as_of_month: str) -> dict:
             "annual": round(cur_sal * 12.0, 2),
             "source": "this_month_salary",
             "label": "this month's salary so far",
+            "months": 1,
+            "window": [as_of_month],
+            "per_month": [{"month": as_of_month, "salary": round(cur_sal, 2)}],
         }
 
     return {
@@ -613,6 +638,9 @@ def compute_current_salary_basis(as_of_month: str) -> dict:
         "annual": 0.0,
         "source": "none",
         "label": "no salary on file",
+        "months": 0,
+        "window": [],
+        "per_month": [],
     }
 
 
@@ -677,7 +705,8 @@ def compute_money_outlook(month: str, lookback: int = 6) -> dict:
     credit-card payoff transfers excluded so purchases aren't double counted)
     with:
       * a rolling average over recent **completed** months (for spending), and
-      * current salary (Budgets-tab income limits — stable, not last-2-weeks),
+      * the last 4 completed months of actual salary (stable, not last-2-weeks
+        and not the Budgets-tab limit),
     to project next month's net and a full-year savings figure — i.e. whether
     the household is on track to **save** or come up **short**. ``card_bill_due``
     surfaces the typical credit-card payoff that usually decides it.
@@ -712,9 +741,9 @@ def compute_money_outlook(month: str, lookback: int = 6) -> dict:
     avg_out = sum_out / n
     avg_payoff = sum_payoff / n
 
-    # Predicted income: current salary (budgeted take-home), not a 2-week
-    # annualization that jumps whenever a paycheck lands inside/outside the window.
-    basis = compute_current_salary_basis(month)
+    # Predicted income: average of the last 4 completed months of actual
+    # salary — stable, and closer to real take-home than the Budgets-tab limit.
+    basis = compute_current_salary_basis(month, 4)
     if basis and float(basis.get("monthly") or 0) > 0.005:
         pred_in = round(float(basis["monthly"]), 2)
         income_source = str(basis.get("source") or "budgeted_salary")

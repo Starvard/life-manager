@@ -1144,6 +1144,8 @@ document.addEventListener("alpine:init", () => {
                     annual: Number(basis.annual) || 0,
                     source: basis.source || "",
                     label: basis.label || "",
+                    months: Number(basis.months) || 0,
+                    window: Array.isArray(basis.window) ? basis.window : [],
                     window_days: Number(basis.window_days) || 0,
                     weekly: Number(basis.weekly) || 0,
                     income_in_window: Number(basis.income_in_window) || 0,
@@ -1172,6 +1174,14 @@ document.addEventListener("alpine:init", () => {
             const b = o.income_basis;
             const src = o.next_month.income_source;
             const spendNote = `Spending is your recent ${o.averages.months}-month average.`;
+            if ((src === "last_4_months_salary" || src === "last_n_months_salary") && b.monthly > 0) {
+                const n = b.months || (b.window || []).length || 4;
+                const win = b.window || [];
+                const range = win.length
+                    ? ` (${this.monthLabel(win[0])}–${this.monthLabel(win[win.length - 1])})`
+                    : "";
+                return `Based on your last ${n} months of salary: ${this.formatMoney(b.monthly)}/mo${range}. ${spendNote}`;
+            }
             if ((src === "budgeted_salary" || src === "current_salary") && b.monthly > 0) {
                 return `Based on your current salary: ${this.formatMoney(b.monthly)}/mo (Budgets tab income limits). ${spendNote}`;
             }
