@@ -539,6 +539,7 @@ document.addEventListener("alpine:init", () => {
             income_breakdown: [],
             category_status: [],
             overall_status: {},
+            monthly_savings: { months: [], year: "", year_to_date: 0, last_12: 0, all_in_window: 0 },
         },
         plan: initialPlan || { month: currentMonth, sections: {}, notes: "" },
         allCategories: initialCategories || [],
@@ -620,6 +621,9 @@ document.addEventListener("alpine:init", () => {
             }
             if (!this.report.category_average_spend || typeof this.report.category_average_spend !== "object") {
                 this.report.category_average_spend = {};
+            }
+            if (!this.report.monthly_savings || typeof this.report.monthly_savings !== "object") {
+                this.report.monthly_savings = { months: [], year: "", year_to_date: 0, last_12: 0, all_in_window: 0 };
             }
             if (!this.report.snapshot) {
                 this.report.snapshot = {
@@ -1136,10 +1140,12 @@ document.addEventListener("alpine:init", () => {
                     months: Number(avg.months) || 0,
                 },
                 income_basis: {
-                    window_days: Number(basis.window_days) || 0,
-                    weekly: Number(basis.weekly) || 0,
                     monthly: Number(basis.monthly) || 0,
                     annual: Number(basis.annual) || 0,
+                    source: basis.source || "",
+                    label: basis.label || "",
+                    window_days: Number(basis.window_days) || 0,
+                    weekly: Number(basis.weekly) || 0,
                     income_in_window: Number(basis.income_in_window) || 0,
                 },
                 next_month: {
@@ -1164,11 +1170,64 @@ document.addEventListener("alpine:init", () => {
         incomeBasisNote() {
             const o = this.outlook();
             const b = o.income_basis;
-            if (o.next_month.income_source === "recent_weekly" && b.weekly > 0) {
+            const src = o.next_month.income_source;
+            const spendNote = `Spending is your recent ${o.averages.months}-month average.`;
+            if ((src === "budgeted_salary" || src === "current_salary") && b.monthly > 0) {
+                return `Based on your current salary: ${this.formatMoney(b.monthly)}/mo (Budgets tab income limits). ${spendNote}`;
+            }
+            if (src === "last_month_salary" && b.monthly > 0) {
+                return `Based on last month's salary: ${this.formatMoney(b.monthly)}/mo. ${spendNote}`;
+            }
+            if (src === "this_month_salary" && b.monthly > 0) {
+                return `Based on this month's salary so far: ${this.formatMoney(b.monthly)}/mo. ${spendNote}`;
+            }
+            if (src === "recent_weekly" && b.weekly > 0) {
                 const weeks = Math.round((b.window_days || 14) / 7);
-                return `Based on your last ${weeks} weeks of pay: ~${this.formatMoney(b.weekly)}/week (≈ ${this.formatMoney(b.monthly)}/mo). Spending is your recent ${o.averages.months}-month average.`;
+                return `Based on your last ${weeks} weeks of pay: ~${this.formatMoney(b.weekly)}/week (≈ ${this.formatMoney(b.monthly)}/mo). ${spendNote}`;
             }
             return `Projected from your last ${o.averages.months}-month average.`;
+        },
+
+        monthlySavings() {
+            const s = this.report.monthly_savings || {};
+            const months = Array.isArray(s.months) ? s.months : [];
+            return {
+                months,
+                year: s.year || (this.currentMonth || "").slice(0, 4),
+                year_to_date: Number(s.year_to_date) || 0,
+                last_12: Number(s.last_12) || 0,
+                all_in_window: Number(s.all_in_window) || 0,
+            };
+        },
+
+        /** Newest month first for the Savings tab table. */
+        savingsHistoryRows() {
+            const rows = this.monthlySavings().months.slice();
+            rows.reverse();
+            const maxAbs = Math.max(1, ...rows.map((r) => Math.abs(Number(r.net) || 0)));
+            return rows.map((r) => {
+                const net = Number(r.net) || 0;
+                return {
+                    month: r.month,
+                    in: Number(r.in) || 0,
+                    out: Number(r.out) || 0,
+                    net,
+                    running: Number(r.running) || 0,
+                    outcome: r.outcome || (net >= 0 ? "save" : "loss"),
+                    barPct: (Math.abs(net) / maxAbs) * 100,
+                    isCurrent: r.month === this.currentMonth,
+                };
+            });
+        },
+
+        goToSavingsTab() {
+            this.view = "savings";
+        },
+
+        openSavingsMonth(m) {
+            if (!m || m === this.currentMonth) return;
+            this.currentMonth = m;
+            this.switchMonth();
         },
 
         /** Width % of the current-month in/out track, scaled to the larger of the two. */
@@ -1271,6 +1330,9 @@ document.addEventListener("alpine:init", () => {
                     }
                 }
                 if (!data.cash_flow_series) data.cash_flow_series = [];
+                if (!data.monthly_savings || typeof data.monthly_savings !== "object") {
+                    data.monthly_savings = { months: [], year: "", year_to_date: 0, last_12: 0, all_in_window: 0 };
+                }
                 if (!data.category_average_spend) data.category_average_spend = {};
                 this.report = data;
                 if (data.plan) {
