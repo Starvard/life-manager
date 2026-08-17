@@ -99,8 +99,108 @@
           "notes": ""
         }
       ]
+    },
+    "2026-W34": {
+      "breakfast": [
+        {
+          "id": "0ff5ebd096d7",
+          "recipe_id": "33a72e2436a2",
+          "name": "Cottage cheese berry bowls",
+          "notes": ""
+        },
+        {
+          "id": "6a56fc31e8c7",
+          "recipe_id": "5cc8ef49c306",
+          "name": "Turkey sausage scramble + fruit",
+          "notes": ""
+        }
+      ],
+      "lunch": [
+        {
+          "id": "4244506a6c18",
+          "recipe_id": "d5ac28626bc8",
+          "name": "Leftovers from dinner",
+          "notes": ""
+        }
+      ],
+      "dinner": [
+        {
+          "id": "e157eeb51175",
+          "recipe_id": "c98c7165be7b",
+          "name": "Sheet-pan honey-mustard salmon",
+          "notes": ""
+        },
+        {
+          "id": "82bbbf8a21f6",
+          "recipe_id": "98ec97c55f65",
+          "name": "Turkey taco bowls",
+          "notes": ""
+        },
+        {
+          "id": "d33773260be9",
+          "recipe_id": "d5d62155078d",
+          "name": "Honey-garlic chicken thighs with carrots and rice",
+          "notes": ""
+        },
+        {
+          "id": "d27218f4d7ae",
+          "recipe_id": "89baf61974f7",
+          "name": "Pork tenderloin with apples and Brussels sprouts",
+          "notes": ""
+        },
+        {
+          "id": "d31e00c54dfd",
+          "recipe_id": "f64bd408fba9",
+          "name": "Sausage, white bean, and kale skillet",
+          "notes": ""
+        }
+      ],
+      "snack": [
+        {
+          "id": "710f07cc2650",
+          "recipe_id": null,
+          "name": "Bell peppers + hummus",
+          "notes": ""
+        },
+        {
+          "id": "447d9a0b35e5",
+          "recipe_id": null,
+          "name": "Oranges",
+          "notes": ""
+        },
+        {
+          "id": "fb47863cb978",
+          "recipe_id": null,
+          "name": "Cottage cheese cups",
+          "notes": ""
+        },
+        {
+          "id": "ba9ddc9451c9",
+          "recipe_id": null,
+          "name": "Popcorn",
+          "notes": ""
+        },
+        {
+          "id": "621d5134ba3b",
+          "recipe_id": null,
+          "name": "Cheese + apple slices",
+          "notes": ""
+        },
+        {
+          "id": "f4f4f76d32c9",
+          "recipe_id": null,
+          "name": "Trail mix",
+          "notes": ""
+        },
+        {
+          "id": "7df2294e6a42",
+          "recipe_id": null,
+          "name": "Cucumber + ranch",
+          "notes": ""
+        }
+      ]
     }
   },
   "version": 2,
-  "active_seed": "easy-weekly-2026-w32-v6"
+  "active_seed": "easy-weekly-2026-w34-v1"
 }
