@@ -25,10 +25,10 @@ If a phone still shows an old budget UI or wrong numbers after deploy: the insta
 Keep the existing Recipes tab format (Menu + Grocery lists — not a per-day calendar). When asked for a new week, write a **completely new** plan in `services/easy_weekly_seed.py` and bump `SEED_ID` (and `WEEK_KEY`) so it applies once on startup.
 
 Household rules:
-- Breakfast: a small pool (usually 2 easy, high-protein options)
+- Breakfast: a small pool (usually 2 easy, high-protein options). Pancakes are fine. A savory scramble should include **real veggies plus micro greens**. **No cottage cheese.**
 - Lunch: leftovers from dinner
-- Dinner: 5 meals, each covering dinner + next-day lunch for **2 adults + 1 kid** (~**5–6 servings**); pack leftovers before sitting down
-- Snacks: grab-and-go list (no full recipes required)
+- Dinner: 5 meals, each covering dinner + next-day lunch for **2 adults + 1 kid** (~**5–6 servings**); pack leftovers before sitting down. Prefer sheet-pan / oven / pasta-pot over **skillet dinners**. Extra vegetables on every plate.
+- Snacks: grab-and-go list (no full recipes required); no cottage cheese
 - Grocery: amounts on every row; replace last week’s specials; **do not uncheck** pantry staples already marked as have
 
 ## If something is unclear

@@ -103,21 +103,21 @@
     "2026-W34": {
       "breakfast": [
         {
-          "id": "0ff5ebd096d7",
-          "recipe_id": "33a72e2436a2",
-          "name": "Cottage cheese berry bowls",
+          "id": "67f1d659648f",
+          "recipe_id": "e6b4763711db",
+          "name": "Protein pancakes + berries",
           "notes": ""
         },
         {
-          "id": "6a56fc31e8c7",
-          "recipe_id": "5cc8ef49c306",
-          "name": "Turkey sausage scramble + fruit",
+          "id": "c6e086134455",
+          "recipe_id": "445022b6e4c2",
+          "name": "Turkey sausage scramble with veggies + micro greens",
           "notes": ""
         }
       ],
       "lunch": [
         {
-          "id": "4244506a6c18",
+          "id": "d289894f4e0d",
           "recipe_id": "d5ac28626bc8",
           "name": "Leftovers from dinner",
           "notes": ""
@@ -125,82 +125,88 @@
       ],
       "dinner": [
         {
-          "id": "e157eeb51175",
+          "id": "1c2a7bb6d309",
           "recipe_id": "c98c7165be7b",
           "name": "Sheet-pan honey-mustard salmon",
           "notes": ""
         },
         {
-          "id": "82bbbf8a21f6",
-          "recipe_id": "98ec97c55f65",
-          "name": "Turkey taco bowls",
+          "id": "c8709207f4e2",
+          "recipe_id": "cfe9fb14f54b",
+          "name": "Garlic steak bites with roasted veggies",
           "notes": ""
         },
         {
-          "id": "d33773260be9",
-          "recipe_id": "d5d62155078d",
-          "name": "Honey-garlic chicken thighs with carrots and rice",
+          "id": "27b6b5fc9a45",
+          "recipe_id": "82d74b0e4206",
+          "name": "Honey-garlic chicken with carrots, Brussels, and rice",
           "notes": ""
         },
         {
-          "id": "d27218f4d7ae",
-          "recipe_id": "89baf61974f7",
-          "name": "Pork tenderloin with apples and Brussels sprouts",
+          "id": "381cd1176912",
+          "recipe_id": "67b455f44f2c",
+          "name": "Chicken pesto protein pasta with veggies",
           "notes": ""
         },
         {
-          "id": "d31e00c54dfd",
-          "recipe_id": "f64bd408fba9",
-          "name": "Sausage, white bean, and kale skillet",
+          "id": "007bcb0a5b9d",
+          "recipe_id": "537e49f6401f",
+          "name": "Sheet-pan sausage with peppers and broccoli",
           "notes": ""
         }
       ],
       "snack": [
         {
-          "id": "710f07cc2650",
+          "id": "c7f27406983a",
           "recipe_id": null,
           "name": "Bell peppers + hummus",
           "notes": ""
         },
         {
-          "id": "447d9a0b35e5",
+          "id": "51cc434436cd",
+          "recipe_id": null,
+          "name": "Carrots + hummus",
+          "notes": ""
+        },
+        {
+          "id": "c083380e1759",
+          "recipe_id": null,
+          "name": "Cucumber + ranch",
+          "notes": ""
+        },
+        {
+          "id": "c4c2853b453b",
           "recipe_id": null,
           "name": "Oranges",
           "notes": ""
         },
         {
-          "id": "fb47863cb978",
+          "id": "98d0ebdea306",
           "recipe_id": null,
-          "name": "Cottage cheese cups",
+          "name": "Greek yogurt + berries",
           "notes": ""
         },
         {
-          "id": "ba9ddc9451c9",
-          "recipe_id": null,
-          "name": "Popcorn",
-          "notes": ""
-        },
-        {
-          "id": "621d5134ba3b",
+          "id": "11fa3e7fc666",
           "recipe_id": null,
           "name": "Cheese + apple slices",
           "notes": ""
         },
         {
-          "id": "f4f4f76d32c9",
+          "id": "c091e4281c5c",
           "recipe_id": null,
           "name": "Trail mix",
           "notes": ""
         },
         {
-          "id": "7df2294e6a42",
+          "id": "62144b7d3a46",
           "recipe_id": null,
-          "name": "Cucumber + ranch",
+          "name": "Popcorn",
           "notes": ""
         }
       ]
     }
   },
   "version": 2,
-  "active_seed": "easy-weekly-2026-w34-v1"
+  "active_seed": "easy-weekly-2026-w34-v3"
 }
