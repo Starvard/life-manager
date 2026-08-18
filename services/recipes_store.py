@@ -306,14 +306,22 @@ def replace_grocery_items(items: list[dict]) -> list[dict]:
     return out
 
 
-def merge_grocery_items(items: list[dict], *, aliases: dict[str, str] | None = None) -> dict:
+def merge_grocery_items(
+    items: list[dict],
+    *,
+    aliases: dict[str, str] | None = None,
+    drop_missing: bool = False,
+) -> dict:
     """Sync grocery items with amounts without wiping checked-off items.
 
     - Matching names (case-insensitive): update qty/unit/category; never uncheck
-    - New names: append
+    - New names: append (or, when drop_missing, rebuild in seed order)
     - `aliases` maps old_name_lower -> canonical_name so renamed seed rows
       update the existing line instead of adding a duplicate at the bottom
     - Optionally drop obsolete alias duplicates after updating the canonical row
+    - `drop_missing`: drop rows not in this seed (last week's specials) and
+      keep the list in seed order. Checked pantry staples that still appear
+      stay checked.
 
     Returns {added, updated, removed, skipped, items}.
     """
@@ -325,9 +333,23 @@ def merge_grocery_items(items: list[dict], *, aliases: dict[str, str] | None = N
         if key and key not in by_name:
             by_name[key] = it
 
+    def _find_existing(name: str):
+        key = name.lower()
+        existing = by_name.get(key)
+        if existing:
+            return existing
+        for old_key, canon in alias_map.items():
+            if canon.lower().strip() == key and old_key in by_name:
+                found = by_name[old_key]
+                found["name"] = name
+                return found
+        return None
+
     added = 0
     updated = 0
     skipped = 0
+    rebuilt: list[dict] = []
+
     for raw in items or []:
         name = (raw.get("name") or "").strip()
         if not name:
@@ -337,15 +359,7 @@ def merge_grocery_items(items: list[dict], *, aliases: dict[str, str] | None = N
         unit = (raw.get("unit") or "").strip()
         category = (raw.get("category") or "Other").strip() or "Other"
 
-        existing = by_name.get(key)
-        if not existing:
-            # Find via alias: any current item whose name aliases to this canonical name
-            for old_key, canon in alias_map.items():
-                if canon.lower().strip() == key and old_key in by_name:
-                    existing = by_name[old_key]
-                    existing["name"] = name  # rename to clean canonical name
-                    break
-
+        existing = _find_existing(name)
         if existing:
             changed = False
             if qty and existing.get("qty") != qty:
@@ -365,6 +379,7 @@ def merge_grocery_items(items: list[dict], *, aliases: dict[str, str] | None = N
             else:
                 skipped += 1
             by_name[key] = existing
+            rebuilt.append(existing)
             continue
 
         item = {
@@ -377,19 +392,25 @@ def merge_grocery_items(items: list[dict], *, aliases: dict[str, str] | None = N
             "recipe_id": raw.get("recipe_id") or None,
             "added": raw.get("added") or _now_iso(),
         }
-        data["items"].append(item)
+        rebuilt.append(item)
         by_name[key] = item
         added += 1
+        if not drop_missing:
+            data["items"].append(item)
 
-    # Drop obsolete duplicates whose names are alias keys for a canonical row
     removed = 0
-    if alias_map:
+    if drop_missing:
+        old_ids = {it.get("id") for it in data["items"]}
+        new_ids = {it.get("id") for it in rebuilt}
+        removed = len(old_ids - new_ids)
+        data["items"] = rebuilt
+    elif alias_map:
+        # Drop obsolete duplicates whose names are alias keys for a canonical row
         canon_keys = {v.lower().strip() for v in alias_map.values()}
         keep = []
         for it in data["items"]:
             key = (it.get("name") or "").lower().strip()
             if key in alias_map and alias_map[key].lower().strip() in canon_keys:
-                # Keep only if it is the same object as the canonical entry
                 canon_name = alias_map[key].lower().strip()
                 canon_item = by_name.get(canon_name)
                 if canon_item is not None and it is not canon_item and it.get("id") != canon_item.get("id"):

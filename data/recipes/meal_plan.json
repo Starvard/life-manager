@@ -99,8 +99,114 @@
           "notes": ""
         }
       ]
+    },
+    "2026-W34": {
+      "breakfast": [
+        {
+          "id": "67f1d659648f",
+          "recipe_id": "e6b4763711db",
+          "name": "Protein pancakes + berries",
+          "notes": ""
+        },
+        {
+          "id": "c6e086134455",
+          "recipe_id": "445022b6e4c2",
+          "name": "Turkey sausage scramble with veggies + micro greens",
+          "notes": ""
+        }
+      ],
+      "lunch": [
+        {
+          "id": "d289894f4e0d",
+          "recipe_id": "d5ac28626bc8",
+          "name": "Leftovers from dinner",
+          "notes": ""
+        }
+      ],
+      "dinner": [
+        {
+          "id": "1c2a7bb6d309",
+          "recipe_id": "c98c7165be7b",
+          "name": "Sheet-pan honey-mustard salmon",
+          "notes": ""
+        },
+        {
+          "id": "c8709207f4e2",
+          "recipe_id": "cfe9fb14f54b",
+          "name": "Garlic steak bites with roasted veggies",
+          "notes": ""
+        },
+        {
+          "id": "27b6b5fc9a45",
+          "recipe_id": "82d74b0e4206",
+          "name": "Honey-garlic chicken with carrots, Brussels, and rice",
+          "notes": ""
+        },
+        {
+          "id": "381cd1176912",
+          "recipe_id": "67b455f44f2c",
+          "name": "Chicken pesto protein pasta with veggies",
+          "notes": ""
+        },
+        {
+          "id": "007bcb0a5b9d",
+          "recipe_id": "537e49f6401f",
+          "name": "Sheet-pan sausage with peppers and broccoli",
+          "notes": ""
+        }
+      ],
+      "snack": [
+        {
+          "id": "c7f27406983a",
+          "recipe_id": null,
+          "name": "Bell peppers + hummus",
+          "notes": ""
+        },
+        {
+          "id": "51cc434436cd",
+          "recipe_id": null,
+          "name": "Carrots + hummus",
+          "notes": ""
+        },
+        {
+          "id": "c083380e1759",
+          "recipe_id": null,
+          "name": "Cucumber + ranch",
+          "notes": ""
+        },
+        {
+          "id": "c4c2853b453b",
+          "recipe_id": null,
+          "name": "Oranges",
+          "notes": ""
+        },
+        {
+          "id": "98d0ebdea306",
+          "recipe_id": null,
+          "name": "Greek yogurt + berries",
+          "notes": ""
+        },
+        {
+          "id": "11fa3e7fc666",
+          "recipe_id": null,
+          "name": "Cheese + apple slices",
+          "notes": ""
+        },
+        {
+          "id": "c091e4281c5c",
+          "recipe_id": null,
+          "name": "Trail mix",
+          "notes": ""
+        },
+        {
+          "id": "62144b7d3a46",
+          "recipe_id": null,
+          "name": "Popcorn",
+          "notes": ""
+        }
+      ]
     }
   },
   "version": 2,
-  "active_seed": "easy-weekly-2026-w32-v6"
+  "active_seed": "easy-weekly-2026-w34-v3"
 }

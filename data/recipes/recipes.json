@@ -136,7 +136,7 @@
   {
     "id": "d5ac28626bc8",
     "created": "2026-08-03T19:39:01Z",
-    "updated": "2026-08-03T20:50:29Z",
+    "updated": "2026-08-17T15:20:37Z",
     "name": "Leftovers from dinner",
     "source": "Life Manager",
     "source_url": "",
@@ -157,7 +157,7 @@
         "unit": ""
       },
       {
-        "name": "salad greens (optional)",
+        "name": "salad greens or micro greens (optional)",
         "qty": "",
         "unit": ""
       },
@@ -169,8 +169,8 @@
     ],
     "instructions": [
       "Pull last night’s dinner from the fridge.",
-      "Reheat gently until hot (or eat cold if it tastes better that way — salads and wraps often do).",
-      "Add a handful of greens or a squeeze of lemon/hot sauce to freshen it up."
+      "Reheat gently until hot (or eat cold if it tastes better that way — pasta and roasted veg often do).",
+      "Add a handful of greens or micro greens, or a squeeze of lemon/hot sauce, to freshen it up."
     ]
   },
   {
@@ -742,6 +742,1066 @@
       "In the same skillet, melt the remaining butter over medium heat. Add garlic and cook until it starts to sweat (1–2 minutes). Add chanterelles, salt, pepper, and thyme. Cook, stirring frequently, 6–7 minutes until mushrooms release their liquid.",
       "Add marsala and cook until reduced by half. Add heavy cream and reduce by about a quarter (~4 minutes) until the sauce takes on a lovely caramel color.",
       "Serve the fillets covered with the chanterelle marsala sauce. Slice leftover fillets for tomorrow’s lunch."
+    ]
+  },
+  {
+    "id": "33a72e2436a2",
+    "created": "2026-08-17T11:24:08Z",
+    "updated": "2026-08-17T11:24:08Z",
+    "name": "Cottage cheese berry bowls",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "2",
+    "prep_time": "5 min",
+    "cook_time": "0 min",
+    "notes": "No-cook, high-protein breakfast. Frozen berries work thawed or warmed 30 seconds.",
+    "tags": [
+      "easy weekly",
+      "breakfast",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "cottage cheese",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "blueberries or mixed berries",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "granola",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "honey (optional)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cinnamon",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Spoon cottage cheese into two bowls.",
+      "Top with a generous handful of berries and a sprinkle of granola.",
+      "Dust with cinnamon. Drizzle a little honey only if you want sweetness."
+    ]
+  },
+  {
+    "id": "5cc8ef49c306",
+    "created": "2026-08-17T11:24:08Z",
+    "updated": "2026-08-17T11:24:08Z",
+    "name": "Turkey sausage scramble + fruit",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "2",
+    "prep_time": "5 min",
+    "cook_time": "12 min",
+    "notes": "Savory, filling, and fast. Use pre-cooked turkey sausage links sliced up if that’s easier.",
+    "tags": [
+      "easy weekly",
+      "breakfast",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "turkey sausage",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "eggs",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "bell pepper or spinach",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "olive oil or butter",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black pepper",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "fruit (banana, orange, or berries)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salsa (optional)",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Brown turkey sausage in a skillet, breaking it up; drain extra fat if needed.",
+      "Add chopped pepper or a handful of spinach; cook 1–2 minutes.",
+      "Pour in 4 beaten eggs. Stir over medium-low until just set.",
+      "Season with salt and pepper. Optional salsa on top.",
+      "Serve with a piece of fruit on the side."
+    ]
+  },
+  {
+    "id": "c98c7165be7b",
+    "created": "2026-08-17T11:24:08Z",
+    "updated": "2026-08-17T15:20:37Z",
+    "name": "Sheet-pan honey-mustard salmon",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "5–6",
+    "prep_time": "15 min",
+    "cook_time": "25 min",
+    "notes": "Cook enough for dinner + tomorrow’s lunch: 2 adults + 1 kid ≈ 5–6 servings. Portion leftovers into lunch containers before sitting down. Load the pan with extra veg. Leftover salmon is good cold over greens.",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "salmon fillets",
+        "qty": "2.5",
+        "unit": "lb"
+      },
+      {
+        "name": "baby potatoes or Yukon gold potatoes",
+        "qty": "2.5",
+        "unit": "lb"
+      },
+      {
+        "name": "green beans",
+        "qty": "1",
+        "unit": "lb"
+      },
+      {
+        "name": "asparagus",
+        "qty": "1",
+        "unit": "lb"
+      },
+      {
+        "name": "broccoli",
+        "qty": "1",
+        "unit": "lb"
+      },
+      {
+        "name": "Dijon mustard",
+        "qty": "3",
+        "unit": "Tbsp"
+      },
+      {
+        "name": "honey",
+        "qty": "2",
+        "unit": "Tbsp"
+      },
+      {
+        "name": "olive oil",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "lemon",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black pepper",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "dried dill or parsley (optional)",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Heat oven to 425°F. Halve potatoes; toss with olive oil, salt, pepper, and minced garlic. Roast 12 minutes.",
+      "Stir Dijon, honey, a squeeze of lemon, and a pinch of salt. Pat salmon dry.",
+      "Push potatoes aside. Add green beans, asparagus, and broccoli tossed with oil and salt. Nestle salmon on the pan; brush with honey-mustard.",
+      "Roast 12–15 minutes until salmon flakes and veggies are tender-crisp.",
+      "Finish with lemon. Pack lunch leftovers before plating dinner."
+    ]
+  },
+  {
+    "id": "98ec97c55f65",
+    "created": "2026-08-17T11:24:08Z",
+    "updated": "2026-08-17T11:24:08Z",
+    "name": "Turkey taco bowls",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "5–6",
+    "prep_time": "15 min",
+    "cook_time": "25 min",
+    "notes": "Cook enough for dinner + tomorrow’s lunch: 2 adults + 1 kid ≈ 5–6 servings. Portion leftovers into lunch containers before sitting down. Everyone builds their own bowl — easy for a kid plate.",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "ground turkey",
+        "qty": "2",
+        "unit": "lb"
+      },
+      {
+        "name": "long-grain rice",
+        "qty": "2",
+        "unit": "cups"
+      },
+      {
+        "name": "black beans (cans)",
+        "qty": "2",
+        "unit": "cans"
+      },
+      {
+        "name": "salsa",
+        "qty": "1",
+        "unit": "jar"
+      },
+      {
+        "name": "taco seasoning",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "shredded Mexican cheese",
+        "qty": "2",
+        "unit": "cups"
+      },
+      {
+        "name": "romaine or iceberg",
+        "qty": "1",
+        "unit": "head"
+      },
+      {
+        "name": "avocado",
+        "qty": "2",
+        "unit": ""
+      },
+      {
+        "name": "lime",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cilantro (optional)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "sour cream or Greek yogurt (optional)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "olive oil",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Cook rice according to the package (about 2 cups dry).",
+      "Brown turkey in a large skillet. Stir in taco seasoning and a splash of water; simmer 2 minutes.",
+      "Rinse and warm the black beans. Chop lettuce; slice avocado; warm salsa.",
+      "Build bowls: rice, turkey, beans, salsa, cheese, lettuce, avocado. Lime + cilantro on top.",
+      "Pack leftover bowls (keep lettuce separate if you want it crisp tomorrow)."
+    ]
+  },
+  {
+    "id": "d5d62155078d",
+    "created": "2026-08-17T11:24:08Z",
+    "updated": "2026-08-17T11:24:08Z",
+    "name": "Honey-garlic chicken thighs with carrots and rice",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "5–6",
+    "prep_time": "15 min",
+    "cook_time": "35 min",
+    "notes": "Cook enough for dinner + tomorrow’s lunch: 2 adults + 1 kid ≈ 5–6 servings. Portion leftovers into lunch containers before sitting down. Sticky-savory and reheats well.",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "chicken thighs",
+        "qty": "3",
+        "unit": "lb"
+      },
+      {
+        "name": "carrots",
+        "qty": "2",
+        "unit": "lb"
+      },
+      {
+        "name": "long-grain rice",
+        "qty": "2",
+        "unit": "cups"
+      },
+      {
+        "name": "honey",
+        "qty": "3",
+        "unit": "Tbsp"
+      },
+      {
+        "name": "soy sauce or coconut aminos",
+        "qty": "1/4",
+        "unit": "cup"
+      },
+      {
+        "name": "garlic",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "olive oil",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic powder",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black pepper",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "green onions (optional)",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Heat oven to 425°F. Cut carrots into sticks; toss with oil, salt, and pepper. Spread on a sheet pan.",
+      "Pat chicken dry. Season with salt, pepper, and garlic powder. Nestle on the pan.",
+      "Stir honey, soy sauce, and minced garlic. Spoon over the chicken.",
+      "Roast 30–35 minutes until chicken is 165°F and carrots are tender. Start the rice when the chicken goes in.",
+      "Spoon pan juices over everything. Pack lunch portions of chicken, carrots, and rice."
+    ]
+  },
+  {
+    "id": "89baf61974f7",
+    "created": "2026-08-17T11:24:08Z",
+    "updated": "2026-08-17T11:24:08Z",
+    "name": "Pork tenderloin with apples and Brussels sprouts",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "5–6",
+    "prep_time": "15 min",
+    "cook_time": "30 min",
+    "notes": "Cook enough for dinner + tomorrow’s lunch: 2 adults + 1 kid ≈ 5–6 servings. Portion leftovers into lunch containers before sitting down. Sweet apples make the sprouts easier for a kid plate.",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "pork tenderloin",
+        "qty": "2–2.5",
+        "unit": "lb"
+      },
+      {
+        "name": "Brussels sprouts",
+        "qty": "1.5",
+        "unit": "lb"
+      },
+      {
+        "name": "apples",
+        "qty": "3",
+        "unit": ""
+      },
+      {
+        "name": "olive oil",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "Dijon mustard",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic powder",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "dried thyme or Italian seasoning",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black pepper",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "apple cider vinegar or lemon",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Heat oven to 425°F. Trim and halve Brussels sprouts; core and wedge the apples.",
+      "Toss sprouts and apples with olive oil, salt, pepper, and thyme. Spread on a sheet pan.",
+      "Pat pork dry. Rub with Dijon, garlic powder, salt, and pepper. Set in the center of the pan.",
+      "Roast 22–28 minutes until pork is 145°F. Rest 5 minutes, then slice.",
+      "Splash vinegar or lemon over the sprouts. Pack sliced pork + sides for lunch."
+    ]
+  },
+  {
+    "id": "f64bd408fba9",
+    "created": "2026-08-17T11:24:08Z",
+    "updated": "2026-08-17T11:24:08Z",
+    "name": "Sausage, white bean, and kale skillet",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "5–6",
+    "prep_time": "12 min",
+    "cook_time": "25 min",
+    "notes": "Cook enough for dinner + tomorrow’s lunch: 2 adults + 1 kid ≈ 5–6 servings. Portion leftovers into lunch containers before sitting down. One-pan, hearty, and even better the next day.",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "Italian sausage",
+        "qty": "2",
+        "unit": "lb"
+      },
+      {
+        "name": "cannellini or white beans (cans)",
+        "qty": "2",
+        "unit": "cans"
+      },
+      {
+        "name": "kale",
+        "qty": "2",
+        "unit": "bunches"
+      },
+      {
+        "name": "yellow onion",
+        "qty": "1",
+        "unit": ""
+      },
+      {
+        "name": "garlic",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "chicken broth",
+        "qty": "1",
+        "unit": "cup"
+      },
+      {
+        "name": "olive oil",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "Italian seasoning",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "crushed red pepper (optional)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "parmesan (optional)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "baguette or garlic bread",
+        "qty": "1",
+        "unit": "loaf"
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black pepper",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Brown sausage in a large skillet, breaking it up; scoop out extra fat if the pan is greasy.",
+      "Add chopped onion; cook 3 minutes. Add minced garlic and Italian seasoning; cook 30 seconds.",
+      "Stir in rinsed beans and broth. Simmer 5 minutes.",
+      "Strip kale from stems, chop, and wilt it into the skillet 3–5 minutes. Season with salt, pepper, and chili flake.",
+      "Warm the bread. Serve bowls with optional parmesan. Pack leftover skillet for lunch."
+    ]
+  },
+  {
+    "id": "e6b4763711db",
+    "created": "2026-08-17T15:07:18Z",
+    "updated": "2026-08-17T15:20:37Z",
+    "name": "Protein pancakes + berries",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "2",
+    "prep_time": "8 min",
+    "cook_time": "10 min",
+    "notes": "High-protein pancakes with no cottage cheese. Frozen berries work thawed or warmed in a pan.",
+    "tags": [
+      "easy weekly",
+      "breakfast",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "eggs",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "Greek yogurt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "oat flour or rolled oats (blended)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "protein powder (vanilla or unflavored)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "baking powder",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "blueberries or mixed berries",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cinnamon",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "maple syrup or honey (optional)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "cooking spray or butter",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Blend 2 eggs, 1/2 cup Greek yogurt, 1/2 cup oats/oat flour, 1 scoop protein powder, 1/2 tsp baking powder, and a pinch of cinnamon until smooth.",
+      "Heat a nonstick pan over medium-low; lightly grease.",
+      "Pour small pancakes; cook until bubbles form, flip, cook 1–2 minutes more.",
+      "Warm or scatter berries on top.",
+      "Drizzle a little maple or honey only if you want sweetness."
+    ]
+  },
+  {
+    "id": "445022b6e4c2",
+    "created": "2026-08-17T15:07:19Z",
+    "updated": "2026-08-17T15:20:37Z",
+    "name": "Turkey sausage scramble with veggies + micro greens",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "2",
+    "prep_time": "8 min",
+    "cook_time": "12 min",
+    "notes": "Savory, veggie-heavy scramble. Micro greens go on at the end so they stay fresh and crunchy.",
+    "tags": [
+      "easy weekly",
+      "breakfast",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "turkey sausage",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "eggs",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "bell pepper",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "baby spinach",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "zucchini or onion",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "micro greens",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "olive oil or butter",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black pepper",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "hot sauce (optional)",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Brown turkey sausage in a skillet, breaking it up; drain extra fat if needed.",
+      "Add chopped bell pepper and zucchini/onion; cook 3–4 minutes until softened.",
+      "Stir in a big handful of spinach until just wilted.",
+      "Pour in 4 beaten eggs. Stir over medium-low until just set.",
+      "Season with salt and pepper. Pile a generous handful of micro greens on top (they wilt from the heat).",
+      "Optional: a few drops of hot sauce."
+    ]
+  },
+  {
+    "id": "cfe9fb14f54b",
+    "created": "2026-08-17T15:07:19Z",
+    "updated": "2026-08-17T15:20:37Z",
+    "name": "Garlic steak bites with roasted veggies",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "5–6",
+    "prep_time": "15 min",
+    "cook_time": "25 min",
+    "notes": "Cook enough for dinner + tomorrow’s lunch: 2 adults + 1 kid ≈ 5–6 servings. Portion leftovers into lunch containers before sitting down. All sheet-pan — no skillet. Extra peppers, broccoli, mushrooms, and zucchini on the plate.",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "steak (sirloin, strip, or flank)",
+        "qty": "2–2.5",
+        "unit": "lb"
+      },
+      {
+        "name": "broccoli",
+        "qty": "1.5",
+        "unit": "lb"
+      },
+      {
+        "name": "bell peppers",
+        "qty": "3",
+        "unit": ""
+      },
+      {
+        "name": "mushrooms",
+        "qty": "1",
+        "unit": "lb"
+      },
+      {
+        "name": "zucchini",
+        "qty": "2",
+        "unit": ""
+      },
+      {
+        "name": "olive oil",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic powder",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "smoked paprika",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black pepper",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "lemon",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "parsley (optional)",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Heat oven to 450°F. Cut broccoli, peppers, mushrooms, and zucchini into bite-size pieces. Toss with olive oil, salt, pepper, garlic powder, and paprika. Roast 12 minutes.",
+      "Pat steak dry; cut into 1-inch bites. Toss with oil, minced garlic, salt, and pepper.",
+      "Spread steak bites on the hot pan around the veggies. Roast 8–10 minutes more, until steak is browned and cooked to your liking (don’t overcook).",
+      "Rest 3 minutes. Squeeze lemon over everything; scatter parsley if you have it.",
+      "Pack lunch leftovers before plating dinner."
+    ]
+  },
+  {
+    "id": "82d74b0e4206",
+    "created": "2026-08-17T15:07:19Z",
+    "updated": "2026-08-17T15:20:37Z",
+    "name": "Honey-garlic chicken with carrots, Brussels, and rice",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "5–6",
+    "prep_time": "15 min",
+    "cook_time": "35 min",
+    "notes": "Cook enough for dinner + tomorrow’s lunch: 2 adults + 1 kid ≈ 5–6 servings. Portion leftovers into lunch containers before sitting down. Sticky-savory, extra veg, and it reheats well.",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "chicken thighs",
+        "qty": "3",
+        "unit": "lb"
+      },
+      {
+        "name": "carrots",
+        "qty": "2",
+        "unit": "lb"
+      },
+      {
+        "name": "Brussels sprouts",
+        "qty": "1.5",
+        "unit": "lb"
+      },
+      {
+        "name": "long-grain rice",
+        "qty": "2",
+        "unit": "cups"
+      },
+      {
+        "name": "honey",
+        "qty": "3",
+        "unit": "Tbsp"
+      },
+      {
+        "name": "soy sauce or coconut aminos",
+        "qty": "1/4",
+        "unit": "cup"
+      },
+      {
+        "name": "garlic",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "olive oil",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic powder",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black pepper",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "green onions (optional)",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Heat oven to 425°F. Cut carrots into sticks; trim and halve Brussels sprouts. Toss both with oil, salt, and pepper. Spread on a sheet pan.",
+      "Pat chicken dry. Season with salt, pepper, and garlic powder. Nestle on the pan.",
+      "Stir honey, soy sauce, and minced garlic. Spoon over the chicken.",
+      "Roast 30–35 minutes until chicken is 165°F and veggies are tender. Start the rice when the chicken goes in.",
+      "Spoon pan juices over everything. Pack lunch portions of chicken, carrots, Brussels, and rice."
+    ]
+  },
+  {
+    "id": "67b455f44f2c",
+    "created": "2026-08-17T15:07:19Z",
+    "updated": "2026-08-17T15:20:37Z",
+    "name": "Chicken pesto protein pasta with veggies",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "5–6",
+    "prep_time": "15 min",
+    "cook_time": "25 min",
+    "notes": "Cook enough for dinner + tomorrow’s lunch: 2 adults + 1 kid ≈ 5–6 servings. Portion leftovers into lunch containers before sitting down. Chickpea/lentil pasta for extra protein. Lots of broccoli, zucchini, tomatoes, and spinach.",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "chicken breasts or tenders",
+        "qty": "2",
+        "unit": "lb"
+      },
+      {
+        "name": "chickpea or lentil pasta (Banza)",
+        "qty": "2",
+        "unit": "boxes (8–12 oz)"
+      },
+      {
+        "name": "broccoli",
+        "qty": "1",
+        "unit": "lb"
+      },
+      {
+        "name": "baby spinach",
+        "qty": "5",
+        "unit": "oz"
+      },
+      {
+        "name": "cherry tomatoes",
+        "qty": "1",
+        "unit": "pint"
+      },
+      {
+        "name": "zucchini",
+        "qty": "2",
+        "unit": ""
+      },
+      {
+        "name": "basil pesto",
+        "qty": "1",
+        "unit": "jar"
+      },
+      {
+        "name": "olive oil",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "lemon",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "parmesan (optional)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black pepper",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Heat oven to 425°F. Toss chicken with oil, salt, pepper, and minced garlic. On a second pan, toss broccoli, zucchini, and tomatoes with oil and salt. Roast both 18–22 minutes until chicken is 165°F and veggies are tender.",
+      "Boil the protein pasta 1–2 minutes less than the box; reserve a splash of pasta water and drain.",
+      "In the empty pot, toss hot pasta with pesto and a splash of pasta water until coated.",
+      "Slice the chicken. Fold in roasted veggies and a few big handfuls of spinach (it wilts from the heat). Add lemon juice and optional parmesan.",
+      "Pack lunch leftovers — this pasta is good cold or reheated with a splash of water."
+    ]
+  },
+  {
+    "id": "537e49f6401f",
+    "created": "2026-08-17T15:07:19Z",
+    "updated": "2026-08-17T15:20:37Z",
+    "name": "Sheet-pan sausage with peppers and broccoli",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "5–6",
+    "prep_time": "12 min",
+    "cook_time": "30 min",
+    "notes": "Cook enough for dinner + tomorrow’s lunch: 2 adults + 1 kid ≈ 5–6 servings. Portion leftovers into lunch containers before sitting down. Sheet-pan, not a skillet — peppers, onion, broccoli, and zucchini do most of the work.",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "Italian sausage (links)",
+        "qty": "2",
+        "unit": "lb"
+      },
+      {
+        "name": "bell peppers",
+        "qty": "4",
+        "unit": ""
+      },
+      {
+        "name": "red onion",
+        "qty": "2",
+        "unit": ""
+      },
+      {
+        "name": "broccoli",
+        "qty": "1.5",
+        "unit": "lb"
+      },
+      {
+        "name": "zucchini",
+        "qty": "2",
+        "unit": ""
+      },
+      {
+        "name": "olive oil",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "Italian seasoning",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black pepper",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "lemon",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "parsley (optional)",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Heat oven to 425°F. Slice peppers and onion into strips; cut broccoli and zucchini into chunks.",
+      "Toss all the vegetables with olive oil, minced garlic, Italian seasoning, salt, and pepper. Spread on a large sheet pan.",
+      "Nestle sausage links on top of the veg. Roast 25–30 minutes, turning the sausages once, until browned and cooked through and the vegetables are caramelized.",
+      "Slice sausages. Squeeze lemon over the pan; add parsley if you have it.",
+      "Pack lunch leftovers before plating dinner."
     ]
   }
 ]
