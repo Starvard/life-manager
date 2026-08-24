@@ -136,7 +136,7 @@
   {
     "id": "d5ac28626bc8",
     "created": "2026-08-03T19:39:01Z",
-    "updated": "2026-08-17T15:20:37Z",
+    "updated": "2026-08-24T00:21:23Z",
     "name": "Leftovers from dinner",
     "source": "Life Manager",
     "source_url": "",
@@ -144,7 +144,7 @@
     "servings": "1–2",
     "prep_time": "2 min",
     "cook_time": "5 min",
-    "notes": "Default lunch every day this week. Cook dinner with lunch leftovers in mind.",
+    "notes": "Default adult lunch. Cook dinner with leftovers in mind.",
     "tags": [
       "easy weekly",
       "lunch",
@@ -169,8 +169,8 @@
     ],
     "instructions": [
       "Pull last night’s dinner from the fridge.",
-      "Reheat gently until hot (or eat cold if it tastes better that way — pasta and roasted veg often do).",
-      "Add a handful of greens or micro greens, or a squeeze of lemon/hot sauce, to freshen it up."
+      "Reheat gently until hot (pasta and roasted veg are also fine cold).",
+      "Add greens or a squeeze of lemon to freshen it up."
     ]
   },
   {
@@ -1299,15 +1299,15 @@
   {
     "id": "e6b4763711db",
     "created": "2026-08-17T15:07:18Z",
-    "updated": "2026-08-17T15:20:37Z",
+    "updated": "2026-08-24T00:21:23Z",
     "name": "Protein pancakes + berries",
     "source": "Life Manager",
     "source_url": "",
     "image_url": "",
-    "servings": "2",
+    "servings": "2–3",
     "prep_time": "8 min",
     "cook_time": "10 min",
-    "notes": "High-protein pancakes with no cottage cheese. Frozen berries work thawed or warmed in a pan.",
+    "notes": "High-protein pancakes, no cottage cheese. Make a couple extra for the 5-year-old’s second breakfast / snack.",
     "tags": [
       "easy weekly",
       "breakfast",
@@ -1364,22 +1364,22 @@
       "Blend 2 eggs, 1/2 cup Greek yogurt, 1/2 cup oats/oat flour, 1 scoop protein powder, 1/2 tsp baking powder, and a pinch of cinnamon until smooth.",
       "Heat a nonstick pan over medium-low; lightly grease.",
       "Pour small pancakes; cook until bubbles form, flip, cook 1–2 minutes more.",
-      "Warm or scatter berries on top.",
-      "Drizzle a little maple or honey only if you want sweetness."
+      "Warm or scatter berries on top. Kid plate: extra berries + a little maple.",
+      "Drizzle maple or honey only if you want sweetness."
     ]
   },
   {
     "id": "445022b6e4c2",
     "created": "2026-08-17T15:07:19Z",
-    "updated": "2026-08-17T15:20:37Z",
+    "updated": "2026-08-24T00:21:23Z",
     "name": "Turkey sausage scramble with veggies + micro greens",
     "source": "Life Manager",
     "source_url": "",
     "image_url": "",
-    "servings": "2",
+    "servings": "2–3",
     "prep_time": "8 min",
     "cook_time": "12 min",
-    "notes": "Savory, veggie-heavy scramble. Micro greens go on at the end so they stay fresh and crunchy.",
+    "notes": "Veggie-heavy scramble. Micro greens go on at the end.",
     "tags": [
       "easy weekly",
       "breakfast",
@@ -1438,12 +1438,11 @@
       }
     ],
     "instructions": [
-      "Brown turkey sausage in a skillet, breaking it up; drain extra fat if needed.",
+      "Brown turkey sausage, breaking it up; drain extra fat if needed.",
       "Add chopped bell pepper and zucchini/onion; cook 3–4 minutes until softened.",
       "Stir in a big handful of spinach until just wilted.",
-      "Pour in 4 beaten eggs. Stir over medium-low until just set.",
-      "Season with salt and pepper. Pile a generous handful of micro greens on top (they wilt from the heat).",
-      "Optional: a few drops of hot sauce."
+      "Pour in 5 beaten eggs (extra egg for the kid). Stir over medium-low until just set.",
+      "Season with salt and pepper. Pile micro greens on top."
     ]
   },
   {
@@ -1802,6 +1801,450 @@
       "Nestle sausage links on top of the veg. Roast 25–30 minutes, turning the sausages once, until browned and cooked through and the vegetables are caramelized.",
       "Slice sausages. Squeeze lemon over the pan; add parsley if you have it.",
       "Pack lunch leftovers before plating dinner."
+    ]
+  },
+  {
+    "id": "9a40be7ca9c2",
+    "created": "2026-08-24T00:21:23Z",
+    "updated": "2026-08-24T00:21:23Z",
+    "name": "Kid plate: leftover pasta or PB&J",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "1",
+    "prep_time": "5 min",
+    "cook_time": "2 min",
+    "notes": "5-year-old backup so lunch is not only leftover salmon or salad.",
+    "tags": [
+      "easy weekly",
+      "lunch",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "leftover pasta or sandwich bread",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "peanut butter",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "jelly",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "fruit (apple, banana, or grapes)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "string cheese or cheddar",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "If there is leftover pasta, warm a kid portion with a little butter.",
+      "Otherwise: peanut butter + jelly on bread.",
+      "Add fruit and a cheese stick on the side."
+    ]
+  },
+  {
+    "id": "1e21a7662df3",
+    "created": "2026-08-24T00:21:23Z",
+    "updated": "2026-08-24T00:21:23Z",
+    "name": "Roasted veggie pasta with chicken",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "5–6",
+    "prep_time": "20 min",
+    "cook_time": "35 min",
+    "notes": "Cook enough for dinner + tomorrow’s lunch: 2 adults + 1 kid ≈ 5–6 servings. Portion leftovers into lunch containers before sitting down. The two mushroom containers get diced small and cooked long so they melt into the pasta. Use veg already in the fridge.",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "chicken breasts or tenders",
+        "qty": "2",
+        "unit": "lb"
+      },
+      {
+        "name": "regular pasta (penne or rotini)",
+        "qty": "2",
+        "unit": "lb"
+      },
+      {
+        "name": "mushrooms (2 containers you have)",
+        "qty": "2",
+        "unit": "containers"
+      },
+      {
+        "name": "roasted veg you already have (zucchini, broccoli, peppers, tomatoes)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "olive oil",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "butter",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "Italian seasoning",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "lemon",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "parmesan (optional)",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black pepper",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Heat oven to 425°F. Toss chicken with oil, salt, pepper, and Italian seasoning. On a second pan, toss whatever veg you have (zucchini, broccoli, peppers, tomatoes) with oil and salt. Roast both 18–22 minutes until chicken is 165°F.",
+      "Dice both mushroom containers very small (almost a mince). Put them in a wide pot with a knob of butter and a little oil over medium. Cook 18–25 minutes, stirring now and then, until all the water cooks off and they shrink, brown, and taste savory — not spongy. Add minced garlic for the last minute.",
+      "Boil the full 2 lb pasta. Scoop out a cup of pasta water; drain. Hold back a kid portion of plain noodles + butter.",
+      "Toss the rest of the pasta in the mushroom pot with the roasted veg, a splash of pasta water, lemon, and optional parmesan. Slice the chicken over the top.",
+      "Pack lunch leftovers before plating."
+    ]
+  },
+  {
+    "id": "c8dc429363df",
+    "created": "2026-08-24T00:21:23Z",
+    "updated": "2026-08-24T00:21:23Z",
+    "name": "Turkey burgers with sweet potatoes and salad",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "5–6",
+    "prep_time": "15 min",
+    "cook_time": "30 min",
+    "notes": "Cook enough for dinner + tomorrow’s lunch: 2 adults + 1 kid ≈ 5–6 servings. Portion leftovers into lunch containers before sitting down. Oven burgers — no skillet. Kid usually wants ketchup and a bun.",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "ground turkey",
+        "qty": "2",
+        "unit": "lb"
+      },
+      {
+        "name": "burger buns",
+        "qty": "8",
+        "unit": ""
+      },
+      {
+        "name": "sweet potatoes",
+        "qty": "3",
+        "unit": "lb"
+      },
+      {
+        "name": "salad greens",
+        "qty": "1",
+        "unit": "big box"
+      },
+      {
+        "name": "cucumber",
+        "qty": "1",
+        "unit": ""
+      },
+      {
+        "name": "cherry tomatoes",
+        "qty": "1",
+        "unit": "pint"
+      },
+      {
+        "name": "olive oil",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic powder",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "smoked paprika",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black pepper",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "ketchup or mustard (optional)",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Heat oven to 425°F. Cut sweet potatoes into wedges; toss with oil, salt, paprika, and garlic powder. Roast 15 minutes.",
+      "Mix turkey with salt, pepper, and garlic powder. Shape 6–7 burgers (make one smaller for the kid).",
+      "Set burgers on the other side of the sheet pan (or a second pan). Roast 12–15 minutes more, until burgers are 165°F and potatoes are tender.",
+      "Toss greens, cucumber, and tomatoes with oil, lemon or vinegar, salt, and pepper.",
+      "Serve burgers on buns with salad and wedges. Pack extra burgers + potatoes for lunch."
+    ]
+  },
+  {
+    "id": "d8ffd9737fa1",
+    "created": "2026-08-24T00:21:23Z",
+    "updated": "2026-08-24T00:21:23Z",
+    "name": "BBQ chicken thighs with corn and broccoli",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "5–6",
+    "prep_time": "10 min",
+    "cook_time": "35 min",
+    "notes": "Cook enough for dinner + tomorrow’s lunch: 2 adults + 1 kid ≈ 5–6 servings. Portion leftovers into lunch containers before sitting down. Kid-friendly sauce, lots of corn.",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "chicken thighs",
+        "qty": "3",
+        "unit": "lb"
+      },
+      {
+        "name": "corn on the cob (or frozen ears)",
+        "qty": "8",
+        "unit": ""
+      },
+      {
+        "name": "broccoli",
+        "qty": "2",
+        "unit": "lb"
+      },
+      {
+        "name": "BBQ sauce",
+        "qty": "1",
+        "unit": "bottle"
+      },
+      {
+        "name": "olive oil",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic powder",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black pepper",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Heat oven to 425°F. Pat chicken dry; season with salt, pepper, and garlic powder. Brush with BBQ sauce. Roast 20 minutes.",
+      "Toss broccoli with oil and salt. Add broccoli and corn to the pan (or a second pan). Brush chicken with more sauce.",
+      "Roast 12–15 minutes more until chicken is 165°F, broccoli is browned, and corn is tender.",
+      "Brush with a last swipe of sauce. Pack lunch portions of chicken + veg."
+    ]
+  },
+  {
+    "id": "c17088ce7003",
+    "created": "2026-08-24T00:21:23Z",
+    "updated": "2026-08-24T00:21:23Z",
+    "name": "Sheet-pan sausage and peppers",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "5–6",
+    "prep_time": "12 min",
+    "cook_time": "30 min",
+    "notes": "Cook enough for dinner + tomorrow’s lunch: 2 adults + 1 kid ≈ 5–6 servings. Portion leftovers into lunch containers before sitting down. Sheet-pan, not a skillet.",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "Italian sausage (links)",
+        "qty": "2",
+        "unit": "lb"
+      },
+      {
+        "name": "bell peppers",
+        "qty": "5",
+        "unit": ""
+      },
+      {
+        "name": "red onion",
+        "qty": "2",
+        "unit": ""
+      },
+      {
+        "name": "zucchini",
+        "qty": "2",
+        "unit": ""
+      },
+      {
+        "name": "sandwich rolls or baguette",
+        "qty": "1",
+        "unit": "pack / loaf"
+      },
+      {
+        "name": "olive oil",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "Italian seasoning",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black pepper",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "lemon",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Heat oven to 425°F. Slice peppers and onion into strips; chunk the zucchini.",
+      "Toss vegetables with oil, minced garlic, Italian seasoning, salt, and pepper. Spread on a sheet pan.",
+      "Nestle sausage links on top. Roast 25–30 minutes, turning sausages once, until browned and the veg is soft and sweet.",
+      "Slice sausages. Pile into rolls or serve with bread. Lemon over the peppers.",
+      "Pack leftover sausage + peppers for lunch (or a kid roll)."
+    ]
+  },
+  {
+    "id": "dfd4c4d8ff1f",
+    "created": "2026-08-24T00:21:23Z",
+    "updated": "2026-08-24T00:21:23Z",
+    "name": "Sheet-pan lemon salmon with green beans and rice",
+    "source": "Life Manager",
+    "source_url": "",
+    "image_url": "",
+    "servings": "5–6",
+    "prep_time": "12 min",
+    "cook_time": "25 min",
+    "notes": "Cook enough for dinner + tomorrow’s lunch: 2 adults + 1 kid ≈ 5–6 servings. Portion leftovers into lunch containers before sitting down. Simple lemon salmon — lighter night.",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "healthy"
+    ],
+    "ingredients": [
+      {
+        "name": "salmon fillets",
+        "qty": "2.5",
+        "unit": "lb"
+      },
+      {
+        "name": "green beans",
+        "qty": "1.5",
+        "unit": "lb"
+      },
+      {
+        "name": "long-grain rice",
+        "qty": "2",
+        "unit": "cups"
+      },
+      {
+        "name": "lemon",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "olive oil",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "garlic",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "salt",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "black pepper",
+        "qty": "",
+        "unit": ""
+      },
+      {
+        "name": "dried dill or parsley (optional)",
+        "qty": "",
+        "unit": ""
+      }
+    ],
+    "instructions": [
+      "Start the rice (about 2 cups dry).",
+      "Heat oven to 425°F. Toss green beans with oil, salt, and minced garlic. Spread on a sheet pan; roast 8 minutes.",
+      "Pat salmon dry. Season with salt, pepper, lemon zest, and dill. Nestle on the pan; drizzle oil and lemon juice.",
+      "Roast 10–14 minutes until salmon flakes.",
+      "Serve with rice and extra lemon. Pack lunch leftovers (salmon is good cold over the leftover beans + rice)."
     ]
   }
 ]

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Grocery — Week of Aug 24</title>
+  <style>
+    :root { --bg:#0a0a0f; --text:#e8eaed; --muted:#8b8fa3; --accent:#63b3ff; --check:#34d399; --border:rgba(255,255,255,.08); }
+    * { box-sizing: border-box; }
+    body { margin:0 auto; max-width:440px; padding:16px 14px 48px; font:16px/1.4 -apple-system,BlinkMacSystemFont,Inter,sans-serif; background:var(--bg); color:var(--text); }
+    h1 { font-size:1.25rem; margin:0 0 4px; }
+    .sub,.progress { color:var(--muted); font-size:.85rem; margin:0 0 10px; }
+    .progress { color:var(--accent); font-weight:600; }
+    h2 { font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:18px 0 8px; }
+    ul { list-style:none; margin:0; padding:0; }
+    li { display:flex; gap:10px; padding:10px 8px; border-bottom:1px solid var(--border); cursor:pointer; user-select:none; }
+    .box { width:20px; height:20px; flex:0 0 20px; border:1.5px solid var(--muted); border-radius:5px; margin-top:1px; }
+    li.have .box { background:var(--check); border-color:var(--check); }
+    .qty { font-weight:700; min-width:5.2em; }
+    .name { color:#c9cdd6; }
+    li.have .qty, li.have .name { color:var(--muted); text-decoration:line-through; }
+    button { margin-top:18px; background:transparent; color:var(--muted); border:1px solid var(--border); border-radius:999px; padding:8px 14px; font:inherit; font-size:.85rem; }
+  </style>
+</head>
+<body>
+  <h1>Grocery</h1>
+  <p class="sub">Week of Aug 24–30 · amounts on every row · tap to check</p>
+  <p class="progress" id="progress"></p>
+  <div id="list"></div>
+  <button type="button" id="reset">Uncheck all</button>
+<script>
+const KEY = "lm-grocery-w35-v1";
+const ITEMS = [
+  ["Produce", [
+    ["1 clamshell", "micro greens"],
+    ["2 pints", "blueberries or mixed berries"],
+    ["5 oz", "baby spinach"],
+    ["1 big box", "salad greens"],
+    ["2 lb", "broccoli"],
+    ["1.5 lb", "green beans"],
+    ["3 lb", "sweet potatoes"],
+    ["2", "zucchini"],
+    ["7", "bell peppers"],
+    ["2", "red onion"],
+    ["1 pint", "cherry tomatoes"],
+    ["8 ears", "corn on the cob"],
+    ["2 containers", "mushrooms (already have)"],
+    ["10", "apples"],
+    ["1 bunch (~8)", "bananas"],
+    ["2 lb", "grapes"],
+    ["8", "oranges"],
+    ["1", "watermelon (small)"],
+    ["2 lb", "baby carrots"],
+    ["4", "cucumber"],
+    ["1 bunch", "celery"],
+    ["5", "lemon"],
+    ["2 bulbs", "garlic"],
+  ]],
+  ["Meat & Seafood", [
+    ["1 pack", "turkey sausage"],
+    ["2 lb", "ground turkey"],
+    ["2 lb", "chicken breasts or tenders"],
+    ["3 lb", "chicken thighs"],
+    ["2 lb", "Italian sausage links"],
+    ["2.5 lb", "salmon fillets"],
+    ["1 pack", "turkey sticks or meat sticks"],
+  ]],
+  ["Dairy / cold", [
+    ["24 ct", "eggs"],
+    ["32 oz", "Greek yogurt"],
+    ["1 box (8–16)", "yogurt tubes"],
+    ["2 packs", "string cheese"],
+    ["1 (8 oz)", "cheddar block"],
+    ["1 small", "parmesan (optional)"],
+    ["1 gallon", "milk"],
+    ["2 tubs", "hummus"],
+    ["1 bottle", "ranch"],
+    ["1 stick", "butter"],
+    ["1 pack (6–8)", "pudding cups"],
+  ]],
+  ["Frozen", [
+    ["1 box (6–8)", "ice cream cups"],
+  ]],
+  ["Bakery", [
+    ["2 loaves", "sandwich bread"],
+    ["1 pack (8)", "burger buns"],
+    ["1 pack / loaf", "rolls or baguette"],
+    ["1 box", "graham crackers"],
+    ["1 pack", "mini muffins"],
+  ]],
+  ["Snacks", [
+    ["1 big box", "goldfish crackers"],
+    ["1 bag", "pretzel sticks"],
+    ["1 box", "popcorn"],
+    ["1 box", "wheat crackers"],
+    ["1 box", "peanut butter sandwich crackers"],
+    ["1 box", "animal crackers"],
+    ["1 box", "granola bars"],
+    ["1 box (12)", "applesauce pouches"],
+    ["1 box", "fruit snacks"],
+    ["1 pack", "chocolate chip cookies"],
+    ["1 bag", "chips"],
+    ["1 bag", "veggie straws or cheese puffs"],
+    ["1 box", "rice krispie treats"],
+    ["1 jar", "peanut butter"],
+    ["1 jar", "jelly"],
+  ]],
+  ["Pantry — buy", [
+    ["2 lb", "regular pasta (penne or rotini)"],
+    ["1 bag", "long-grain rice"],
+    ["1 bag", "rolled oats / oat flour"],
+    ["1 bottle", "BBQ sauce"],
+  ]],
+  ["Pantry — on hand?", [
+    ["on hand?", "protein powder"],
+    ["on hand?", "olive oil"],
+    ["on hand?", "garlic powder"],
+    ["on hand?", "smoked paprika"],
+    ["on hand?", "Italian seasoning"],
+    ["on hand?", "baking powder"],
+    ["on hand?", "cinnamon"],
+    ["on hand?", "maple syrup or honey"],
+    ["on hand?", "ketchup or mustard"],
+    ["on hand?", "salt"],
+    ["on hand?", "black pepper"],
+  ]],
+];
+const HAVE = new Set(["mushrooms (already have)", "olive oil", "salt", "black pepper"]);
+function load(){ try { return JSON.parse(localStorage.getItem(KEY)||"{}"); } catch { return {}; } }
+function save(s){ localStorage.setItem(KEY, JSON.stringify(s)); }
+function render(){
+  const state = load();
+  const root = document.getElementById("list");
+  root.innerHTML = "";
+  let need=0, have=0;
+  for (const [cat, rows] of ITEMS){
+    const h=document.createElement("h2"); h.textContent=cat; root.appendChild(h);
+    const ul=document.createElement("ul");
+    for (const [qty, name] of rows){
+      const checked = name in state ? state[name] : HAVE.has(name);
+      if (checked) have++; else need++;
+      const li=document.createElement("li");
+      if (checked) li.classList.add("have");
+      li.innerHTML = `<span class="box"></span><span class="qty">${qty}</span><span class="name">${name}</span>`;
+      li.onclick=()=>{ const n=load(); n[name]=!checked; save(n); render(); };
+      ul.appendChild(li);
+    }
+    root.appendChild(ul);
+  }
+  document.getElementById("progress").textContent = `${need} to buy · ${have} already have`;
+}
+document.getElementById("reset").onclick=()=>{ save({}); render(); };
+render();
+</script>
+</body>
+</html>
