@@ -205,8 +205,282 @@
           "notes": ""
         }
       ]
+    },
+    "2026-W35": {
+      "breakfast": [
+        {
+          "id": "33e888883260",
+          "recipe_id": "e6b4763711db",
+          "name": "Protein pancakes + berries",
+          "notes": ""
+        },
+        {
+          "id": "99654ba1f551",
+          "recipe_id": "445022b6e4c2",
+          "name": "Turkey sausage scramble with veggies + micro greens",
+          "notes": ""
+        }
+      ],
+      "lunch": [
+        {
+          "id": "f25f7ab15949",
+          "recipe_id": "d5ac28626bc8",
+          "name": "Leftovers from dinner",
+          "notes": ""
+        },
+        {
+          "id": "15407a51b034",
+          "recipe_id": "9a40be7ca9c2",
+          "name": "Kid plate: leftover pasta or PB&J",
+          "notes": ""
+        }
+      ],
+      "dinner": [
+        {
+          "id": "6c188eea6307",
+          "recipe_id": "1e21a7662df3",
+          "name": "Roasted veggie pasta with chicken",
+          "notes": ""
+        },
+        {
+          "id": "532d0898803b",
+          "recipe_id": "c8dc429363df",
+          "name": "Turkey burgers with sweet potatoes and salad",
+          "notes": ""
+        },
+        {
+          "id": "7a0946d57ea8",
+          "recipe_id": "d8ffd9737fa1",
+          "name": "BBQ chicken thighs with corn and broccoli",
+          "notes": ""
+        },
+        {
+          "id": "1ee789ba0548",
+          "recipe_id": "c17088ce7003",
+          "name": "Sheet-pan sausage and peppers",
+          "notes": ""
+        },
+        {
+          "id": "522b364a4796",
+          "recipe_id": "dfd4c4d8ff1f",
+          "name": "Sheet-pan lemon salmon with green beans and rice",
+          "notes": ""
+        }
+      ],
+      "snack": [
+        {
+          "id": "6c605680c8b5",
+          "recipe_id": null,
+          "name": "Apples (10)",
+          "notes": ""
+        },
+        {
+          "id": "8493c6db3376",
+          "recipe_id": null,
+          "name": "Bananas",
+          "notes": ""
+        },
+        {
+          "id": "03550be2b77b",
+          "recipe_id": null,
+          "name": "Grapes (2 lb)",
+          "notes": ""
+        },
+        {
+          "id": "c152089dd4cf",
+          "recipe_id": null,
+          "name": "Oranges (8)",
+          "notes": ""
+        },
+        {
+          "id": "f0eb2f58d6c3",
+          "recipe_id": null,
+          "name": "Watermelon",
+          "notes": ""
+        },
+        {
+          "id": "69c33925f4f9",
+          "recipe_id": null,
+          "name": "Baby carrots + hummus",
+          "notes": ""
+        },
+        {
+          "id": "7740ace9f7d6",
+          "recipe_id": null,
+          "name": "Cucumber + ranch",
+          "notes": ""
+        },
+        {
+          "id": "5df79db6f904",
+          "recipe_id": null,
+          "name": "Celery + peanut butter",
+          "notes": ""
+        },
+        {
+          "id": "ceecdfb26448",
+          "recipe_id": null,
+          "name": "Bell peppers + hummus",
+          "notes": ""
+        },
+        {
+          "id": "c618ceb0f9d6",
+          "recipe_id": null,
+          "name": "Yogurt tubes",
+          "notes": ""
+        },
+        {
+          "id": "628a49e03e91",
+          "recipe_id": null,
+          "name": "Greek yogurt + berries",
+          "notes": ""
+        },
+        {
+          "id": "9db4401b6363",
+          "recipe_id": null,
+          "name": "String cheese (2 packs)",
+          "notes": ""
+        },
+        {
+          "id": "57219476c428",
+          "recipe_id": null,
+          "name": "Cheddar + wheat crackers",
+          "notes": ""
+        },
+        {
+          "id": "b940c2ea425c",
+          "recipe_id": null,
+          "name": "Hard-boiled eggs",
+          "notes": ""
+        },
+        {
+          "id": "711a09e742ad",
+          "recipe_id": null,
+          "name": "Peanut butter toast",
+          "notes": ""
+        },
+        {
+          "id": "7c19582cfc76",
+          "recipe_id": null,
+          "name": "PB&J halves",
+          "notes": ""
+        },
+        {
+          "id": "d3397a9be5ac",
+          "recipe_id": null,
+          "name": "Granola bars",
+          "notes": ""
+        },
+        {
+          "id": "d918b5a17421",
+          "recipe_id": null,
+          "name": "Graham crackers",
+          "notes": ""
+        },
+        {
+          "id": "57cd98d75e7d",
+          "recipe_id": null,
+          "name": "Applesauce pouches (12)",
+          "notes": ""
+        },
+        {
+          "id": "1258b08a24b1",
+          "recipe_id": null,
+          "name": "Apple slices + peanut butter",
+          "notes": ""
+        },
+        {
+          "id": "6bed44d66704",
+          "recipe_id": null,
+          "name": "Frozen grapes",
+          "notes": ""
+        },
+        {
+          "id": "3460e5520dc7",
+          "recipe_id": null,
+          "name": "Mini muffins",
+          "notes": ""
+        },
+        {
+          "id": "52a7ae2cad3a",
+          "recipe_id": null,
+          "name": "Goldfish (big box)",
+          "notes": ""
+        },
+        {
+          "id": "51cdb4e3c638",
+          "recipe_id": null,
+          "name": "Pretzel sticks",
+          "notes": ""
+        },
+        {
+          "id": "7caf67e4b235",
+          "recipe_id": null,
+          "name": "Popcorn",
+          "notes": ""
+        },
+        {
+          "id": "552528db6890",
+          "recipe_id": null,
+          "name": "Peanut butter sandwich crackers",
+          "notes": ""
+        },
+        {
+          "id": "a759dee7c2b6",
+          "recipe_id": null,
+          "name": "Animal crackers",
+          "notes": ""
+        },
+        {
+          "id": "ff1e88c7989f",
+          "recipe_id": null,
+          "name": "Turkey stick + cheese",
+          "notes": ""
+        },
+        {
+          "id": "8ab3e124b372",
+          "recipe_id": null,
+          "name": "Chips",
+          "notes": ""
+        },
+        {
+          "id": "0c3e5f76bfea",
+          "recipe_id": null,
+          "name": "Veggie straws or cheese puffs",
+          "notes": ""
+        },
+        {
+          "id": "a739c93aeb20",
+          "recipe_id": null,
+          "name": "Pudding cups",
+          "notes": ""
+        },
+        {
+          "id": "243a6698980f",
+          "recipe_id": null,
+          "name": "Fruit snacks",
+          "notes": ""
+        },
+        {
+          "id": "e809b2a0dd9a",
+          "recipe_id": null,
+          "name": "Chocolate chip cookies",
+          "notes": ""
+        },
+        {
+          "id": "3e22ed49a2d9",
+          "recipe_id": null,
+          "name": "Rice krispie treats",
+          "notes": ""
+        },
+        {
+          "id": "f87407a6cb18",
+          "recipe_id": null,
+          "name": "Ice cream cups",
+          "notes": ""
+        }
+      ]
     }
   },
   "version": 2,
-  "active_seed": "easy-weekly-2026-w34-v3"
+  "active_seed": "easy-weekly-2026-w35-v1"
 }

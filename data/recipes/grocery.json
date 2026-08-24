@@ -3,8 +3,8 @@
     {
       "id": "3949fb02e56b",
       "name": "micro greens",
-      "qty": "2",
-      "unit": "clamshells",
+      "qty": "1",
+      "unit": "clamshell",
       "category": "Produce",
       "checked": false,
       "recipe_id": null,
@@ -23,7 +23,7 @@
     {
       "id": "82de5696c603",
       "name": "baby spinach",
-      "qty": "10",
+      "qty": "5",
       "unit": "oz",
       "category": "Produce",
       "checked": false,
@@ -31,19 +31,19 @@
       "added": "2026-08-17T15:07:19Z"
     },
     {
-      "id": "47c0143da362",
-      "name": "broccoli",
-      "qty": "5",
-      "unit": "lb",
+      "id": "7d1236b2b14d",
+      "name": "salad greens",
+      "qty": "1",
+      "unit": "big box",
       "category": "Produce",
       "checked": false,
       "recipe_id": null,
-      "added": "2026-08-17T15:07:19Z"
+      "added": "2026-08-24T00:21:23Z"
     },
     {
-      "id": "0df51d11eff9",
-      "name": "asparagus",
-      "qty": "1",
+      "id": "47c0143da362",
+      "name": "broccoli",
+      "qty": "2",
       "unit": "lb",
       "category": "Produce",
       "checked": false,
@@ -53,16 +53,6 @@
     {
       "id": "f8c11354b3bf",
       "name": "green beans",
-      "qty": "1",
-      "unit": "lb",
-      "category": "Produce",
-      "checked": false,
-      "recipe_id": null,
-      "added": "2026-08-17T11:24:08Z"
-    },
-    {
-      "id": "014666837d47",
-      "name": "Brussels sprouts",
       "qty": "1.5",
       "unit": "lb",
       "category": "Produce",
@@ -71,19 +61,19 @@
       "added": "2026-08-17T11:24:08Z"
     },
     {
-      "id": "1bbc0ba43e9e",
-      "name": "carrots",
+      "id": "cce86e4a493e",
+      "name": "sweet potatoes",
       "qty": "3",
       "unit": "lb",
       "category": "Produce",
       "checked": false,
       "recipe_id": null,
-      "added": "2026-08-03T20:46:43Z"
+      "added": "2026-08-24T00:21:23Z"
     },
     {
       "id": "a239b2153921",
       "name": "zucchini",
-      "qty": "6",
+      "qty": "2",
       "unit": "",
       "category": "Produce",
       "checked": false,
@@ -93,7 +83,7 @@
     {
       "id": "e10501972482",
       "name": "bell peppers",
-      "qty": "8",
+      "qty": "7",
       "unit": "",
       "category": "Produce",
       "checked": false,
@@ -101,10 +91,10 @@
       "added": "2026-08-03T20:46:03Z"
     },
     {
-      "id": "f068dd278c4f",
-      "name": "mushrooms",
-      "qty": "1",
-      "unit": "lb",
+      "id": "b283f57a9630",
+      "name": "red onion",
+      "qty": "2",
+      "unit": "",
       "category": "Produce",
       "checked": false,
       "recipe_id": null,
@@ -121,24 +111,34 @@
       "added": "2026-08-17T15:07:19Z"
     },
     {
-      "id": "b283f57a9630",
-      "name": "red onion",
-      "qty": "2",
-      "unit": "",
+      "id": "ed1f0bdac5f9",
+      "name": "corn on the cob",
+      "qty": "8",
+      "unit": "ears",
       "category": "Produce",
       "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "f068dd278c4f",
+      "name": "mushrooms (2 containers \u2014 already have)",
+      "qty": "2",
+      "unit": "containers",
+      "category": "Produce",
+      "checked": true,
       "recipe_id": null,
       "added": "2026-08-17T15:07:19Z"
     },
     {
-      "id": "ae8aa0f523a0",
-      "name": "baby potatoes or Yukon gold potatoes",
-      "qty": "2.5",
-      "unit": "lb",
+      "id": "92764772eb7d",
+      "name": "apples",
+      "qty": "10",
+      "unit": "",
       "category": "Produce",
       "checked": false,
       "recipe_id": null,
-      "added": "2026-08-03T20:46:03Z"
+      "added": "2026-08-03T20:46:43Z"
     },
     {
       "id": "f6fdba2a025f",
@@ -151,19 +151,19 @@
       "added": "2026-08-03T20:46:43Z"
     },
     {
-      "id": "92764772eb7d",
-      "name": "apples",
-      "qty": "6",
-      "unit": "",
+      "id": "55919123b880",
+      "name": "grapes",
+      "qty": "2",
+      "unit": "lb",
       "category": "Produce",
       "checked": false,
       "recipe_id": null,
-      "added": "2026-08-03T20:46:43Z"
+      "added": "2026-08-24T00:21:23Z"
     },
     {
       "id": "16d100bb31fd",
       "name": "oranges",
-      "qty": "6",
+      "qty": "8",
       "unit": "",
       "category": "Produce",
       "checked": false,
@@ -171,14 +171,44 @@
       "added": "2026-08-17T11:24:08Z"
     },
     {
+      "id": "da53a25a01e0",
+      "name": "watermelon (small)",
+      "qty": "1",
+      "unit": "",
+      "category": "Produce",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "b4c1f96c06f6",
+      "name": "baby carrots",
+      "qty": "2",
+      "unit": "lb",
+      "category": "Produce",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
       "id": "8db3cee98d58",
       "name": "cucumber",
-      "qty": "2",
+      "qty": "4",
       "unit": "",
       "category": "Produce",
       "checked": false,
       "recipe_id": null,
       "added": "2026-08-17T11:24:08Z"
+    },
+    {
+      "id": "fa10e24ac19e",
+      "name": "celery",
+      "qty": "1",
+      "unit": "bunch",
+      "category": "Produce",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
     },
     {
       "id": "6933888717fe",
@@ -201,26 +231,6 @@
       "added": "2026-08-03T20:46:03Z"
     },
     {
-      "id": "3eafd176b00b",
-      "name": "parsley (optional)",
-      "qty": "1",
-      "unit": "bunch",
-      "category": "Produce",
-      "checked": false,
-      "recipe_id": null,
-      "added": "2026-08-17T15:07:19Z"
-    },
-    {
-      "id": "b16811bd7fd0",
-      "name": "green onions (optional)",
-      "qty": "1",
-      "unit": "bunch",
-      "category": "Produce",
-      "checked": false,
-      "recipe_id": null,
-      "added": "2026-08-17T11:24:08Z"
-    },
-    {
       "id": "b6b26fec773b",
       "name": "turkey sausage",
       "qty": "1",
@@ -231,19 +241,19 @@
       "added": "2026-08-17T11:24:08Z"
     },
     {
-      "id": "7b51c10bf8e8",
-      "name": "salmon fillets",
-      "qty": "2.5",
+      "id": "d393bffbea96",
+      "name": "ground turkey",
+      "qty": "2",
       "unit": "lb",
       "category": "Meat & Seafood",
       "checked": false,
       "recipe_id": null,
-      "added": "2026-08-17T11:24:08Z"
+      "added": "2026-08-24T00:21:23Z"
     },
     {
-      "id": "6fb49f1c0122",
-      "name": "steak (sirloin, strip, or flank)",
-      "qty": "2–2.5",
+      "id": "b4bc4e33314c",
+      "name": "chicken breasts or tenders",
+      "qty": "2",
       "unit": "lb",
       "category": "Meat & Seafood",
       "checked": false,
@@ -261,16 +271,6 @@
       "added": "2026-08-03T20:46:03Z"
     },
     {
-      "id": "b4bc4e33314c",
-      "name": "chicken breasts or tenders",
-      "qty": "2",
-      "unit": "lb",
-      "category": "Meat & Seafood",
-      "checked": false,
-      "recipe_id": null,
-      "added": "2026-08-17T15:07:19Z"
-    },
-    {
       "id": "fd039e08d513",
       "name": "Italian sausage (links)",
       "qty": "2",
@@ -281,9 +281,29 @@
       "added": "2026-08-17T11:24:08Z"
     },
     {
+      "id": "7b51c10bf8e8",
+      "name": "salmon fillets",
+      "qty": "2.5",
+      "unit": "lb",
+      "category": "Meat & Seafood",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-17T11:24:08Z"
+    },
+    {
+      "id": "ecb5c396785f",
+      "name": "turkey sticks or meat sticks",
+      "qty": "1",
+      "unit": "pack",
+      "category": "Meat & Seafood",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
       "id": "5248b08e2e3b",
       "name": "eggs",
-      "qty": "18",
+      "qty": "24",
       "unit": "ct",
       "category": "Dairy",
       "checked": false,
@@ -301,6 +321,36 @@
       "added": "2026-08-03T20:46:03Z"
     },
     {
+      "id": "b4d56c0ee37a",
+      "name": "yogurt tubes",
+      "qty": "1",
+      "unit": "box (8\u201316)",
+      "category": "Dairy",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "459d021c0f4d",
+      "name": "string cheese or cheese sticks",
+      "qty": "2",
+      "unit": "packs",
+      "category": "Dairy",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-03T20:46:43Z"
+    },
+    {
+      "id": "21896dcf6a3f",
+      "name": "cheddar block",
+      "qty": "1",
+      "unit": "8 oz",
+      "category": "Dairy",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
       "id": "3b12212bee18",
       "name": "parmesan (optional)",
       "qty": "1",
@@ -311,20 +361,10 @@
       "added": "2026-08-03T20:46:03Z"
     },
     {
-      "id": "459d021c0f4d",
-      "name": "string cheese or cheese sticks",
-      "qty": "1",
-      "unit": "pack",
-      "category": "Dairy",
-      "checked": false,
-      "recipe_id": null,
-      "added": "2026-08-03T20:46:43Z"
-    },
-    {
       "id": "05737e4ff7f1",
       "name": "milk",
       "qty": "1",
-      "unit": "half-gal",
+      "unit": "gallon",
       "category": "Dairy",
       "checked": false,
       "recipe_id": null,
@@ -333,8 +373,8 @@
     {
       "id": "17d0d4d283b2",
       "name": "hummus",
-      "qty": "1",
-      "unit": "tub",
+      "qty": "2",
+      "unit": "tubs",
       "category": "Dairy",
       "checked": false,
       "recipe_id": null,
@@ -361,24 +401,94 @@
       "added": "2026-08-03T20:46:03Z"
     },
     {
-      "id": "abcd1bf21a44",
-      "name": "bread (sandwich loaf)",
+      "id": "73b81c2396ad",
+      "name": "pudding cups",
       "qty": "1",
-      "unit": "loaf",
+      "unit": "pack (6\u20138)",
+      "category": "Dairy",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "57dbcfbe375c",
+      "name": "ice cream cups",
+      "qty": "1",
+      "unit": "box (6\u20138)",
+      "category": "Frozen",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "abcd1bf21a44",
+      "name": "sandwich bread",
+      "qty": "2",
+      "unit": "loaves",
       "category": "Bakery",
       "checked": false,
       "recipe_id": null,
       "added": "2026-08-03T20:46:43Z"
     },
     {
-      "id": "76a5294e8b64",
-      "name": "trail mix",
+      "id": "a0c4fa1fc57c",
+      "name": "burger buns",
+      "qty": "1",
+      "unit": "pack (8)",
+      "category": "Bakery",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "f1407176eaa6",
+      "name": "sandwich rolls or baguette",
+      "qty": "1",
+      "unit": "pack / loaf",
+      "category": "Bakery",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "abf16469e227",
+      "name": "graham crackers",
+      "qty": "1",
+      "unit": "box",
+      "category": "Bakery",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "54e8fe7b93f3",
+      "name": "mini muffins",
+      "qty": "1",
+      "unit": "pack",
+      "category": "Bakery",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "1ce7068912b7",
+      "name": "goldfish crackers",
+      "qty": "1",
+      "unit": "big box",
+      "category": "Snacks",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "5b1562d50c33",
+      "name": "pretzel sticks",
       "qty": "1",
       "unit": "bag",
       "category": "Snacks",
       "checked": false,
       "recipe_id": null,
-      "added": "2026-08-17T11:24:08Z"
+      "added": "2026-08-24T00:21:23Z"
     },
     {
       "id": "38dda3d671a3",
@@ -391,6 +501,106 @@
       "added": "2026-08-17T11:24:08Z"
     },
     {
+      "id": "4098113c7f40",
+      "name": "wheat crackers",
+      "qty": "1",
+      "unit": "box",
+      "category": "Snacks",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "579be879c7ce",
+      "name": "peanut butter sandwich crackers",
+      "qty": "1",
+      "unit": "box",
+      "category": "Snacks",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "96b1597111e0",
+      "name": "animal crackers",
+      "qty": "1",
+      "unit": "box",
+      "category": "Snacks",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "e31ac3173d02",
+      "name": "granola bars",
+      "qty": "1",
+      "unit": "box",
+      "category": "Snacks",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "4cdc3d14d239",
+      "name": "applesauce pouches",
+      "qty": "1",
+      "unit": "box (12)",
+      "category": "Snacks",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "838cd515eb4d",
+      "name": "fruit snacks",
+      "qty": "1",
+      "unit": "box",
+      "category": "Snacks",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "4bf2b38c0d45",
+      "name": "chocolate chip cookies",
+      "qty": "1",
+      "unit": "pack",
+      "category": "Snacks",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "c7ecf1e3e1c1",
+      "name": "chips",
+      "qty": "1",
+      "unit": "bag",
+      "category": "Snacks",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "896a13c87ff7",
+      "name": "veggie straws or cheese puffs",
+      "qty": "1",
+      "unit": "bag",
+      "category": "Snacks",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "5a0a7aa75a31",
+      "name": "rice krispie treats",
+      "qty": "1",
+      "unit": "box",
+      "category": "Snacks",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
       "id": "c6a05b06563f",
       "name": "peanut butter",
       "qty": "1",
@@ -399,6 +609,36 @@
       "checked": false,
       "recipe_id": null,
       "added": "2026-08-03T20:46:43Z"
+    },
+    {
+      "id": "6a91c6fc346c",
+      "name": "jelly",
+      "qty": "1",
+      "unit": "jar",
+      "category": "Pantry",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "b8c8c8946d7c",
+      "name": "regular pasta (penne or rotini)",
+      "qty": "2",
+      "unit": "lb",
+      "category": "Pantry",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
+    },
+    {
+      "id": "b09a4449b447",
+      "name": "long-grain rice",
+      "qty": "1",
+      "unit": "bag",
+      "category": "Pantry",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-17T11:24:08Z"
     },
     {
       "id": "d5975f1705df",
@@ -421,74 +661,14 @@
       "added": "2026-08-17T15:07:19Z"
     },
     {
-      "id": "51d447af7b4f",
-      "name": "chickpea or lentil pasta (Banza)",
-      "qty": "2",
-      "unit": "boxes",
-      "category": "Pantry",
-      "checked": false,
-      "recipe_id": null,
-      "added": "2026-08-17T15:07:19Z"
-    },
-    {
-      "id": "e431339f1d63",
-      "name": "basil pesto",
+      "id": "4aca63793ec4",
+      "name": "BBQ sauce",
       "qty": "1",
-      "unit": "jar",
+      "unit": "bottle",
       "category": "Pantry",
       "checked": false,
       "recipe_id": null,
-      "added": "2026-08-17T15:07:19Z"
-    },
-    {
-      "id": "b09a4449b447",
-      "name": "long-grain rice",
-      "qty": "1",
-      "unit": "bag",
-      "category": "Pantry",
-      "checked": false,
-      "recipe_id": null,
-      "added": "2026-08-17T11:24:08Z"
-    },
-    {
-      "id": "17aebcaa65df",
-      "name": "honey",
-      "qty": "",
-      "unit": "on hand?",
-      "category": "Pantry",
-      "checked": false,
-      "recipe_id": null,
-      "added": "2026-08-17T11:24:08Z"
-    },
-    {
-      "id": "0a17fa04403d",
-      "name": "maple syrup or honey (optional)",
-      "qty": "",
-      "unit": "on hand?",
-      "category": "Pantry",
-      "checked": false,
-      "recipe_id": null,
-      "added": "2026-08-17T15:07:19Z"
-    },
-    {
-      "id": "3f2bc657e5bb",
-      "name": "Dijon mustard",
-      "qty": "",
-      "unit": "on hand?",
-      "category": "Pantry",
-      "checked": false,
-      "recipe_id": null,
-      "added": "2026-08-03T20:46:03Z"
-    },
-    {
-      "id": "eb55273c1a27",
-      "name": "soy sauce or coconut aminos",
-      "qty": "",
-      "unit": "on hand?",
-      "category": "Pantry",
-      "checked": false,
-      "recipe_id": null,
-      "added": "2026-08-03T20:46:03Z"
+      "added": "2026-08-24T00:21:23Z"
     },
     {
       "id": "146e376f5671",
@@ -551,6 +731,16 @@
       "added": "2026-08-17T11:24:08Z"
     },
     {
+      "id": "0a17fa04403d",
+      "name": "maple syrup or honey (optional)",
+      "qty": "",
+      "unit": "on hand?",
+      "category": "Pantry",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-17T15:07:19Z"
+    },
+    {
       "id": "e5bb188e32e8",
       "name": "dried dill or parsley (optional)",
       "qty": "",
@@ -559,6 +749,16 @@
       "checked": false,
       "recipe_id": null,
       "added": "2026-08-17T11:24:08Z"
+    },
+    {
+      "id": "b2e0fda9198f",
+      "name": "ketchup or mustard (optional)",
+      "qty": "",
+      "unit": "on hand?",
+      "category": "Pantry",
+      "checked": false,
+      "recipe_id": null,
+      "added": "2026-08-24T00:21:23Z"
     },
     {
       "id": "2f76390a8dbf",

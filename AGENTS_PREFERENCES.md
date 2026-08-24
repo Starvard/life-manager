@@ -28,8 +28,8 @@ Household rules:
 - Breakfast: a small pool (usually 2 easy, high-protein options). Pancakes are fine. A savory scramble should include **real veggies plus micro greens**. **No cottage cheese.**
 - Lunch: leftovers from dinner
 - Dinner: 5 meals, each covering dinner + next-day lunch for **2 adults + 1 kid** (~**5–6 servings**); pack leftovers before sitting down. Prefer sheet-pan / oven / pasta-pot over **skillet dinners**. Extra vegetables on every plate.
-- Snacks: grab-and-go list (no full recipes required); no cottage cheese
-- Grocery: amounts on every row; replace last week’s specials; **do not uncheck** pantry staples already marked as have
+- Snacks: a **long, specific** grab-and-go list (not just produce). Mix healthy, filling, sweeter, savory, and treat items. Extra kid food for a 5-year-old (goldfish, yogurt tubes, fruit snacks, cookies, extra bread/pasta). No cottage cheese.
+- Grocery: **amounts on every row**; replace last week’s specials; **do not uncheck** pantry staples already marked as have
 
 ## If something is unclear
 
