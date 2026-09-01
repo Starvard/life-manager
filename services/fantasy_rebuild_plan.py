@@ -1062,7 +1062,14 @@ def generate_rebuild_plan(state: dict) -> dict:
             prn = int(ast2.get("round") or 0)
         except (TypeError, ValueError):
             prn = 0
+        try:
+            pseason = int(ast2.get("season") or 0)
+        except (TypeError, ValueError):
+            pseason = 0
         ds2 = str(ast2.get("display_slot") or "").strip()
+        # Only auto-assume rookies for THIS season's draft, not 2027+ placeholders.
+        if pseason != current_season:
+            continue
         # Default first-round early picks to the model's top rookie if user has not chosen
         if prn == 1 and (ds2 in ("1.01", "1.02", "") or not ds2):
             ex = ar_map.get(aid2) if isinstance(ar_map.get(aid2), dict) else None
