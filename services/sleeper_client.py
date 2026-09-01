@@ -49,6 +49,17 @@ def fetch_user_leagues(user_id: str, sport: str, season: str | int) -> list[dict
     return data if isinstance(data, list) else []
 
 
+def fetch_league(league_id: str) -> dict | None:
+    lid = (league_id or "").strip()
+    if not lid:
+        return None
+    try:
+        data = _get_json(f"{SLEEPER_BASE}/league/{lid}")
+    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError, OSError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
 def fetch_league_rosters(league_id: str) -> list[dict]:
     lid = (league_id or "").strip()
     if not lid:
@@ -126,6 +137,57 @@ def fetch_draft(draft_id: str) -> dict | None:
     except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError, OSError):
         return None
     return data if isinstance(data, dict) else None
+
+
+def fetch_league_transactions(league_id: str, week: int) -> list[dict]:
+    """Sleeper transactions for one scoring week (includes offseason week 1 dumps)."""
+    lid = (league_id or "").strip()
+    if not lid:
+        return []
+    try:
+        w = int(week)
+    except (TypeError, ValueError):
+        return []
+    try:
+        data = _get_json(f"{SLEEPER_BASE}/league/{lid}/transactions/{w}")
+    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError, OSError):
+        return []
+    return data if isinstance(data, list) else []
+
+
+def fetch_league_trades(league_id: str, weeks: list[int] | None = None) -> list[dict]:
+    """Completed trades only, slimmed for the dynasty tape."""
+    lid = (league_id or "").strip()
+    if not lid:
+        return []
+    if not weeks:
+        weeks = list(range(1, 19))
+    out: list[dict] = []
+    seen: set[str] = set()
+    for w in weeks:
+        for t in fetch_league_transactions(lid, w):
+            if not isinstance(t, dict):
+                continue
+            if t.get("type") != "trade":
+                continue
+            if (t.get("status") or "").lower() != "complete":
+                continue
+            tid = str(t.get("transaction_id") or f"{lid}-{w}-{t.get('created')}")
+            if tid in seen:
+                continue
+            seen.add(tid)
+            out.append({
+                "transaction_id": tid,
+                "created": t.get("created"),
+                "roster_ids": t.get("roster_ids") or [],
+                "adds": t.get("adds") or {},
+                "draft_picks": t.get("draft_picks") or [],
+                "waiver_budget": t.get("waiver_budget") or [],
+                "week": w,
+                "league_id": lid,
+            })
+    out.sort(key=lambda x: -(x.get("created") or 0))
+    return out
 
 
 def fetch_draft_traded_picks(draft_id: str) -> list[dict]:
