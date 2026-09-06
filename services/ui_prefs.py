@@ -22,6 +22,7 @@ NAV_TAB_KEYS: tuple[str, ...] = (
     "recipes",
     "research",
     "game",
+    "pokedex",
 )
 
 # Home is where hidden tabs can be restored, so it is intentionally not hideable.
@@ -37,6 +38,7 @@ NAV_TAB_LABELS: dict[str, str] = {
     "recipes": "Recipes",
     "research": "Research",
     "game": "Cat Dash",
+    "pokedex": "Pokédex",
 }
 
 DEFAULT_STATE: dict = {

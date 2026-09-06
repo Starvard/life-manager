@@ -57,6 +57,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1118 0c0 2.5-2 4.5-4.5 4.5H15a2 2 0 100 4h-3a9 9 0 01-9-8.5z"/></svg>
                     <span>Cat Dash</span>
                 </a>
+<a href="{{ url_for('pokedex.page') }}" data-nav-tab="pokedex" class="{% if request.endpoint == 'pokedex.page' %}active{% endif %}{% if 'pokedex' in hidden_nav_tabs %} nav-link-hidden{% endif %}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h4"/></svg><span>Pokédex</span></a>
             </nav>
         </aside>
 
@@ -71,8 +72,8 @@
 
         {# Mobile bottom bar: the 4 everyday tabs stay one tap away; everything
            else lives in a "More" sheet so the bar isn't 9 cramped slivers. #}
-        {% set more_active = request.endpoint in ('cleaning.cleaning_page', 'fantasy_page', 'recipes_page', 'research_page', 'research_am_facility_cost', 'game_page') %}
-        {% set more_all_hidden = 'cleaning' in hidden_nav_tabs and 'fantasy' in hidden_nav_tabs and 'recipes' in hidden_nav_tabs and 'research' in hidden_nav_tabs and 'game' in hidden_nav_tabs %}
+        {% set more_active = request.endpoint in ('cleaning.cleaning_page', 'fantasy_page', 'recipes_page', 'research_page', 'research_am_facility_cost', 'game_page', 'pokedex.page') %}
+        {% set more_all_hidden = 'cleaning' in hidden_nav_tabs and 'fantasy' in hidden_nav_tabs and 'recipes' in hidden_nav_tabs and 'research' in hidden_nav_tabs and 'game' in hidden_nav_tabs and 'pokedex' in hidden_nav_tabs %}
         <nav class="bottom-tabs">
             <a href="{{ url_for('dashboard') }}" data-nav-tab="home" class="{% if request.endpoint == 'dashboard' %}active{% endif %}{% if 'home' in hidden_nav_tabs %} nav-link-hidden{% endif %}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -98,6 +99,7 @@
         </nav>
         <div class="nav-more-backdrop" id="nav-more-backdrop" hidden></div>
         <div class="nav-more-sheet" id="nav-more-sheet" role="menu" aria-label="More sections" hidden>
+<a href="{{ url_for('pokedex.page') }}" data-nav-tab="pokedex" class="{% if request.endpoint == 'pokedex.page' %}active{% endif %}{% if 'pokedex' in hidden_nav_tabs %} nav-link-hidden{% endif %}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h4"/></svg><span>Pokédex</span></a>
             <a href="/cleaning" data-nav-tab="cleaning" class="{% if request.endpoint == 'cleaning.cleaning_page' %}active{% endif %}{% if 'cleaning' in hidden_nav_tabs %} nav-link-hidden{% endif %}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M9 21v-7h6v7"/></svg>
                 <span>Cleaning</span>
