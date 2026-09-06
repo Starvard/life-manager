@@ -95,7 +95,10 @@ from services.app_version import get_app_version
 from seed_data import seed as _seed_data
 _seed_data()
 
+from services.pokedex import bp as pokedex_bp
+
 app = Flask(__name__)
+app.register_blueprint(pokedex_bp)
 app.secret_key = os.environ.get("LM_SECRET_KEY", "life-manager-local-key")
 
 # Cache static assets (CSS/JS/icons) for a year. Every static URL is requested
