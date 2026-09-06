@@ -6,6 +6,7 @@ import json
 import os
 from contextlib import contextmanager
 from pathlib import Path
+from urllib.parse import urlsplit
 from flask import Blueprint, jsonify, render_template, request, Response
 import config
 
@@ -36,7 +37,10 @@ def save(state, path):
 def same_origin():
     # Match the existing household access model, but reject cross-site mutations.
     origin = request.headers.get('Origin')
-    return (not origin or origin == request.host_url.rstrip('/')) and request.headers.get('Sec-Fetch-Site') != 'cross-site'
+    # Fly terminates TLS before forwarding HTTP to Flask. Compare the public
+    # host rather than Flask's internal scheme; never trust forwarded headers.
+    parsed = urlsplit(origin) if origin else None
+    return (not parsed or (parsed.scheme in ('http', 'https') and parsed.netloc == request.host)) and request.headers.get('Sec-Fetch-Site') != 'cross-site'
 
 @bp.get('/pokedex')
 def page():

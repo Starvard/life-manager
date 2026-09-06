@@ -2,7 +2,7 @@
 {% block title %}Family Pokédex · Life Manager{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/pokedex.css') }}?v={{ cache_bust }}">
-<div class="dex" x-data="familyDex()" x-init="init()" x-cloak>
+<div class="dex" x-data="familyDex()" x-cloak>
     <header class="dex-heading"><div><span class="dex-eyebrow">THE ROBINSON COLLECTION</span><h1>A little closer to<br><em>catching them all.</em></h1><p>Your cards. Your people. One big adventure.</p></div><a class="dex-export" href="/api/pokedex/export">Export collection ↗</a></header>
     <nav class="dex-people" aria-label="Choose collection"><template x-for="name in ['Family', ...state.people]" :key="name"><button @click="person=name; page=1" :class="{selected:person===name}" :aria-pressed="person===name"><span class="dex-avatar" x-text="name==='Family'?'✦':name[0]"></span><span x-text="name"></span><small x-text="ownedFor(name)"></small></button></template></nav>
     <p class="dex-error" role="alert" x-show="error"><span x-text="error"></span> <button @click="init()">Reload</button></p>
