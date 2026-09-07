@@ -24,7 +24,7 @@ DEFAULT_STATE: dict = {
         "sleeper_username": DEFAULT_USERNAME,
         "sport": "nfl",
         "season": str(date.today().year),
-        "league_id": "",
+        "league_id": "1327011685650685952",
         "league_name_hint": DEFAULT_LEAGUE_NAME_HINT,
         # Match FantasyCalc query (Sergio Dipp is superflex 12)
         "valuation_num_qbs": 2,
@@ -55,6 +55,7 @@ DEFAULT_STATE: dict = {
     "last_trade_error": None,
     "best_lineup": None,
     "best_lineup_generated_at": None,
+    "league_landscape": None,
 }
 
 
@@ -74,7 +75,11 @@ def state_for_client(state: dict | None) -> dict:
     snap = state.get("cached_snapshot")
     slim_snap = None
     if isinstance(snap, dict):
-        slim_snap = {k: v for k, v in snap.items() if k not in ("league_rosters", "league_users")}
+        slim_snap = {
+            k: v
+            for k, v in snap.items()
+            if k not in ("league_rosters", "league_users", "league_trades")
+        }
     out = {k: v for k, v in state.items() if k != "cached_snapshot"}
     out["cached_snapshot"] = slim_snap
     if "best_lineup_with_assumptions" not in out:
@@ -247,6 +252,7 @@ def _merge_rebuild_board_from_snapshot(snapshot: dict, prev: dict | None) -> dic
             extra_pick["display_slot"] = str(pick.get("display_slot"))
         if pick.get("sleeper_draft_id"):
             extra_pick["sleeper_draft_id"] = str(pick.get("sleeper_draft_id"))
+        extra_pick["is_own_original"] = bool(pick.get("is_own_original"))
         assets[key] = _base(key, extra_pick)
 
     for row in snapshot.get("starters") or []:
@@ -344,6 +350,15 @@ def apply_sync_snapshot(snapshot: dict):
         state = generate_rebuild_plan(state)
     except Exception:
         pass
+    if not state.get("league_landscape"):
+        try:
+            from services.fantasy_league import build_league_landscape
+
+            state["league_landscape"] = build_league_landscape(
+                snapshot, {}, state.get("best_lineup")
+            )
+        except Exception:
+            pass
     save_state(state)
 
 

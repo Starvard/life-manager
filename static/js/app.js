@@ -1768,6 +1768,9 @@ document.addEventListener("alpine:init", () => {
         tradeSuggestions: null,
         lastTradeRefresh: null,
         lastTradeError: null,
+        landscape: null,
+        tapeExpanded: false,
+        tapeLimit: 6,
         syncing: false,
         syncMsg: "",
         tradeRefreshing: false,
@@ -1838,6 +1841,44 @@ document.addEventListener("alpine:init", () => {
             this.rookieBoardHint = state.rookie_board_hint || null;
             this.positionStrategyGeneratedAt = state.position_strategy_generated_at || null;
             this.bestLineupWithAssumptions = state.best_lineup_with_assumptions || null;
+            this.landscape = state.league_landscape || null;
+        },
+
+        fmtVal(n) {
+            const x = Number(n);
+            if (Number.isNaN(x)) return "—";
+            return Math.round(x).toLocaleString();
+        },
+
+        assetMeta(p) {
+            if (!p) return "";
+            const bits = [];
+            if (p.pos) bits.push(p.pos);
+            if (p.age != null) bits.push(Math.round(p.age) + "y");
+            if (p.value) bits.push("≈" + this.fmtVal(p.value));
+            return bits.join(" · ");
+        },
+
+        qbLine(t) {
+            const qbs = (t && t.qbs) || [];
+            return qbs.map((q) => q.name).filter(Boolean).join(" · ");
+        },
+
+        priorLine(t) {
+            if (!t || t.prior_wins == null) return "—";
+            const l = t.prior_losses != null ? t.prior_losses : "—";
+            return `${t.prior_wins}–${l}`;
+        },
+
+        topLine(t) {
+            const top = (t && t.top_assets) || [];
+            return top.slice(0, 3).map((p) => p.name).filter(Boolean).join(", ");
+        },
+
+        visibleTape() {
+            const all = (this.landscape && this.landscape.trade_tape) || [];
+            if (this.tapeExpanded) return all;
+            return all.slice(0, this.tapeLimit);
         },
 
         async sync() {
@@ -2091,7 +2132,8 @@ document.addEventListener("alpine:init", () => {
             const bits = [p.name];
             if (p.pos) bits.push(p.pos);
             if (p.team) bits.push(p.team);
-            if (p.fantasy_value != null) bits.push("≈" + p.fantasy_value);
+            const val = p.fantasy_value != null ? p.fantasy_value : p.value;
+            if (val != null && val !== "") bits.push("≈" + val);
             return bits.join(" · ");
         },
 
