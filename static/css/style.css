@@ -1046,6 +1046,32 @@ button.budget-summary-card:focus-visible {
 .fantasy-best-projection { border-style: dashed; opacity: 0.98; }
 .fantasy-best-assumed { box-shadow: inset 0 0 0 1px rgba(150, 180, 255, 0.35); }
 
+/* ── Weekly results + FAAB ─────────────────────────────────── */
+.fantasy-week-card { margin-bottom: 1rem; }
+.fantasy-week-league { margin-top: 0.9rem; padding-top: 0.85rem; border-top: 1px solid var(--border-light); }
+.fantasy-week-league:first-of-type { margin-top: 0.5rem; padding-top: 0; border-top: none; }
+.fantasy-week-head { display: flex; justify-content: space-between; gap: 0.75rem; align-items: flex-start; flex-wrap: wrap; }
+.fantasy-week-name { font-weight: 700; color: var(--text-bright); font-size: 0.98rem; }
+.fantasy-week-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.15rem; }
+.fantasy-week-score { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; font-size: 1.05rem; }
+.fantasy-week-win { color: #5be0a5; }
+.fantasy-week-loss { color: #f1a7a7; }
+.fantasy-week-opp { font-size: 0.72rem; font-weight: 500; color: var(--text-muted); }
+.fantasy-week-notes { margin: 0.45rem 0 0.6rem 1.05rem; padding: 0; font-size: 0.82rem; line-height: 1.4; }
+.fantasy-week-starter-list { list-style: none; margin: 0.3rem 0 0.7rem; padding: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+.fantasy-week-starter-list li { display: grid; grid-template-columns: 4.2rem 1fr auto; gap: 0.4rem; font-size: 0.8rem; }
+.fantasy-week-slot { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+.fantasy-week-pts { font-variant-numeric: tabular-nums; color: var(--text-muted); }
+.fantasy-week-recs { list-style: none; margin: 0.35rem 0 0; padding: 0; }
+.fantasy-week-recs li { padding: 0.45rem 0; border-bottom: 1px solid var(--border-light); }
+.fantasy-week-recs li:last-child { border-bottom: none; }
+.fantasy-week-rec-top { display: flex; flex-wrap: wrap; gap: 0.35rem 0.65rem; align-items: baseline; }
+.fantasy-week-bid { font-size: 0.72rem; font-weight: 700; color: var(--accent); letter-spacing: 0.03em; }
+.fantasy-week-rec-name { font-weight: 600; color: var(--text-bright); }
+.fantasy-week-rec-meta { font-size: 0.72rem; color: var(--text-muted); }
+.fantasy-week-why { font-size: 0.8rem; margin-top: 0.15rem; line-height: 1.35; }
+.fantasy-week-drop { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.1rem; }
+
 /* ── Dynasty path / league power / trade tape ─────────────── */
 .fantasy-path-card { margin-bottom: 1rem; }
 .fantasy-verdict-title { font-size: 1.05rem; font-weight: 700; color: var(--text-bright); margin: 0.15rem 0 0.35rem; line-height: 1.3; }
