@@ -1769,6 +1769,7 @@ document.addEventListener("alpine:init", () => {
         lastTradeRefresh: null,
         lastTradeError: null,
         landscape: null,
+        weeklyReport: null,
         tapeExpanded: false,
         tapeLimit: 6,
         syncing: false,
@@ -1842,6 +1843,30 @@ document.addEventListener("alpine:init", () => {
             this.positionStrategyGeneratedAt = state.position_strategy_generated_at || null;
             this.bestLineupWithAssumptions = state.best_lineup_with_assumptions || null;
             this.landscape = state.league_landscape || null;
+            this.weeklyReport = state.weekly_report || null;
+        },
+
+        weekResultClass(lg) {
+            if (!lg || !lg.result) return "";
+            return lg.result === "W" ? "fantasy-week-win" : "fantasy-week-loss";
+        },
+
+        bidLabel(r) {
+            if (!r) return "";
+            if (r.action === "promote") return "Promote · $0";
+            if (r.bid_low == null) return "";
+            if (r.bid_low === r.bid_high) return "$" + r.bid_high;
+            return "$" + r.bid_low + "–$" + r.bid_high;
+        },
+
+        recMeta(r) {
+            if (!r) return "";
+            const bits = [];
+            if (r.pos) bits.push(r.pos);
+            if (r.team) bits.push(r.team);
+            if (r.w1 != null) bits.push(Number(r.w1).toFixed(1) + " last wk");
+            if (r.w2 != null) bits.push("proj " + Number(r.w2).toFixed(1));
+            return bits.join(" · ");
         },
 
         fmtVal(n) {

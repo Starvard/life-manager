@@ -23,6 +23,72 @@
     <span class="fantasy-msg" x-text="syncMsg" x-show="syncMsg"></span>
 </div>
 
+<template x-if="weeklyReport &amp;&amp; weeklyReport.leagues &amp;&amp; weeklyReport.leagues.length">
+<div class="card fantasy-week-card">
+    <div class="card-title">Last week + FAAB</div>
+    <p class="fantasy-hint">
+        Week <span x-text="weeklyReport.last_week"></span> results and bids for week
+        <span x-text="weeklyReport.next_week"></span>. Values use each league’s scoring.
+        Bid the high end if you need the player to start.
+    </p>
+    <template x-for="lg in weeklyReport.leagues" :key="lg.league_id">
+        <section class="fantasy-week-league">
+            <div class="fantasy-week-head">
+                <div>
+                    <div class="fantasy-week-name" x-text="lg.league_name"></div>
+                    <div class="fantasy-week-sub">
+                        <span x-text="lg.team_name"></span>
+                        · <span x-text="lg.record"></span>
+                        · FAAB $<span x-text="lg.faab_left"></span>/<span x-text="lg.faab_budget"></span>
+                        · slot <span x-text="lg.waiver_pos"></span>
+                        <span x-show="lg.dynasty"> · dynasty</span>
+                        <span x-show="!lg.dynasty"> · redraft</span>
+                    </div>
+                </div>
+                <div class="fantasy-week-score" :class="weekResultClass(lg)">
+                    <span x-text="lg.result || '—'"></span>
+                    <span x-text="(lg.my_pts != null ? Number(lg.my_pts).toFixed(1) : '—')"></span>
+                    <span x-show="lg.opp_pts != null">–<span x-text="Number(lg.opp_pts).toFixed(1)"></span></span>
+                    <div class="fantasy-week-opp" x-show="lg.opp_name" x-text="'vs ' + lg.opp_name"></div>
+                </div>
+            </div>
+            <ul class="fantasy-week-notes">
+                <template x-for="(n, i) in (lg.notes || [])" :key="lg.league_id + '-n-' + i">
+                    <li x-text="n"></li>
+                </template>
+            </ul>
+            <div class="fantasy-week-lineup" x-show="lg.lineup && lg.lineup.length">
+                <div class="fantasy-label">Week <span x-text="lg.last_week"></span> starters</div>
+                <ul class="fantasy-week-starter-list">
+                    <template x-for="p in lg.lineup" :key="lg.league_id + '-' + p.slot + '-' + p.id">
+                        <li>
+                            <span class="fantasy-week-slot" x-text="p.slot"></span>
+                            <span class="fantasy-week-pname" x-text="p.name"></span>
+                            <span class="fantasy-week-pts" x-text="Number(p.pts).toFixed(1)"></span>
+                        </li>
+                    </template>
+                </ul>
+            </div>
+            <div class="fantasy-label">Pickup bids</div>
+            <ul class="fantasy-week-recs">
+                <template x-for="r in (lg.recs || [])" :key="lg.league_id + '-' + r.player_id + '-' + r.action">
+                    <li>
+                        <div class="fantasy-week-rec-top">
+                            <span class="fantasy-week-bid" x-text="bidLabel(r)"></span>
+                            <span class="fantasy-week-rec-name" x-text="r.name"></span>
+                            <span class="fantasy-week-rec-meta" x-text="recMeta(r)"></span>
+                        </div>
+                        <div class="fantasy-week-why" x-text="r.why"></div>
+                        <div class="fantasy-week-drop" x-show="r.drop && r.drop.name" x-text="'Drop: ' + r.drop.name"></div>
+                    </li>
+                </template>
+            </ul>
+            <p class="fantasy-empty-note" x-show="!(lg.recs && lg.recs.length)">No clear bids this week — stand pat.</p>
+        </section>
+    </template>
+</div>
+</template>
+
 <template x-if="landscape &amp;&amp; landscape.verdict">
 <div class="card fantasy-path-card" :class="'fantasy-verdict-' + landscape.verdict">
     <div class="card-title">Path to winning</div>

@@ -56,6 +56,7 @@ DEFAULT_STATE: dict = {
     "best_lineup": None,
     "best_lineup_generated_at": None,
     "league_landscape": None,
+    "weekly_report": None,
 }
 
 
@@ -359,6 +360,14 @@ def apply_sync_snapshot(snapshot: dict):
             )
         except Exception:
             pass
+    try:
+        from services.fantasy_waivers import build_weekly_report
+
+        report = build_weekly_report(state.get("settings") or {})
+        if report.get("ok"):
+            state["weekly_report"] = report
+    except Exception:
+        pass
     save_state(state)
 
 

@@ -60,6 +60,63 @@ def fetch_league(league_id: str) -> dict | None:
     return data if isinstance(data, dict) else None
 
 
+def fetch_nfl_state() -> dict | None:
+    try:
+        data = _get_json(f"{SLEEPER_BASE}/state/nfl")
+    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError, OSError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def fetch_league_matchups(league_id: str, week: int) -> list[dict]:
+    lid = (league_id or "").strip()
+    if not lid:
+        return []
+    try:
+        w = int(week)
+    except (TypeError, ValueError):
+        return []
+    try:
+        data = _get_json(f"{SLEEPER_BASE}/league/{lid}/matchups/{w}")
+    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError, OSError):
+        return []
+    return data if isinstance(data, list) else []
+
+
+def fetch_weekly_stats(season: str | int, week: int, season_type: str = "regular") -> dict:
+    try:
+        data = _get_json(
+            f"{SLEEPER_BASE}/stats/nfl/{urllib.parse.quote(str(season_type))}"
+            f"/{int(season)}/{int(week)}"
+        )
+    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError, OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def fetch_weekly_projections(season: str | int, week: int, season_type: str = "regular") -> dict:
+    try:
+        data = _get_json(
+            f"{SLEEPER_BASE}/projections/nfl/{urllib.parse.quote(str(season_type))}"
+            f"/{int(season)}/{int(week)}"
+        )
+    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError, OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def fetch_trending_adds(lookback_hours: int = 48, limit: int = 40) -> list[dict]:
+    q = urllib.parse.urlencode({
+        "lookback_hours": int(lookback_hours),
+        "limit": int(limit),
+    })
+    try:
+        data = _get_json(f"{SLEEPER_BASE}/players/nfl/trending/add?{q}")
+    except (urllib.error.HTTPError, urllib.error.URLError, json.JSONDecodeError, OSError):
+        return []
+    return data if isinstance(data, list) else []
+
+
 def fetch_league_rosters(league_id: str) -> list[dict]:
     lid = (league_id or "").strip()
     if not lid:
@@ -92,6 +149,9 @@ _PLAYER_FIELDS = (
     "position",
     "team",
     "years_exp",  # 0 = rookie, used for draft planning search
+    "injury_status",
+    "status",
+    "age",
 )
 
 
@@ -217,8 +277,13 @@ def load_players_nfl_cached(cache_path: str, max_age_seconds: int = 86400) -> di
             if age < max_age_seconds:
                 with open(cache_path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                if isinstance(data, dict):
-                    return data
+                if isinstance(data, dict) and data:
+                    sample = next((p for p in data.values() if isinstance(p, dict)), None)
+                    # Refresh if this cache predates injury/age fields.
+                    if sample is not None and "injury_status" not in sample and "age" not in sample:
+                        data = None
+                    else:
+                        return data
         except (json.JSONDecodeError, OSError):
             pass
 
