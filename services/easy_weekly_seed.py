@@ -19,7 +19,7 @@ from services import recipes_store
 
 # Week of Sep 21, 2026 (ISO 2026-W39)
 WEEK_KEY = "2026-W39"
-SEED_ID = "easy-weekly-2026-w39-v1"
+SEED_ID = "easy-weekly-2026-w39-v2"
 
 FAMILY_DINNER_SERVINGS = "5–6"
 FAMILY_DINNER_NOTE = (
@@ -71,11 +71,11 @@ def _recipe(
 
 RECIPES = [
   {
-    "name": "Peanut butter banana overnight oats",
+    "name": "Protein pancakes + berries",
     "source": "Life Manager",
     "servings": "3",
     "prep_time": "5 min",
-    "cook_time": "0 min",
+    "cook_time": "12 min",
     "tags": [
       "easy weekly",
       "breakfast",
@@ -83,48 +83,38 @@ RECIPES = [
     ],
     "ingredients": [
       {
-        "name": "rolled oats",
+        "name": "protein pancake mix",
+        "qty": "180",
+        "unit": "g"
+      },
+      {
+        "name": "Greek yogurt",
+        "qty": "170",
+        "unit": "g"
+      },
+      {
+        "name": "blueberries or mixed berries",
         "qty": "150",
         "unit": "g"
       },
       {
-        "name": "milk",
-        "qty": "300",
-        "unit": "ml"
-      },
-      {
-        "name": "Greek yogurt",
-        "qty": "300",
-        "unit": "g"
-      },
-      {
-        "name": "peanut butter",
-        "qty": "45",
-        "unit": "g"
-      },
-      {
-        "name": "bananas",
-        "qty": "2",
-        "unit": "ct"
-      },
-      {
-        "name": "cinnamon",
-        "qty": "0.5",
+        "name": "olive oil",
+        "qty": "1",
         "unit": "tsp"
       }
     ],
     "instructions": [
-      "Mix oats, milk, yogurt, peanut butter and cinnamon in 3 containers. Refrigerate overnight.",
-      "Top with sliced bananas at serving; add a splash of milk to loosen."
+      "Prepare 180 g protein pancake mix with water according to the package. Lightly oil a nonstick pan; cook small pancakes over medium-low until bubbles set, then flip and finish.",
+      "Serve with 170 g Greek yogurt and 150 g berries. Make extra pancakes and freeze for toaster reheating."
     ],
-    "notes": "Repeat 4 mornings. Make 2 mornings at a time. Adults take larger portions; Rosemary takes a smaller bowl."
+    "notes": "Repeat 4 mornings. Adults take larger portions, Rosemary a smaller plate. Use a just-add-water protein pancake mix."
   },
   {
-    "name": "Baked veggie eggs + turkey bacon toast",
+    "name": "Veggie scrambled eggs + turkey bacon toast",
     "source": "Life Manager",
     "servings": "3",
-    "prep_time": "8 min",
-    "cook_time": "25 min",
+    "prep_time": "5 min",
+    "cook_time": "15 min",
     "tags": [
       "easy weekly",
       "breakfast",
@@ -178,11 +168,11 @@ RECIPES = [
       }
     ],
     "instructions": [
-      "Heat oven to 375°F. Finely dice pepper. Microwave pepper and spinach with a splash of water for 2–3 minutes; drain well.",
-      "Oil an 8-inch baking dish. Add vegetables and beaten eggs seasoned with salt and pepper. Bake 18–25 minutes, until the center is set and reaches 160°F.",
-      "Cook turkey bacon according to package. Serve with toast and micro greens."
+      "Cook 6 slices turkey bacon according to the package. Finely dice 1 bell pepper; soften in 1 tsp olive oil for 4–5 minutes. Add 60 g spinach and cook until wilted.",
+      "Beat 6 eggs with 1/4 tsp salt and 1/8 tsp pepper. Add to vegetables and gently stir over medium-low until set.",
+      "Serve with 3 slices toast and 15 g micro greens. Adults take larger portions, Rosemary a smaller plate."
     ],
-    "notes": "Repeat 3 mornings. Make a double batch to reheat the next morning."
+    "notes": "Repeat 3 mornings. Chop the peppers in advance. A fresh savory breakfast with vegetables and micro greens."
   },
   {
     "name": "Leftovers + easy backup meals",
@@ -569,7 +559,7 @@ GROCERY = [
   [
     "bananas",
     "Produce",
-    "16",
+    "12",
     "ct"
   ],
   [
@@ -647,8 +637,8 @@ GROCERY = [
   [
     "blueberries or mixed berries",
     "Frozen",
-    "1",
-    "1 lb bag"
+    "2",
+    "lb"
   ],
   [
     "chicken thighs",
@@ -684,7 +674,7 @@ GROCERY = [
     "milk",
     "Dairy",
     "1",
-    "half gallon"
+    "gallon"
   ],
   [
     "Greek yogurt",
@@ -701,20 +691,20 @@ GROCERY = [
   [
     "string cheese or cheese sticks",
     "Dairy",
-    "1",
-    "12 ct pack"
+    "2",
+    "12 ct packs"
   ],
   [
     "yogurt tubes",
     "Dairy",
-    "2",
+    "3",
     "8 ct boxes"
   ],
   [
     "hummus",
     "Dairy",
-    "1",
-    "10 oz tub"
+    "2",
+    "10 oz tubs"
   ],
   [
     "sandwich bread",
@@ -870,13 +860,13 @@ GROCERY = [
     "granola bars",
     "Snacks",
     "1",
-    "8 ct box"
+    "12 ct box"
   ],
   [
     "applesauce pouches",
     "Snacks",
     "1",
-    "12 ct box unsweetened"
+    "18 ct box unsweetened"
   ],
   [
     "fruit snacks",
@@ -889,6 +879,78 @@ GROCERY = [
     "Snacks",
     "1",
     "small pack"
+  ],
+  [
+    "protein pancake mix",
+    "Pantry",
+    "2",
+    "20 oz boxes, just-add-water"
+  ],
+  [
+    "mini whole-wheat bagels",
+    "Bakery",
+    "1",
+    "12 ct bag"
+  ],
+  [
+    "cream cheese",
+    "Dairy",
+    "1",
+    "8 oz tub"
+  ],
+  [
+    "deli turkey",
+    "Meat & Seafood",
+    "1",
+    "8 oz pack"
+  ],
+  [
+    "pretzels",
+    "Snacks",
+    "1",
+    "16 oz bag"
+  ],
+  [
+    "graham crackers",
+    "Snacks",
+    "1",
+    "14 oz box"
+  ],
+  [
+    "mini banana muffins",
+    "Bakery",
+    "1",
+    "12 ct pack"
+  ],
+  [
+    "raisins",
+    "Snacks",
+    "1",
+    "6 ct pack of small boxes"
+  ],
+  [
+    "shelled edamame",
+    "Frozen",
+    "1",
+    "12 oz bag"
+  ],
+  [
+    "whole-grain cereal",
+    "Pantry",
+    "1",
+    "12 oz box"
+  ],
+  [
+    "avocados",
+    "Produce",
+    "3",
+    "ct"
+  ],
+  [
+    "frozen mango",
+    "Frozen",
+    "1",
+    "16 oz bag"
   ]
 ]
 
@@ -896,8 +958,8 @@ GROCERY_ALIASES = {"bread (sandwich loaf)":"sandwich bread","corn tortillas":"wh
 
 MENU = {
   "breakfast": [
-    "Peanut butter banana overnight oats",
-    "Baked veggie eggs + turkey bacon toast"
+    "Protein pancakes + berries",
+    "Veggie scrambled eggs + turkey bacon toast"
   ],
   "lunch": [
     "Leftovers + easy backup meals"
@@ -926,7 +988,20 @@ MENU = {
     "Small bean-and-cheese tortilla",
     "Cinnamon yogurt + banana",
     "Fruit snacks + cheese stick",
-    "A couple chocolate chip cookies + milk"
+    "A couple chocolate chip cookies + milk",
+    "Mini whole-wheat bagel + cream cheese",
+    "Turkey-and-cheese roll-ups",
+    "Pretzels + hummus",
+    "Graham crackers + peanut butter",
+    "Mini banana muffin + milk",
+    "Raisins + wheat crackers",
+    "Steamed shelled edamame",
+    "Whole-grain cereal + milk",
+    "Avocado toast",
+    "Mango-banana yogurt smoothie",
+    "Apple slices + cinnamon yogurt dip",
+    "Mini bagel pizza",
+    "Graham crackers + yogurt"
   ]
 }
 
@@ -939,7 +1014,8 @@ def seed_easy_weekly_menu() -> dict:
     created = 0
     updated = 0
     by_name: dict[str, dict] = {}
-    apply_seed = recipes_store.get_active_seed() != SEED_ID
+    previous_seed = recipes_store.get_active_seed()
+    apply_seed = previous_seed != SEED_ID
     for recipe in RECIPES:
         key = recipe["name"].strip().lower()
         if key in existing:
@@ -994,6 +1070,12 @@ def seed_easy_weekly_menu() -> dict:
                 "light coconut milk", "diced tomatoes", "salsa",
             }
         }
+        # Same-week revision: keep existing purchase checks except increased amounts.
+        if previous_seed == "easy-weekly-2026-w39-v1":
+            restock_names = {
+                "blueberries or mixed berries", "milk", "string cheese or cheese sticks",
+                "yogurt tubes", "hummus", "granola bars", "applesauce pouches",
+            }
         refreshed = grocery_result["items"]
         for item in refreshed:
             if item["name"].lower() in restock_names:
