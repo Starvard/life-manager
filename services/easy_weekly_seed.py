@@ -17,9 +17,9 @@ from __future__ import annotations
 
 from services import recipes_store
 
-# Week of Sep 7, 2026 (ISO 2026-W37)
-WEEK_KEY = "2026-W37"
-SEED_ID = "easy-weekly-2026-w37-v1"
+# Week of Sep 21, 2026 (ISO 2026-W39)
+WEEK_KEY = "2026-W39"
+SEED_ID = "easy-weekly-2026-w39-v1"
 
 FAMILY_DINNER_SERVINGS = "5–6"
 FAMILY_DINNER_NOTE = (
@@ -69,277 +69,866 @@ def _recipe(
     }
 
 
-RECIPES = [{'name': 'Protein pancakes + berries',
-  'source': 'Life Manager',
-  'servings': '3',
-  'prep_time': '5 min',
-  'cook_time': '12 min',
-  'tags': ['easy weekly', 'breakfast', 'healthy'],
-  'ingredients': [{'name': 'protein pancake mix', 'qty': '180', 'unit': 'g'},
-                  {'name': 'Greek yogurt', 'qty': '170', 'unit': 'g'},
-                  {'name': 'blueberries or mixed berries', 'qty': '150', 'unit': 'g'},
-                  {'name': 'olive oil', 'qty': '1', 'unit': 'tsp'}],
-  'instructions': ['Prepare 180 g protein pancake mix with the water amount on your package. Lightly oil a '
-                   'nonstick pan with 1 tsp oil; cook small pancakes over medium-low until bubbles set, then '
-                   'flip and finish.',
-                   'Serve with 170 g Greek yogurt and 150 g berries.'],
-  'notes': 'Repeat 3 mornings. Easy button: frozen protein waffles with the same toppings.'},
- {'name': 'Veggie eggs + turkey bacon',
-  'source': 'Life Manager',
-  'servings': '3',
-  'prep_time': '5 min',
-  'cook_time': '15 min',
-  'tags': ['easy weekly', 'breakfast', 'healthy'],
-  'ingredients': [{'name': 'eggs', 'qty': '6', 'unit': 'ct'},
-                  {'name': 'bell peppers', 'qty': '1', 'unit': 'ct'},
-                  {'name': 'baby spinach', 'qty': '60', 'unit': 'g'},
-                  {'name': 'micro greens', 'qty': '15', 'unit': 'g'},
-                  {'name': 'turkey bacon', 'qty': '6', 'unit': 'slices'},
-                  {'name': 'olive oil', 'qty': '1', 'unit': 'tsp'},
-                  {'name': 'salt', 'qty': '0.25', 'unit': 'tsp'},
-                  {'name': 'black pepper', 'qty': '0.125', 'unit': 'tsp'}],
-  'instructions': ['Cook 6 slices turkey bacon according to its package. Soften 1 diced pepper in 1 tsp '
-                   'olive oil for 4–5 minutes; wilt 60 g spinach.',
-                   'Add 6 beaten eggs, 1/4 tsp salt and 1/8 tsp pepper. Gently stir over medium-low until '
-                   'set; top with 15 g micro greens and serve with bacon.'],
-  'notes': 'Repeat 4 mornings; washed greens and pre-cut peppers save time.'},
- {'name': 'Leftovers from dinner',
-  'source': 'Life Manager',
-  'servings': '3',
-  'prep_time': '2 min',
-  'cook_time': '5 min',
-  'tags': ['easy weekly', 'lunch', 'healthy'],
-  'ingredients': [],
-  'instructions': ['Pack dinner leftovers into lunch containers before serving dinner. Refrigerate within 2 '
-                   'hours.',
-                   'Reheat hot components to 165°F; keep crunchy vegetables and yogurt sauce cold.'],
-  'notes': 'For an easy kid backup: peanut butter toast, fruit and a cheese stick.'},
- {'name': 'Yuzu-ginger chicken, broccoli + rice',
-  'source': 'Life Manager',
-  'servings': '5–6',
-  'prep_time': '10 min',
-  'cook_time': '35 min',
-  'tags': ['easy weekly', 'dinner', 'healthy'],
-  'ingredients': [{'name': 'chicken thighs', 'qty': '3', 'unit': 'lb'},
-                  {'name': 'broccoli', 'qty': '2', 'unit': 'lb'},
-                  {'name': 'long-grain rice', 'qty': '1.5', 'unit': 'cups dry'},
-                  {'name': 'yuzu juice (unsweetened)', 'qty': '30', 'unit': 'g'},
-                  {'name': 'reduced-sodium soy sauce', 'qty': '40', 'unit': 'g'},
-                  {'name': 'honey', 'qty': '20', 'unit': 'g'},
-                  {'name': 'ginger', 'qty': '15', 'unit': 'g'},
-                  {'name': 'garlic', 'qty': '3', 'unit': 'cloves'},
-                  {'name': 'olive oil', 'qty': '2', 'unit': 'tbsp'},
-                  {'name': 'salt', 'qty': '0.25', 'unit': 'tsp'}],
-  'instructions': ['Heat oven to 425°F. Start 1½ cups dry rice according to the package. Mix 30 g yuzu '
-                   'juice, 40 g soy sauce, 20 g honey, 15 g grated ginger and 3 minced garlic cloves. '
-                   'Reserve half in a clean serving bowl before touching raw chicken.',
-                   'Toss 3 lb boneless chicken thighs with the remaining sauce and 1 tbsp oil. Spread on a '
-                   'lined sheet pan. Toss 2 lb broccoli with 1 tbsp oil and 1/4 tsp salt on a second pan.',
-                   'Roast chicken 25–35 minutes, until at least 165°F (thighs are more tender around 175°F). '
-                   'Add broccoli for the final 18–22 minutes; swap rack positions if needed. Serve over rice '
-                   'with reserved sauce.'],
-  'notes': 'Needs testing. Use bottled unsweetened yuzu juice, not sweet yuzu tea concentrate. Easy swap: '
-           'equal lemon and lime juice. Keep sauce light for the kid. Cook for dinner + next-day lunch for 2 '
-           'adults + 1 kid; pack lunch portions before sitting down. Refrigerate within 2 hours; use within '
-           '3–4 days, reheating to 165°F. Freeze raw meat for later-week meals and thaw in the fridge.'},
- {'name': 'Sheet-pan shawarma chicken + lemon yogurt',
-  'source': 'Life Manager',
-  'servings': '5–6',
-  'prep_time': '15 min',
-  'cook_time': '25 min',
-  'tags': ['easy weekly', 'dinner', 'healthy'],
-  'ingredients': [{'name': 'chicken breasts or tenders', 'qty': '2.5', 'unit': 'lb'},
-                  {'name': 'bell peppers', 'qty': '3', 'unit': 'ct'},
-                  {'name': 'red onion', 'qty': '1', 'unit': 'ct'},
-                  {'name': 'whole-wheat pitas', 'qty': '6', 'unit': 'ct'},
-                  {'name': 'cucumber', 'qty': '1', 'unit': 'ct'},
-                  {'name': 'Greek yogurt', 'qty': '240', 'unit': 'g'},
-                  {'name': 'lemon', 'qty': '1', 'unit': 'ct'},
-                  {'name': 'garlic', 'qty': '3', 'unit': 'cloves'},
-                  {'name': 'olive oil', 'qty': '2', 'unit': 'tbsp'},
-                  {'name': 'ground cumin', 'qty': '2', 'unit': 'tsp'},
-                  {'name': 'smoked paprika', 'qty': '2', 'unit': 'tsp'},
-                  {'name': 'cinnamon', 'qty': '0.25', 'unit': 'tsp'},
-                  {'name': 'salt', 'qty': '0.75', 'unit': 'tsp'},
-                  {'name': 'black pepper', 'qty': '0.25', 'unit': 'tsp'}],
-  'instructions': ['Heat oven to 425°F. Slice 2½ lb chicken breast into thick strips. Toss with 3 sliced '
-                   'peppers, 1 sliced onion, 2 tbsp oil, 2 tsp cumin, 2 tsp smoked paprika, 1/4 tsp '
-                   'cinnamon, 1/2 tsp salt and 1/4 tsp pepper. Spread across two pans.',
-                   'Roast 20–25 minutes, turning once, until chicken reaches 165°F. Meanwhile mix 240 g '
-                   'yogurt with juice of 1 lemon, 3 finely grated garlic cloves and 1/4 tsp salt.',
-                   'Warm 6 pitas and serve with chicken, vegetables, 1 chopped cucumber and lemon yogurt. '
-                   'Keep some chicken and cucumber separate for the kid.'],
-  'notes': 'Needs testing. Prep ahead: mix the dry spices and yogurt sauce; refrigerate sauce. Extra sauce '
-           'works with tacos or raw vegetables. Cook for dinner + next-day lunch for 2 adults + 1 kid; pack '
-           'lunch portions before sitting down. Refrigerate within 2 hours; use within 3–4 days, reheating '
-           'to 165°F. Freeze raw meat for later-week meals and thaw in the fridge.'},
- {'name': 'Smoky turkey + black bean tacos',
-  'source': 'Life Manager',
-  'servings': '5–6',
-  'prep_time': '10 min',
-  'cook_time': '25 min',
-  'tags': ['easy weekly', 'dinner', 'healthy'],
-  'ingredients': [{'name': 'ground turkey', 'qty': '2', 'unit': 'lb'},
-                  {'name': 'black beans', 'qty': '1', 'unit': '15 oz can'},
-                  {'name': 'bell peppers', 'qty': '2', 'unit': 'ct'},
-                  {'name': 'red onion', 'qty': '1', 'unit': 'ct'},
-                  {'name': 'corn tortillas', 'qty': '18', 'unit': 'small'},
-                  {'name': 'shredded cabbage', 'qty': '12', 'unit': 'oz'},
-                  {'name': 'Greek yogurt', 'qty': '170', 'unit': 'g'},
-                  {'name': 'lime', 'qty': '2', 'unit': 'ct'},
-                  {'name': 'olive oil', 'qty': '1', 'unit': 'tbsp'},
-                  {'name': 'ground cumin', 'qty': '2', 'unit': 'tsp'},
-                  {'name': 'smoked paprika', 'qty': '2', 'unit': 'tsp'},
-                  {'name': 'garlic powder', 'qty': '1', 'unit': 'tsp'},
-                  {'name': 'salt', 'qty': '0.75', 'unit': 'tsp'}],
-  'instructions': ['Heat oven to 425°F. Toss 2 sliced peppers and 1 sliced onion with 1 tbsp oil on a large '
-                   'rimmed sheet pan. Break 2 lb ground turkey into small loose chunks over the vegetables; '
-                   'sprinkle with 2 tsp cumin, 2 tsp smoked paprika, 1 tsp garlic powder and 3/4 tsp salt.',
-                   'Roast 12 minutes, break up turkey and stir. Add 1 drained 15 oz can black beans; roast '
-                   'another 8–12 minutes until turkey reaches 165°F.',
-                   'Mix 170 g yogurt with juice of 1 lime. Toss 12 oz shredded cabbage with juice of the '
-                   'second lime. Warm 18 small tortillas; fill with turkey, beans, cabbage and yogurt.'],
-  'notes': 'Needs testing. No skillet needed. Leftovers make a taco salad; keep tortillas and slaw separate. '
-           'Cook for dinner + next-day lunch for 2 adults + 1 kid; pack lunch portions before sitting down. '
-           'Refrigerate within 2 hours; use within 3–4 days, reheating to 165°F. Freeze raw meat for '
-           'later-week meals and thaw in the fridge.'},
- {'name': 'Lemon-feta chickpea pasta + roasted vegetables',
-  'source': 'Life Manager',
-  'servings': '5–6',
-  'prep_time': '10 min',
-  'cook_time': '30 min',
-  'tags': ['easy weekly', 'dinner', 'healthy'],
-  'ingredients': [{'name': 'whole-wheat pasta', 'qty': '1', 'unit': 'lb'},
-                  {'name': 'chickpeas', 'qty': '2', 'unit': '15 oz cans'},
-                  {'name': 'zucchini', 'qty': '3', 'unit': 'ct'},
-                  {'name': 'cherry tomatoes', 'qty': '2', 'unit': 'pints'},
-                  {'name': 'baby spinach', 'qty': '5', 'unit': 'oz'},
-                  {'name': 'feta', 'qty': '6', 'unit': 'oz'},
-                  {'name': 'lemon', 'qty': '1', 'unit': 'ct'},
-                  {'name': 'garlic', 'qty': '4', 'unit': 'cloves'},
-                  {'name': 'olive oil', 'qty': '2', 'unit': 'tbsp'},
-                  {'name': 'dried oregano', 'qty': '2', 'unit': 'tsp'},
-                  {'name': 'salt', 'qty': '0.5', 'unit': 'tsp'},
-                  {'name': 'black pepper', 'qty': '0.25', 'unit': 'tsp'}],
-  'instructions': ['Heat oven to 425°F. Toss 3 chopped zucchini, 2 pints cherry tomatoes and 2 drained 15 oz '
-                   'cans chickpeas with 2 tbsp oil, 4 minced garlic cloves, 2 tsp oregano, 1/2 tsp salt and '
-                   '1/4 tsp pepper. Spread across two pans; roast 25–30 minutes until tomatoes burst and '
-                   'zucchini browns.',
-                   'Meanwhile cook 1 lb whole-wheat pasta according to the package. Reserve 1 cup pasta '
-                   'water, then drain.',
-                   'Return pasta to the pot with roasted vegetables, chickpeas, 5 oz spinach, 6 oz crumbled '
-                   'feta and zest and juice of 1 lemon. Add pasta water a little at a time, tossing until '
-                   'spinach wilts and sauce lightly coats the pasta.'],
-  'notes': 'Needs testing. Hold back plain pasta for the kid if useful. Reheat with a splash of water. This '
-           'is the meat-free dinner. Cook for dinner + next-day lunch for 2 adults + 1 kid; pack lunch '
-           'portions before sitting down. Refrigerate within 2 hours; use within 3–4 days, reheating to '
-           '165°F. Freeze raw meat for later-week meals and thaw in the fridge.'},
- {'name': 'Miso-yuzu salmon, green beans + rice',
-  'source': 'Life Manager',
-  'servings': '5–6',
-  'prep_time': '10 min',
-  'cook_time': '30 min',
-  'tags': ['easy weekly', 'dinner', 'healthy'],
-  'ingredients': [{'name': 'salmon fillets', 'qty': '2.5', 'unit': 'lb'},
-                  {'name': 'green beans', 'qty': '2', 'unit': 'lb'},
-                  {'name': 'long-grain rice', 'qty': '1.5', 'unit': 'cups dry'},
-                  {'name': 'white miso', 'qty': '35', 'unit': 'g'},
-                  {'name': 'yuzu juice (unsweetened)', 'qty': '25', 'unit': 'g'},
-                  {'name': 'honey', 'qty': '15', 'unit': 'g'},
-                  {'name': 'ginger', 'qty': '10', 'unit': 'g'},
-                  {'name': 'olive oil', 'qty': '1', 'unit': 'tbsp'}],
-  'instructions': ['Heat oven to 425°F and start 1½ cups dry rice according to its package. Toss 2 lb '
-                   'trimmed green beans with 1 tbsp oil on a large sheet pan; roast 10 minutes.',
-                   'Mix 35 g white miso, 25 g yuzu juice, 15 g honey and 10 g grated ginger. Put 2½ lb '
-                   'salmon in portions on a separate lined pan and brush with the glaze.',
-                   'Roast salmon 10–16 minutes depending on thickness, until the center reaches 145°F, while '
-                   'beans finish roasting. Serve with rice; if glaze darkens early, loosely tent with foil.'],
-  'notes': 'Needs testing. Cook early in the week or buy frozen. Yuzu juice is shared with chicken; '
-           'substitute equal lemon and lime juice if unavailable. Miso supplies salt; taste before adding '
-           'more. Cook for dinner + next-day lunch for 2 adults + 1 kid; pack lunch portions before sitting '
-           'down. Refrigerate within 2 hours; use within 3–4 days, reheating to 165°F. Freeze raw meat for '
-           'later-week meals and thaw in the fridge.'}]
+RECIPES = [
+  {
+    "name": "Peanut butter banana overnight oats",
+    "source": "Life Manager",
+    "servings": "3",
+    "prep_time": "5 min",
+    "cook_time": "0 min",
+    "tags": [
+      "easy weekly",
+      "breakfast",
+      "budget friendly"
+    ],
+    "ingredients": [
+      {
+        "name": "rolled oats",
+        "qty": "150",
+        "unit": "g"
+      },
+      {
+        "name": "milk",
+        "qty": "300",
+        "unit": "ml"
+      },
+      {
+        "name": "Greek yogurt",
+        "qty": "300",
+        "unit": "g"
+      },
+      {
+        "name": "peanut butter",
+        "qty": "45",
+        "unit": "g"
+      },
+      {
+        "name": "bananas",
+        "qty": "2",
+        "unit": "ct"
+      },
+      {
+        "name": "cinnamon",
+        "qty": "0.5",
+        "unit": "tsp"
+      }
+    ],
+    "instructions": [
+      "Mix oats, milk, yogurt, peanut butter and cinnamon in 3 containers. Refrigerate overnight.",
+      "Top with sliced bananas at serving; add a splash of milk to loosen."
+    ],
+    "notes": "Repeat 4 mornings. Make 2 mornings at a time. Adults take larger portions; Rosemary takes a smaller bowl."
+  },
+  {
+    "name": "Baked veggie eggs + turkey bacon toast",
+    "source": "Life Manager",
+    "servings": "3",
+    "prep_time": "8 min",
+    "cook_time": "25 min",
+    "tags": [
+      "easy weekly",
+      "breakfast",
+      "budget friendly"
+    ],
+    "ingredients": [
+      {
+        "name": "eggs",
+        "qty": "6",
+        "unit": "ct"
+      },
+      {
+        "name": "bell peppers",
+        "qty": "1",
+        "unit": "ct"
+      },
+      {
+        "name": "baby spinach",
+        "qty": "60",
+        "unit": "g"
+      },
+      {
+        "name": "micro greens",
+        "qty": "15",
+        "unit": "g"
+      },
+      {
+        "name": "turkey bacon",
+        "qty": "6",
+        "unit": "slices"
+      },
+      {
+        "name": "sandwich bread",
+        "qty": "3",
+        "unit": "slices"
+      },
+      {
+        "name": "olive oil",
+        "qty": "1",
+        "unit": "tsp"
+      },
+      {
+        "name": "salt",
+        "qty": "0.25",
+        "unit": "tsp"
+      },
+      {
+        "name": "black pepper",
+        "qty": "0.125",
+        "unit": "tsp"
+      }
+    ],
+    "instructions": [
+      "Heat oven to 375°F. Finely dice pepper. Microwave pepper and spinach with a splash of water for 2–3 minutes; drain well.",
+      "Oil an 8-inch baking dish. Add vegetables and beaten eggs seasoned with salt and pepper. Bake 18–25 minutes, until the center is set and reaches 160°F.",
+      "Cook turkey bacon according to package. Serve with toast and micro greens."
+    ],
+    "notes": "Repeat 3 mornings. Make a double batch to reheat the next morning."
+  },
+  {
+    "name": "Leftovers + easy backup meals",
+    "source": "Life Manager",
+    "servings": "3",
+    "prep_time": "5 min",
+    "cook_time": "10 min",
+    "tags": [
+      "easy weekly",
+      "lunch",
+      "budget friendly"
+    ],
+    "ingredients": [],
+    "instructions": [
+      "Reserve lunch portions when serving each dinner.",
+      "For the first lunch or the two nights without a planned dinner: egg-and-cheese toast with fruit and vegetables, or black bean and cheese quesadillas with salsa and carrots.",
+      "For quesadillas, mash 1 drained can black beans; divide between 4 tortillas with 100 g cheese. Fold and bake at 400°F for 10–12 minutes, turning once. Repeat if needed. Keep extra bread and pasta for Rosemary."
+    ],
+    "notes": "Grocery includes 12 extra eggs, 2 extra cans beans, tortillas, cheese and extra pasta for these flexible meals."
+  },
+  {
+    "name": "Honey-mustard chicken, potatoes + carrots",
+    "source": "Life Manager",
+    "servings": "5–6",
+    "prep_time": "12 min",
+    "cook_time": "45–50 min",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "budget friendly"
+    ],
+    "ingredients": [
+      {
+        "name": "chicken thighs",
+        "qty": "3",
+        "unit": "lb"
+      },
+      {
+        "name": "potatoes",
+        "qty": "2",
+        "unit": "lb"
+      },
+      {
+        "name": "carrots",
+        "qty": "1.5",
+        "unit": "lb"
+      },
+      {
+        "name": "Dijon mustard",
+        "qty": "45",
+        "unit": "g"
+      },
+      {
+        "name": "honey",
+        "qty": "30",
+        "unit": "g"
+      },
+      {
+        "name": "olive oil",
+        "qty": "2",
+        "unit": "tbsp"
+      },
+      {
+        "name": "garlic powder",
+        "qty": "1",
+        "unit": "tsp"
+      },
+      {
+        "name": "salt",
+        "qty": "0.75",
+        "unit": "tsp"
+      },
+      {
+        "name": "black pepper",
+        "qty": "0.25",
+        "unit": "tsp"
+      }
+    ],
+    "instructions": [
+      "Heat oven to 425°F. Cut potatoes into 3/4-inch pieces and carrots into thin sticks. Toss with 1 tbsp oil, half the salt and pepper; spread across two rimmed pans. Roast 15 minutes.",
+      "Mix mustard, honey, remaining oil, garlic powder and remaining salt. Coat boneless chicken thighs and nestle on the pans, keeping everything in a single layer.",
+      "Roast another 25–35 minutes until chicken reaches at least 165°F and vegetables are tender. Swap racks halfway."
+    ],
+    "notes": "Mild, sweet-savory flavor. Use two pans so vegetables roast well. Cook for dinner + next-day lunch for 2 adults + 1 kid; pack lunch portions before sitting down."
+  },
+  {
+    "name": "Oven turkey meatballs, spaghetti + broccoli",
+    "source": "Life Manager",
+    "servings": "5–6",
+    "prep_time": "15 min",
+    "cook_time": "25 min",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "budget friendly"
+    ],
+    "ingredients": [
+      {
+        "name": "ground turkey",
+        "qty": "2",
+        "unit": "lb"
+      },
+      {
+        "name": "eggs",
+        "qty": "1",
+        "unit": "ct"
+      },
+      {
+        "name": "rolled oats",
+        "qty": "50",
+        "unit": "g"
+      },
+      {
+        "name": "milk",
+        "qty": "60",
+        "unit": "ml"
+      },
+      {
+        "name": "garlic powder",
+        "qty": "1",
+        "unit": "tsp"
+      },
+      {
+        "name": "dried oregano",
+        "qty": "2",
+        "unit": "tsp"
+      },
+      {
+        "name": "salt",
+        "qty": "0.5",
+        "unit": "tsp"
+      },
+      {
+        "name": "black pepper",
+        "qty": "0.25",
+        "unit": "tsp"
+      },
+      {
+        "name": "whole-wheat pasta",
+        "qty": "1",
+        "unit": "lb"
+      },
+      {
+        "name": "marinara sauce",
+        "qty": "24",
+        "unit": "oz"
+      },
+      {
+        "name": "broccoli",
+        "qty": "2",
+        "unit": "lb"
+      },
+      {
+        "name": "olive oil",
+        "qty": "1",
+        "unit": "tbsp"
+      }
+    ],
+    "instructions": [
+      "Heat oven to 425°F. Mix oats and milk; soak 5 minutes. Mix with turkey, egg, garlic powder, oregano, salt and pepper. Form 18 meatballs on a lined pan.",
+      "Toss broccoli with oil on a second pan. Roast both for 18–25 minutes, until meatballs reach 165°F and broccoli is tender.",
+      "Meanwhile cook pasta according to package. Drain, reserving some water; warm marinara in the pasta pot and add meatballs. Serve with pasta and broccoli."
+    ],
+    "notes": "Leave a little pasta plain for Rosemary; reheat leftovers with a splash of water. Cook for dinner + next-day lunch for 2 adults + 1 kid; pack lunch portions before sitting down."
+  },
+  {
+    "name": "Sheet-pan chicken fajitas + black beans",
+    "source": "Life Manager",
+    "servings": "5–6",
+    "prep_time": "12 min",
+    "cook_time": "30 min",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "budget friendly"
+    ],
+    "ingredients": [
+      {
+        "name": "chicken thighs",
+        "qty": "3",
+        "unit": "lb"
+      },
+      {
+        "name": "bell peppers",
+        "qty": "3",
+        "unit": "ct"
+      },
+      {
+        "name": "yellow onions",
+        "qty": "1",
+        "unit": "ct"
+      },
+      {
+        "name": "black beans",
+        "qty": "1",
+        "unit": "15 oz can"
+      },
+      {
+        "name": "whole-wheat tortillas",
+        "qty": "12",
+        "unit": "small"
+      },
+      {
+        "name": "Greek yogurt",
+        "qty": "170",
+        "unit": "g"
+      },
+      {
+        "name": "salsa",
+        "qty": "150",
+        "unit": "g"
+      },
+      {
+        "name": "olive oil",
+        "qty": "2",
+        "unit": "tbsp"
+      },
+      {
+        "name": "ground cumin",
+        "qty": "2",
+        "unit": "tsp"
+      },
+      {
+        "name": "smoked paprika",
+        "qty": "2",
+        "unit": "tsp"
+      },
+      {
+        "name": "garlic powder",
+        "qty": "1",
+        "unit": "tsp"
+      },
+      {
+        "name": "salt",
+        "qty": "0.75",
+        "unit": "tsp"
+      }
+    ],
+    "instructions": [
+      "Heat oven to 425°F. Slice boneless chicken thighs into strips; slice peppers and onion. Toss with oil, cumin, paprika, garlic powder and salt. Divide over two lined pans.",
+      "Roast 22–30 minutes, stirring once, until chicken reaches 165°F. Warm drained black beans in the microwave or a small pot.",
+      "Serve in warm tortillas with beans, yogurt and salsa. Keep the filling separate for lunch."
+    ],
+    "notes": "Mild seasoning; serve Rosemary the components separately if preferred. Cook for dinner + next-day lunch for 2 adults + 1 kid; pack lunch portions before sitting down."
+  },
+  {
+    "name": "Mild chickpea, sweet potato + spinach curry",
+    "source": "Life Manager",
+    "servings": "5–6",
+    "prep_time": "10 min",
+    "cook_time": "30 min",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "budget friendly"
+    ],
+    "ingredients": [
+      {
+        "name": "chickpeas",
+        "qty": "3",
+        "unit": "15 oz cans"
+      },
+      {
+        "name": "sweet potatoes",
+        "qty": "1.5",
+        "unit": "lb"
+      },
+      {
+        "name": "baby spinach",
+        "qty": "150",
+        "unit": "g"
+      },
+      {
+        "name": "yellow onions",
+        "qty": "1",
+        "unit": "ct"
+      },
+      {
+        "name": "light coconut milk",
+        "qty": "1",
+        "unit": "13.5 oz can"
+      },
+      {
+        "name": "diced tomatoes",
+        "qty": "1",
+        "unit": "14.5 oz can"
+      },
+      {
+        "name": "long-grain rice",
+        "qty": "1.5",
+        "unit": "cups dry"
+      },
+      {
+        "name": "mild curry powder",
+        "qty": "2",
+        "unit": "tsp"
+      },
+      {
+        "name": "olive oil",
+        "qty": "1",
+        "unit": "tbsp"
+      },
+      {
+        "name": "salt",
+        "qty": "0.5",
+        "unit": "tsp"
+      }
+    ],
+    "instructions": [
+      "Start rice according to package. Dice onion and peel/cut sweet potatoes into 1/2-inch cubes.",
+      "In a large pot, soften onion in oil for 5 minutes. Stir in curry powder for 30 seconds; add sweet potatoes, drained chickpeas, coconut milk, tomatoes, 240 ml water and salt.",
+      "Cover and simmer 20–25 minutes, stirring occasionally, until potatoes are tender; add water if needed. Stir in spinach until wilted and serve over rice."
+    ],
+    "notes": "One inexpensive meat-free dinner. Start with 1 tsp curry powder for a very mild version; add more at the table. Cook for dinner + next-day lunch for 2 adults + 1 kid; pack lunch portions before sitting down."
+  },
+  {
+    "name": "Sheet-pan chicken sausage, sweet potatoes + green beans",
+    "source": "Life Manager",
+    "servings": "5–6",
+    "prep_time": "10 min",
+    "cook_time": "40 min",
+    "tags": [
+      "easy weekly",
+      "dinner",
+      "budget friendly"
+    ],
+    "ingredients": [
+      {
+        "name": "fully cooked chicken sausage",
+        "qty": "1.5",
+        "unit": "lb"
+      },
+      {
+        "name": "sweet potatoes",
+        "qty": "2.5",
+        "unit": "lb"
+      },
+      {
+        "name": "green beans",
+        "qty": "2",
+        "unit": "lb"
+      },
+      {
+        "name": "olive oil",
+        "qty": "2",
+        "unit": "tbsp"
+      },
+      {
+        "name": "smoked paprika",
+        "qty": "1",
+        "unit": "tsp"
+      },
+      {
+        "name": "garlic powder",
+        "qty": "1",
+        "unit": "tsp"
+      },
+      {
+        "name": "salt",
+        "qty": "0.5",
+        "unit": "tsp"
+      },
+      {
+        "name": "Greek yogurt",
+        "qty": "170",
+        "unit": "g"
+      },
+      {
+        "name": "Dijon mustard",
+        "qty": "15",
+        "unit": "g"
+      }
+    ],
+    "instructions": [
+      "Heat oven to 425°F. Cut sweet potatoes into 3/4-inch cubes. Toss with oil, paprika, garlic powder and salt across two sheet pans. Roast 15 minutes.",
+      "Add green beans and sliced fully cooked chicken sausage. Toss and roast another 20–25 minutes, until potatoes are tender and sausage is heated according to package directions.",
+      "Mix yogurt and mustard for a quick dip. Cut Rosemary's sausage lengthwise into small pieces."
+    ],
+    "notes": "Frozen green beans work: add straight from frozen, spread well and allow a few extra minutes. Cook for dinner + next-day lunch for 2 adults + 1 kid; pack lunch portions before sitting down."
+  }
+]
 
-GROCERY = [('blueberries or mixed berries', 'Produce', '2', 'lb'),
- ('bell peppers', 'Produce', '9', 'ct'),
- ('baby spinach', 'Produce', '16', 'oz'),
- ('micro greens', 'Produce', '1', '3 oz clamshell'),
- ('broccoli', 'Produce', '2', 'lb'),
- ('green beans', 'Produce', '2', 'lb'),
- ('red onion', 'Produce', '2', 'ct'),
- ('cucumber', 'Produce', '2', 'ct'),
- ('zucchini', 'Produce', '3', 'ct'),
- ('cherry tomatoes', 'Produce', '2', 'pints'),
- ('shredded cabbage', 'Produce', '1', '12 oz bag'),
- ('lemon', 'Produce', '2', 'ct'),
- ('lime', 'Produce', '2', 'ct'),
- ('ginger', 'Produce', '1', '3 oz piece'),
- ('garlic', 'Produce', '1', 'bulb'),
- ('apples', 'Produce', '6', 'ct'),
- ('bananas', 'Produce', '7', 'ct'),
- ('baby carrots', 'Produce', '1', 'lb'),
- ('chicken thighs', 'Meat & Seafood', '3', 'lb boneless skinless'),
- ('chicken breasts or tenders', 'Meat & Seafood', '2.5', 'lb'),
- ('ground turkey', 'Meat & Seafood', '2', 'lb lean'),
- ('salmon fillets', 'Meat & Seafood', '2.5', 'lb'),
- ('turkey bacon', 'Meat & Seafood', '2', '12 oz packs'),
- ('eggs', 'Dairy', '30', 'ct'),
- ('Greek yogurt', 'Dairy', '2', '32 oz tubs plain'),
- ('feta', 'Dairy', '1', '6 oz pack'),
- ('string cheese or cheese sticks', 'Dairy', '1', '12 ct pack'),
- ('yogurt tubes', 'Dairy', '1', '8 ct box'),
- ('hummus', 'Dairy', '1', '10 oz tub'),
- ('whole-wheat pitas', 'Bakery', '6', 'ct'),
- ('corn tortillas', 'Bakery', '18', 'small'),
- ('sandwich bread', 'Bakery', '1', 'loaf'),
- ('protein pancake mix', 'Pantry', '1', '20 oz box'),
- ('long-grain rice', 'Pantry', '1', '1 lb bag'),
- ('whole-wheat pasta', 'Pantry', '1', 'lb'),
- ('black beans', 'Pantry', '1', '15 oz can'),
- ('chickpeas', 'Pantry', '2', '15 oz cans'),
- ('yuzu juice (unsweetened)', 'Pantry', '1', 'small bottle, at least 60 ml'),
- ('white miso', 'Pantry', '1', 'small tub'),
- ('reduced-sodium soy sauce', 'Pantry', '1', 'bottle'),
- ('honey', 'Pantry', '1', 'bottle'),
- ('olive oil', 'Pantry', '1', 'bottle'),
- ('ground cumin', 'Pantry', '1', 'jar'),
- ('smoked paprika', 'Pantry', '1', 'jar'),
- ('garlic powder', 'Pantry', '1', 'jar'),
- ('cinnamon', 'Pantry', '1', 'jar'),
- ('dried oregano', 'Pantry', '1', 'jar'),
- ('salt', 'Pantry', '1', 'container'),
- ('black pepper', 'Pantry', '1', 'jar'),
- ('peanut butter', 'Pantry', '1', 'jar'),
- ('goldfish crackers', 'Snacks', '1', 'box'),
- ('wheat crackers', 'Snacks', '1', 'box'),
- ('granola bars', 'Snacks', '1', 'box'),
- ('applesauce pouches', 'Snacks', '1', '6 ct box'),
- ('fruit snacks', 'Snacks', '1', 'box'),
- ('chocolate chip cookies', 'Snacks', '1', 'small pack')]
+GROCERY = [
+  [
+    "bananas",
+    "Produce",
+    "16",
+    "ct"
+  ],
+  [
+    "apples",
+    "Produce",
+    "8",
+    "ct"
+  ],
+  [
+    "clementines",
+    "Produce",
+    "1",
+    "3 lb bag"
+  ],
+  [
+    "bell peppers",
+    "Produce",
+    "6",
+    "ct"
+  ],
+  [
+    "baby spinach",
+    "Produce",
+    "1",
+    "12 oz bag"
+  ],
+  [
+    "micro greens",
+    "Produce",
+    "1",
+    "2 oz pack"
+  ],
+  [
+    "potatoes",
+    "Produce",
+    "1",
+    "3 lb bag"
+  ],
+  [
+    "sweet potatoes",
+    "Produce",
+    "4",
+    "lb"
+  ],
+  [
+    "carrots",
+    "Produce",
+    "1",
+    "3 lb bag"
+  ],
+  [
+    "cucumber",
+    "Produce",
+    "2",
+    "ct"
+  ],
+  [
+    "yellow onions",
+    "Produce",
+    "2",
+    "ct"
+  ],
+  [
+    "broccoli",
+    "Frozen",
+    "2",
+    "lb"
+  ],
+  [
+    "green beans",
+    "Frozen",
+    "2",
+    "lb"
+  ],
+  [
+    "blueberries or mixed berries",
+    "Frozen",
+    "1",
+    "1 lb bag"
+  ],
+  [
+    "chicken thighs",
+    "Meat & Seafood",
+    "6",
+    "lb boneless skinless"
+  ],
+  [
+    "ground turkey",
+    "Meat & Seafood",
+    "2",
+    "lb lean"
+  ],
+  [
+    "fully cooked chicken sausage",
+    "Meat & Seafood",
+    "1.5",
+    "lb"
+  ],
+  [
+    "turkey bacon",
+    "Meat & Seafood",
+    "2",
+    "packs totaling at least 18 slices"
+  ],
+  [
+    "eggs",
+    "Dairy",
+    "36",
+    "ct"
+  ],
+  [
+    "milk",
+    "Dairy",
+    "1",
+    "half gallon"
+  ],
+  [
+    "Greek yogurt",
+    "Dairy",
+    "3",
+    "32 oz tubs plain"
+  ],
+  [
+    "shredded cheese",
+    "Dairy",
+    "1",
+    "16 oz bag"
+  ],
+  [
+    "string cheese or cheese sticks",
+    "Dairy",
+    "1",
+    "12 ct pack"
+  ],
+  [
+    "yogurt tubes",
+    "Dairy",
+    "2",
+    "8 ct boxes"
+  ],
+  [
+    "hummus",
+    "Dairy",
+    "1",
+    "10 oz tub"
+  ],
+  [
+    "sandwich bread",
+    "Bakery",
+    "2",
+    "loaves"
+  ],
+  [
+    "whole-wheat tortillas",
+    "Bakery",
+    "2",
+    "10 ct packs, small"
+  ],
+  [
+    "rolled oats",
+    "Pantry",
+    "1",
+    "18 oz container"
+  ],
+  [
+    "peanut butter",
+    "Pantry",
+    "1",
+    "16 oz jar"
+  ],
+  [
+    "long-grain rice",
+    "Pantry",
+    "1",
+    "1 lb bag"
+  ],
+  [
+    "whole-wheat pasta",
+    "Pantry",
+    "2",
+    "1 lb boxes (one dinner; one backup)"
+  ],
+  [
+    "marinara sauce",
+    "Pantry",
+    "1",
+    "24 oz jar"
+  ],
+  [
+    "black beans",
+    "Pantry",
+    "3",
+    "15 oz cans"
+  ],
+  [
+    "chickpeas",
+    "Pantry",
+    "3",
+    "15 oz cans"
+  ],
+  [
+    "light coconut milk",
+    "Pantry",
+    "1",
+    "13.5 oz can"
+  ],
+  [
+    "diced tomatoes",
+    "Pantry",
+    "1",
+    "14.5 oz can"
+  ],
+  [
+    "salsa",
+    "Pantry",
+    "1",
+    "16 oz jar"
+  ],
+  [
+    "Dijon mustard",
+    "Pantry",
+    "1",
+    "small jar"
+  ],
+  [
+    "honey",
+    "Pantry",
+    "1",
+    "small bottle"
+  ],
+  [
+    "olive oil",
+    "Pantry",
+    "1",
+    "bottle"
+  ],
+  [
+    "garlic powder",
+    "Pantry",
+    "1",
+    "jar"
+  ],
+  [
+    "ground cumin",
+    "Pantry",
+    "1",
+    "jar"
+  ],
+  [
+    "smoked paprika",
+    "Pantry",
+    "1",
+    "jar"
+  ],
+  [
+    "dried oregano",
+    "Pantry",
+    "1",
+    "jar"
+  ],
+  [
+    "mild curry powder",
+    "Pantry",
+    "1",
+    "jar"
+  ],
+  [
+    "cinnamon",
+    "Pantry",
+    "1",
+    "jar"
+  ],
+  [
+    "salt",
+    "Pantry",
+    "1",
+    "container"
+  ],
+  [
+    "black pepper",
+    "Pantry",
+    "1",
+    "jar"
+  ],
+  [
+    "goldfish crackers",
+    "Snacks",
+    "1",
+    "large box"
+  ],
+  [
+    "wheat crackers",
+    "Snacks",
+    "1",
+    "box"
+  ],
+  [
+    "granola bars",
+    "Snacks",
+    "1",
+    "8 ct box"
+  ],
+  [
+    "applesauce pouches",
+    "Snacks",
+    "1",
+    "12 ct box unsweetened"
+  ],
+  [
+    "fruit snacks",
+    "Snacks",
+    "1",
+    "small box"
+  ],
+  [
+    "chocolate chip cookies",
+    "Snacks",
+    "1",
+    "small pack"
+  ]
+]
 
-GROCERY_ALIASES = {'soy sauce': 'reduced-sodium soy sauce', 'yuzu juice': 'yuzu juice (unsweetened)', 'bread (sandwich loaf)': 'sandwich bread'}
+GROCERY_ALIASES = {"bread (sandwich loaf)":"sandwich bread","corn tortillas":"whole-wheat tortillas","red onion":"yellow onions"}
 
-MENU = {'breakfast': ['Protein pancakes + berries', 'Veggie eggs + turkey bacon'],
- 'lunch': ['Leftovers from dinner'],
- 'dinner': ['Yuzu-ginger chicken, broccoli + rice',
-            'Sheet-pan shawarma chicken + lemon yogurt',
-            'Smoky turkey + black bean tacos',
-            'Lemon-feta chickpea pasta + roasted vegetables',
-            'Miso-yuzu salmon, green beans + rice'],
- 'snack': ['Greek yogurt + berries',
-           'Apple + peanut butter',
-           'Banana',
-           'Carrots or cucumber + hummus',
-           'Hard-boiled egg + crackers',
-           'String cheese',
-           'Yogurt tubes',
-           'Peanut butter toast',
-           'Granola bar',
-           'Applesauce pouch',
-           'Goldfish',
-           'Fruit snacks',
-           'A couple chocolate chip cookies']}
-
+MENU = {
+  "breakfast": [
+    "Peanut butter banana overnight oats",
+    "Baked veggie eggs + turkey bacon toast"
+  ],
+  "lunch": [
+    "Leftovers + easy backup meals"
+  ],
+  "dinner": [
+    "Honey-mustard chicken, potatoes + carrots",
+    "Oven turkey meatballs, spaghetti + broccoli",
+    "Sheet-pan chicken fajitas + black beans",
+    "Mild chickpea, sweet potato + spinach curry",
+    "Sheet-pan chicken sausage, sweet potatoes + green beans"
+  ],
+  "snack": [
+    "Yogurt tube + banana",
+    "String cheese + apple slices",
+    "Greek yogurt + thawed berries",
+    "Peanut butter banana toast",
+    "Apple slices + peanut butter",
+    "Hummus + cucumber strips",
+    "Hummus + carrot sticks",
+    "Hard-boiled egg + wheat crackers",
+    "Cheese + crackers",
+    "Clementine + cheese stick",
+    "Applesauce pouch + peanut butter toast",
+    "Granola bar + milk",
+    "Goldfish + string cheese",
+    "Small bean-and-cheese tortilla",
+    "Cinnamon yogurt + banana",
+    "Fruit snacks + cheese stick",
+    "A couple chocolate chip cookies + milk"
+  ]
+}
 
 def seed_easy_weekly_menu() -> dict:
     """Ensure recipes exist; if SEED_ID is new, set this week's menu + grocery."""
@@ -396,6 +985,20 @@ def seed_easy_weekly_menu() -> dict:
             aliases=GROCERY_ALIASES,
             drop_missing=True,
         )
+        # A prior purchase does not imply this week's fresh food is still on hand.
+        # Preserve checked pantry staples; restock meal-specific cans and sauces.
+        restock_names = {
+            name.lower() for name, category, _, _ in GROCERY
+            if category != "Pantry" or name in {
+                "marinara sauce", "black beans", "chickpeas",
+                "light coconut milk", "diced tomatoes", "salsa",
+            }
+        }
+        refreshed = grocery_result["items"]
+        for item in refreshed:
+            if item["name"].lower() in restock_names:
+                item["checked"] = False
+        recipes_store.replace_grocery_items(refreshed)
         recipes_store.set_active_seed(SEED_ID)
         applied = True
         print(
