@@ -1717,8 +1717,8 @@ document.addEventListener("alpine:init", () => {
                 const url = new URL(window.location.href);
                 url.searchParams.set("month", this.currentMonth);
                 url.hash = "categories";
-                if (window.location.href === url.toString()) window.location.reload();
-                else window.location.assign(url.toString());
+                window.history.replaceState(null, "", url.toString());
+                window.location.reload();
             } finally {
                 this.savingCategory = false;
             }
