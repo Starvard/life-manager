@@ -23,6 +23,156 @@
     <span class="fantasy-msg" x-text="syncMsg" x-show="syncMsg"></span>
 </div>
 
+<template x-if="landscape &amp;&amp; landscape.verdict">
+<div class="card fantasy-path-card" :class="'fantasy-verdict-' + landscape.verdict">
+    <div class="card-title">Path to winning</div>
+    <p class="fantasy-verdict-title" x-text="landscape.verdict_title"></p>
+    <p class="fantasy-path-meta" x-show="landscape.my_rank">
+        Rank <span x-text="landscape.my_rank"></span> of <span x-text="landscape.n_teams"></span>
+        · ≈<span x-text="fmtVal(landscape.my_roster_value)"></span>
+        <span x-show="landscape.gap_to_leader"> · <span x-text="fmtVal(landscape.gap_to_leader)"></span> behind <span x-text="landscape.leader_name || 'the top'"></span></span>
+    </p>
+    <ul class="fantasy-path-lines">
+        <template x-for="(ln, i) in (landscape.verdict_lines || [])" :key="'path-'+i">
+            <li x-text="ln"></li>
+        </template>
+    </ul>
+
+    <div class="fantasy-move-grid" x-show="(landscape.hold && landscape.hold.length) || (landscape.sell_now && landscape.sell_now.length) || (landscape.shop && landscape.shop.length)">
+        <div class="fantasy-move-col" x-show="landscape.hold && landscape.hold.length">
+            <div class="fantasy-label">Hold</div>
+            <ul class="fantasy-move-list">
+                <template x-for="p in landscape.hold" :key="'hold-'+p.player_id">
+                    <li>
+                        <button type="button" class="fantasy-move-name-btn" @click="openPlayerRosterPlan(p.player_id)">
+                            <span class="fantasy-move-name" x-text="p.name"></span>
+                        </button>
+                        <span class="fantasy-move-meta" x-text="assetMeta(p)"></span>
+                        <span class="fantasy-move-why" x-text="p.why"></span>
+                    </li>
+                </template>
+            </ul>
+        </div>
+        <div class="fantasy-move-col" x-show="landscape.sell_now && landscape.sell_now.length">
+            <div class="fantasy-label">Sell this window</div>
+            <ul class="fantasy-move-list">
+                <template x-for="p in landscape.sell_now" :key="'sell-'+p.player_id">
+                    <li>
+                        <button type="button" class="fantasy-move-name-btn" @click="openPlayerRosterPlan(p.player_id)">
+                            <span class="fantasy-move-name" x-text="p.name"></span>
+                        </button>
+                        <span class="fantasy-move-meta" x-text="assetMeta(p)"></span>
+                        <span class="fantasy-move-why" x-text="p.why"></span>
+                    </li>
+                </template>
+            </ul>
+        </div>
+        <div class="fantasy-move-col" x-show="landscape.shop && landscape.shop.length">
+            <div class="fantasy-label">Trade filler</div>
+            <ul class="fantasy-move-list">
+                <template x-for="p in landscape.shop" :key="'shop-'+p.player_id">
+                    <li>
+                        <button type="button" class="fantasy-move-name-btn" @click="openPlayerRosterPlan(p.player_id)">
+                            <span class="fantasy-move-name" x-text="p.name"></span>
+                        </button>
+                        <span class="fantasy-move-meta" x-text="assetMeta(p)"></span>
+                        <span class="fantasy-move-why" x-text="p.why"></span>
+                    </li>
+                </template>
+            </ul>
+        </div>
+    </div>
+
+    <div class="fantasy-future-picks" x-show="landscape.future_picks && landscape.future_picks.length">
+        <div class="fantasy-label">Future picks</div>
+        <ul class="fantasy-pick-chip-list">
+            <template x-for="p in landscape.future_picks" :key="p.pick_key || (p.season + '-' + p.round + '-' + p.label)">
+                <li>
+                    <span x-text="p.label"></span>
+                    <span class="fantasy-pick-outlook" x-show="p.outlook" x-text="p.outlook"></span>
+                </li>
+            </template>
+        </ul>
+    </div>
+</div>
+</template>
+
+<template x-if="landscape &amp;&amp; landscape.teams &amp;&amp; landscape.teams.length">
+<div class="card fantasy-power-card">
+    <div class="card-title">League power</div>
+    <p class="fantasy-hint">FantasyCalc dynasty roster value, 12-team superflex. Last year’s record is from the rolled-over Sleeper league.</p>
+    <div class="fantasy-power-scroll">
+        <table class="fantasy-table fantasy-power-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Team</th>
+                    <th>Value</th>
+                    <th>Last year</th>
+                    <th>Top assets</th>
+                </tr>
+            </thead>
+            <tbody>
+                <template x-for="t in landscape.teams" :key="t.roster_id">
+                    <tr :class="{ 'fantasy-rank-me': t.is_mine }">
+                        <td x-text="t.rank"></td>
+                        <td>
+                            <div class="fantasy-power-name" x-text="t.team_name"></div>
+                            <div class="fantasy-power-qbs" x-text="qbLine(t)"></div>
+                        </td>
+                        <td class="fantasy-power-val" x-text="fmtVal(t.roster_value)"></td>
+                        <td x-text="priorLine(t)"></td>
+                        <td class="fantasy-power-top" x-text="topLine(t)"></td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+</div>
+</template>
+
+<template x-if="landscape &amp;&amp; landscape.trade_tape &amp;&amp; landscape.trade_tape.length">
+<div class="card fantasy-tape-card">
+    <div class="card-title">League trade tape</div>
+    <p class="fantasy-hint">
+        Completed Sleeper trades with FantasyCalc values so you can see what this room actually pays.
+        <a x-show="landscape.sleeper_trades_url" :href="landscape.sleeper_trades_url" target="_blank" rel="noopener">Open on Sleeper</a>
+    </p>
+    <template x-for="(tr, idx) in visibleTape()" :key="tr.transaction_id || idx">
+        <div class="fantasy-tape-block" :class="{ 'fantasy-tape-mine': tr.involves_me }">
+            <div class="fantasy-tape-head">
+                <span class="fantasy-suggest-tag" x-show="tr.involves_me">You</span>
+                <span class="fantasy-tape-when" x-text="fmtTime(tr.created_iso)"></span>
+            </div>
+            <div class="fantasy-tape-sides">
+                <template x-for="side in tr.teams" :key="(side.roster_id || side.team_name) + '-' + idx">
+                    <div class="fantasy-tape-side" :class="{ 'fantasy-tape-side-me': side.is_mine }">
+                        <div class="fantasy-tape-team" x-text="side.team_name + (side.is_mine ? ' (you)' : '')"></div>
+                        <ul>
+                            <template x-for="p in (side.players || [])" :key="p.player_id">
+                                <li x-text="playerLine(p)"></li>
+                            </template>
+                            <template x-for="pk in (side.picks || [])" :key="pk">
+                                <li x-text="'Pick · ' + pk"></li>
+                            </template>
+                            <li x-show="side.faab" x-text="'FAAB · $' + side.faab"></li>
+                            <li class="fantasy-empty-note" x-show="!(side.players && side.players.length) && !(side.picks && side.picks.length) && !side.faab">—</li>
+                        </ul>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </template>
+    <button
+        type="button"
+        class="btn btn-secondary btn-sm"
+        x-show="(landscape.trade_tape || []).length > tapeLimit"
+        @click="tapeExpanded = !tapeExpanded"
+        x-text="tapeExpanded ? 'Show fewer trades' : 'Show all ' + landscape.trade_tape.length + ' trades'"
+    ></button>
+</div>
+</template>
+
 <template x-if="bestLineup &amp;&amp; bestLineup.slots &amp;&amp; bestLineup.slots.length">
 <div class="card fantasy-best-card">
     <div class="card-title">Best starting lineup</div>

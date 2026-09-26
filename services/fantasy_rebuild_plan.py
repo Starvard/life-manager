@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from datetime import datetime, timezone
 from services import fantasycalc_client
+from services.fantasy_league import build_league_landscape
 
 
 def _horizon_note(years: int) -> str:
@@ -863,6 +864,14 @@ def _pick_plan_line(
         )
         return (target, rationale)
 
+    if rnd == 1:
+        target = f"{season} 1st — keep unless a young QB1/WR1 is offered"
+        rationale = (
+            f"In a {h} rebuild, first-round capital is the climb. "
+            "Do not attach this to aging production. Only move it for a locked-in young cornerstone."
+        )
+        return (target, rationale)
+
     tier = ""
     if median_val is not None:
         tier = f" Rough median dynasty value for this round slot in FantasyCalc: ~{median_val:.0f}."
@@ -1053,7 +1062,14 @@ def generate_rebuild_plan(state: dict) -> dict:
             prn = int(ast2.get("round") or 0)
         except (TypeError, ValueError):
             prn = 0
+        try:
+            pseason = int(ast2.get("season") or 0)
+        except (TypeError, ValueError):
+            pseason = 0
         ds2 = str(ast2.get("display_slot") or "").strip()
+        # Only auto-assume rookies for THIS season's draft, not 2027+ placeholders.
+        if pseason != current_season:
+            continue
         # Default first-round early picks to the model's top rookie if user has not chosen
         if prn == 1 and (ds2 in ("1.01", "1.02", "") or not ds2):
             ex = ar_map.get(aid2) if isinstance(ar_map.get(aid2), dict) else None
@@ -1070,6 +1086,20 @@ def generate_rebuild_plan(state: dict) -> dict:
         plan["project_rookies_into_lineup"] = True
 
     apply_lineup_projection(state, vmap, tiers)
+
+    try:
+        landscape = build_league_landscape(
+            snap, vmap, state.get("best_lineup"), horizon,
+        )
+        state["league_landscape"] = landscape
+        if landscape.get("verdict_title"):
+            lines.insert(0, "")
+            for ln in reversed(landscape.get("verdict_lines") or []):
+                lines.insert(0, f"  • {ln}")
+            lines.insert(0, f"LEAGUE PATH — {landscape.get('verdict_title')}")
+            lines.insert(0, "")
+    except Exception:
+        state["league_landscape"] = None
 
     doc = "\n".join(lines).strip()
     plan["rebuild_plan_doc"] = doc
