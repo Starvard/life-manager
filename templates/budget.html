@@ -37,6 +37,109 @@
     </div>
 </div>
 
+{# ── Sub-tabs ──────────────────────────────────────────────── #}
+<div class="budget-tabs">
+    <button class="budget-tab" :class="{ active: view === 'status' }" @click="view = 'status'">Status</button>
+    <button class="budget-tab" :class="{ active: view === 'savings' }" @click="view = 'savings'">Savings</button>
+    <button class="budget-tab" :class="{ active: view === 'transactions' }" @click="view = 'transactions'">Transactions</button>
+    <button class="budget-tab" :class="{ active: view === 'categories' }" @click="view = 'categories'">Categories</button>
+    <button class="budget-tab" :class="{ active: view === 'budgets' }" @click="view = 'budgets'">Budgets</button>
+    <button class="budget-tab" :class="{ active: view === 'connect' }" @click="goToConnect()">
+        Connect
+        <span class="budget-badge" x-show="plaidItems.length > 0" x-text="plaidItems.length"></span>
+    </button>
+    <button class="budget-tab" :class="{ active: view === 'rules' }" @click="view = 'rules'; loadRules()">Rules</button>
+    <button class="budget-tab" :class="{ active: view === 'duplicates' }" @click="view = 'duplicates'">
+        Duplicates
+        <span class="budget-badge" x-show="duplicateCount > 0" x-text="duplicateCount"></span>
+    </button>
+</div>
+
+{# ── Status view: the primary "am I over or under?" panel ─────── #}
+<div x-show="view === 'status'" x-cloak>
+    <div class="card budget-month-summary">
+        <div class="budget-month-summary-head">
+            <h2>Month at a glance</h2>
+            <button type="button" class="btn btn-sm btn-outline" @click="view = 'budgets'">Edit budget</button>
+        </div>
+        <table class="budget-month-table">
+            <caption class="text-muted">Full-month plan compared with actuals recorded for <span x-text="monthLabel(currentMonth)"></span>.</caption>
+            <thead><tr><th scope="col"></th><th scope="col">Plan</th><th scope="col">Actual</th></tr></thead>
+            <tbody>
+                <tr>
+                    <th scope="row">Income <small>Projected / received</small></th>
+                    <td><span x-show="projectedIncome() > 0" x-text="formatMoney(projectedIncome())"></span><button type="button" class="budget-summary-link" x-show="projectedIncome() <= 0" @click="view = 'budgets'">Set income</button></td>
+                    <td><button type="button" class="budget-summary-link budget-summary-actual" @click="openIncomeBreakdown()" title="View income transactions" x-text="formatMoney(lifestyleIncome())"></button></td>
+                </tr>
+                <tr>
+                    <th scope="row">Spending <small>Budget / spent</small></th>
+                    <td><span x-show="overallStatus().has_budget" x-text="formatMoney(overallStatus().total_budget)"></span><button type="button" class="budget-summary-link" x-show="!overallStatus().has_budget" @click="view = 'budgets'">Set budget</button></td>
+                    <td x-text="formatMoney(lifestyleSpentAbs())"></td>
+                </tr>
+                <tr class="budget-summary-net">
+                    <th scope="row">Left over <small>Income − spending</small></th>
+                    <td :class="projectedIncome() - overallStatus().total_budget < 0 ? 'negative' : ''"
+                        x-text="projectedIncome() > 0 && overallStatus().has_budget ? formatMoney(projectedIncome() - overallStatus().total_budget) : '—'"></td>
+                    <td :class="lifestyleIncome() - lifestyleSpentAbs() < 0 ? 'negative' : 'positive'"
+                        x-text="formatMoney(lifestyleIncome() - lifestyleSpentAbs())"></td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="budget-summary-footer">
+            <span x-show="overallStatus().has_budget" :class="overallStatus().total_remaining < 0 ? 'negative' : ''"
+                  x-text="formatMoney(Math.abs(overallStatus().total_remaining)) + (overallStatus().total_remaining < 0 ? ' over spending budget' : ' left to spend')"></span>
+            <span class="text-muted">Transfers and card payoffs excluded.</span>
+        </div>
+    </div>
+
+    <details class="budget-status-details">
+        <summary>Category details</summary>
+    <h3 class="budget-report-title" x-show="(report.category_status || []).length > 0">By category</h3>
+    <div class="budget-status-list">
+        <template x-for="row in (report.category_status || [])" :key="row.category">
+            <div class="budget-status-row"
+                 :class="{ over: row.over, 'budget-status-row-card-pay': row.category === report.credit_card_payment_category }">
+                <div class="budget-status-row-head">
+                    <span class="budget-status-cat" x-text="row.category"></span>
+                    <span class="budget-status-spent">
+                        <strong x-text="formatMoney(row.spent)"></strong>
+                        <template x-if="!row.no_budget && row.limit > 0">
+                            <span>
+                                <span class="text-muted"> / </span>
+                                <span x-text="formatMoney(row.limit)"></span>
+                            </span>
+                        </template>
+                        <template x-if="row.no_budget">
+                            <span class="text-muted"> (no budget)</span>
+                        </template>
+                    </span>
+                </div>
+                <div class="budget-status-bar" x-show="!row.no_budget && row.limit > 0">
+                    <div class="budget-status-bar-fill"
+                         :class="row.over ? 'over' : (row.percent > 80 ? 'warn' : '')"
+                         :style="'width:' + Math.min(100, row.percent) + '%'"></div>
+                </div>
+                <div class="budget-status-row-note"
+                     x-show="!row.no_budget && row.limit > 0">
+                    <span x-show="!row.over"
+                          x-text="formatMoney(row.remaining) + ' left · ' + row.percent.toFixed(0) + '% used'"></span>
+                    <span x-show="row.over" class="budget-status-over"
+                          x-text="'Over by ' + formatMoney(Math.abs(row.remaining))"></span>
+                </div>
+            </div>
+        </template>
+        <div class="budget-empty" x-show="(report.category_status || []).length === 0">
+            <p>No transactions yet this month. <a href="#" @click.prevent="goToConnect()">Connect a bank</a>
+               or <a href="#" @click.prevent="goToConnect()">upload a CSV</a> to get started.</p>
+        </div>
+    </div>
+    </details>
+</div>
+
+{# ── Savings history: saved or lost each month ───────────────── #}
+<div x-show="view === 'savings'" x-cloak>
+    <details class="budget-status-details budget-trend-details">
+        <summary>Income, spending &amp; projections</summary>
 <div class="card budget-flow-card" x-show="(report.cash_flow_series || []).length > 0" x-cloak>
     <div class="card-title">Big picture: money in &amp; out</div>
     <p class="text-muted" style="font-size:0.8rem; margin: 0 0 0.9rem;">
@@ -137,94 +240,8 @@
     </div>
 </div>
 
-{# ── Sub-tabs ──────────────────────────────────────────────── #}
-<div class="budget-tabs">
-    <button class="budget-tab" :class="{ active: view === 'status' }" @click="view = 'status'">Status</button>
-    <button class="budget-tab" :class="{ active: view === 'savings' }" @click="view = 'savings'">Savings</button>
-    <button class="budget-tab" :class="{ active: view === 'transactions' }" @click="view = 'transactions'">Transactions</button>
-    <button class="budget-tab" :class="{ active: view === 'categories' }" @click="view = 'categories'">Categories</button>
-    <button class="budget-tab" :class="{ active: view === 'budgets' }" @click="view = 'budgets'">Budgets</button>
-    <button class="budget-tab" :class="{ active: view === 'connect' }" @click="goToConnect()">
-        Connect
-        <span class="budget-badge" x-show="plaidItems.length > 0" x-text="plaidItems.length"></span>
-    </button>
-    <button class="budget-tab" :class="{ active: view === 'rules' }" @click="view = 'rules'; loadRules()">Rules</button>
-    <button class="budget-tab" :class="{ active: view === 'duplicates' }" @click="view = 'duplicates'">
-        Duplicates
-        <span class="budget-badge" x-show="duplicateCount > 0" x-text="duplicateCount"></span>
-    </button>
-</div>
+    </details>
 
-{# ── Status view: the primary "am I over or under?" panel ─────── #}
-<div x-show="view === 'status'" x-cloak>
-    <div class="card budget-status-card" x-show="overallStatus().has_budget">
-        <div class="card-title">
-            <span x-show="!overallStatus().over">On track this month</span>
-            <span x-show="overallStatus().over">Over budget</span>
-        </div>
-        <div class="budget-status-bar-wrap">
-            <div class="budget-status-bar">
-                <div class="budget-status-bar-fill"
-                     :class="overallStatus().over ? 'over' : ''"
-                     :style="'width:' + Math.min(100, overallStatus().percent) + '%'"></div>
-            </div>
-            <div class="budget-status-bar-label">
-                <strong x-text="formatMoney(overallStatus().total_spent)"></strong>
-                of <span x-text="formatMoney(overallStatus().total_budget)"></span>
-                <span class="text-muted">&middot;</span>
-                <span x-text="overallStatus().percent.toFixed(0) + '%'"></span>
-            </div>
-        </div>
-    </div>
-    <div class="card" x-show="!overallStatus().has_budget">
-        <div class="card-title">Set a budget to see over / under status</div>
-        <p>Head to the <a href="#" @click.prevent="view='budgets'">Budgets</a> tab to add simple monthly
-           limits per category. You'll get a clear over-or-under bar here once you do.</p>
-    </div>
-
-    <h3 class="budget-report-title" x-show="(report.category_status || []).length > 0">By category</h3>
-    <div class="budget-status-list">
-        <template x-for="row in (report.category_status || [])" :key="row.category">
-            <div class="budget-status-row"
-                 :class="{ over: row.over, 'budget-status-row-card-pay': row.category === report.credit_card_payment_category }">
-                <div class="budget-status-row-head">
-                    <span class="budget-status-cat" x-text="row.category"></span>
-                    <span class="budget-status-spent">
-                        <strong x-text="formatMoney(row.spent)"></strong>
-                        <template x-if="!row.no_budget && row.limit > 0">
-                            <span>
-                                <span class="text-muted"> / </span>
-                                <span x-text="formatMoney(row.limit)"></span>
-                            </span>
-                        </template>
-                        <template x-if="row.no_budget">
-                            <span class="text-muted"> (no budget)</span>
-                        </template>
-                    </span>
-                </div>
-                <div class="budget-status-bar" x-show="!row.no_budget && row.limit > 0">
-                    <div class="budget-status-bar-fill"
-                         :class="row.over ? 'over' : (row.percent > 80 ? 'warn' : '')"
-                         :style="'width:' + Math.min(100, row.percent) + '%'"></div>
-                </div>
-                <div class="budget-status-row-note"
-                     x-show="!row.no_budget && row.limit > 0">
-                    <span x-show="!row.over"
-                          x-text="formatMoney(row.remaining) + ' left · ' + row.percent.toFixed(0) + '% used'"></span>
-                    <span x-show="row.over" class="budget-status-over"
-                          x-text="'Over by ' + formatMoney(Math.abs(row.remaining))"></span>
-                </div>
-            </div>
-        </template>
-        <div class="budget-empty" x-show="(report.category_status || []).length === 0">
-            <p>No transactions yet this month. <a href="#" @click.prevent="goToConnect()">Connect a bank</a>
-               or <a href="#" @click.prevent="goToConnect()">upload a CSV</a> to get started.</p>
-        </div>
-    </div>
-</div>
-
-{# ── Savings history: saved or lost each month ───────────────── #}
-<div x-show="view === 'savings'" x-cloak>
     <div class="card budget-savings-card">
         <div class="card-title">Saved or lost each month</div>
         <p class="text-muted" style="font-size:.85rem; margin:0 0 .85rem;">
