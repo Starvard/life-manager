@@ -69,7 +69,7 @@ from services.budget_categorizer import (
     learn_rule_from_override,
     bulk_set_category,
     replace_budget_category_globally,
-    list_custom_categories, add_custom_category, remove_custom_category,
+    list_custom_categories, add_custom_category, remove_custom_category, rename_category,
 )
 from services.budget_csv_import import parse_csv_text
 from services import plaid_client, plaid_credentials
@@ -1129,6 +1129,16 @@ def api_budget_add_category():
     if not result.get("ok"):
         return jsonify(result), 400
     return jsonify(result)
+
+
+@app.route("/api/budget/categories/rename", methods=["POST"])
+def api_budget_rename_category():
+    body = request.get_json(silent=True) or {}
+    old, new = body.get("from"), body.get("to")
+    if not isinstance(old, str) or not isinstance(new, str):
+        return jsonify({"ok": False, "error": "Both category names are required."}), 400
+    result = rename_category(old, new)
+    return jsonify(result), 200 if result.get("ok") else 400
 
 
 @app.route("/api/budget/categories/<path:name>", methods=["DELETE"])

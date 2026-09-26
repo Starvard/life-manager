@@ -151,10 +151,15 @@ def _month_add(month: str, delta: int) -> str:
     return f"{ny:04d}-{nm + 1:02d}"
 
 
+def _category_label(name: str) -> str:
+    from services.budget_categorizer import resolve_category_name
+    return resolve_category_name(name)
+
+
 def _projected_income_from_limits(limits: dict) -> float:
     """Sum of monthly limit rows that represent expected take-home (Budgets tab)."""
     t = 0.0
-    for k in SALARY_INCOME_CATEGORY_NAMES:
+    for k in {_category_label(c) for c in SALARY_INCOME_CATEGORY_NAMES}:
         try:
             t += float((limits or {}).get(k) or 0)
         except (TypeError, ValueError):
@@ -165,7 +170,7 @@ def _projected_income_from_limits(limits: dict) -> float:
 def _income_salary_categories_actual(by_category: dict) -> float:
     """Sum of **positive** flows in the salary / take-home budget categories (Dyndrite, etc.)."""
     t = 0.0
-    for k in SALARY_INCOME_CATEGORY_NAMES:
+    for k in {_category_label(c) for c in SALARY_INCOME_CATEGORY_NAMES}:
         try:
             raw = float((by_category or {}).get(k) or 0)
         except (TypeError, ValueError):
@@ -501,10 +506,10 @@ def aggregate_month_financials(month: str) -> dict:
 
         by_category[cat] += amt
 
-        if cat == INTERNAL_TRANSFER_CATEGORY:
+        if cat == _category_label(INTERNAL_TRANSFER_CATEGORY):
             continue
 
-        if cat == CREDIT_CARD_PAYMENT_CATEGORY:
+        if cat == _category_label(CREDIT_CARD_PAYMENT_CATEGORY):
             if amt > 0:
                 card_payment_income += amt
             else:
@@ -517,8 +522,8 @@ def aggregate_month_financials(month: str) -> dict:
             # All positive inflows to checking/savings (except card refunds handled above)
             total_income += amt
 
-    if INTERNAL_TRANSFER_CATEGORY in by_category:
-        by_category[INTERNAL_TRANSFER_CATEGORY] = 0.0
+    if _category_label(INTERNAL_TRANSFER_CATEGORY) in by_category:
+        by_category[_category_label(INTERNAL_TRANSFER_CATEGORY)] = 0.0
 
     # Inflows: everything positive except internal + card. Do NOT subtract card
     # refunds from total (they are not in total_income); that produced bogus negatives.
@@ -801,9 +806,9 @@ def compute_monthly_report(month: str) -> dict:
     for cat, raw in by_category.items():
         if raw <= 0:
             continue
-        if cat in (CREDIT_CARD_PAYMENT_CATEGORY, INTERNAL_TRANSFER_CATEGORY):
+        if cat in (_category_label(CREDIT_CARD_PAYMENT_CATEGORY), _category_label(INTERNAL_TRANSFER_CATEGORY)):
             continue
-        if cat in SALARY_INCOME_CATEGORY_NAMES:
+        if cat in {_category_label(c) for c in SALARY_INCOME_CATEGORY_NAMES}:
             income_breakdown.append({"category": cat, "total": round(raw, 2)})
     income_breakdown.sort(key=lambda r: (-r["total"], r["category"]))
 
@@ -821,7 +826,7 @@ def compute_monthly_report(month: str) -> dict:
         # net (mis-tags / noise) must not use the expense formula or "remaining"
         # becomes limit - abs(raw) (e.g. -$6k with no pay yet).
         raw = by_category.get(cat, 0.0)
-        is_income_budget = cat in SALARY_INCOME_CATEGORY_NAMES or cat.lower() == "income"
+        is_income_budget = cat in {_category_label(c) for c in SALARY_INCOME_CATEGORY_NAMES} or cat.lower() == "income"
         if is_income_budget:
             received = max(0.0, float(raw))
             spent = received
@@ -876,9 +881,9 @@ def compute_monthly_report(month: str) -> dict:
         v
         for k, v in budgets.items()
         if k.lower() != "income"
-        and k != CREDIT_CARD_PAYMENT_CATEGORY
-        and k not in SALARY_INCOME_CATEGORY_NAMES
-        and k != INTERNAL_TRANSFER_CATEGORY
+        and k != _category_label(CREDIT_CARD_PAYMENT_CATEGORY)
+        and k not in {_category_label(c) for c in SALARY_INCOME_CATEGORY_NAMES}
+        and k != _category_label(INTERNAL_TRANSFER_CATEGORY)
     )
     # Spending bar: exclude card payoffs (they settle card purchases already in other categories).
     total_spent = abs(total_expenses) - abs(card_payment_expense)
@@ -950,7 +955,7 @@ def compute_monthly_report(month: str) -> dict:
         "card_payment_expense": round(card_payment_expense, 2),
         "card_payoff_total": card_payoff_total,
         "card_payment_net": card_payment_net,
-        "credit_card_payment_category": CREDIT_CARD_PAYMENT_CATEGORY,
+        "credit_card_payment_category": _category_label(CREDIT_CARD_PAYMENT_CATEGORY),
         "projected": {
             "income": round(planned_income, 2),
             "expenses": round(planned_expenses, 2),

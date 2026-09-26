@@ -142,6 +142,7 @@
     <button class="budget-tab" :class="{ active: view === 'status' }" @click="view = 'status'">Status</button>
     <button class="budget-tab" :class="{ active: view === 'savings' }" @click="view = 'savings'">Savings</button>
     <button class="budget-tab" :class="{ active: view === 'transactions' }" @click="view = 'transactions'">Transactions</button>
+    <button class="budget-tab" :class="{ active: view === 'categories' }" @click="view = 'categories'">Categories</button>
     <button class="budget-tab" :class="{ active: view === 'budgets' }" @click="view = 'budgets'">Budgets</button>
     <button class="budget-tab" :class="{ active: view === 'connect' }" @click="goToConnect()">
         Connect
@@ -608,17 +609,16 @@
 </div>
 
 {# ── Rules (learned keyword → category mappings) ─────────────── #}
-<div x-show="view === 'rules'" x-cloak>
+<div x-show="view === 'categories'" x-cloak>
     <div class="card">
         <div class="card-title">Your categories</div>
         <p class="text-muted" style="font-size:.85rem;">
-            Add categories for the picker and monthly limits. Built-ins stay;
-            remove only removes ones you added. To reassign spending first, use
-            Rename or merge below.
+            Add a category or edit any category name, including its emoji. Renaming keeps
+            its transactions, rules, and monthly limit together. Set amounts in Budgets.
         </p>
         <div class="budget-rule-add">
             <input type="text" placeholder="New category (e.g. 🎁 Gifts)"
-                   x-model="newCustomCategory" class="budget-rule-input"
+                   x-model="newCustomCategory" class="budget-rule-input" maxlength="80" aria-label="New category name"
                    @keydown.enter.prevent="addCustomCategory()">
             <button class="btn btn-sm btn-primary" @click="addCustomCategory()"
                     :disabled="addingCustomCat || !(newCustomCategory || '').trim()">
@@ -626,19 +626,30 @@
                 <span x-show="addingCustomCat">Adding…</span>
             </button>
         </div>
-        <p class="text-muted" x-show="(customCategories || []).length === 0"
-           style="font-size:.85rem;margin:0 0 .75rem;">No custom categories yet.</p>
-        <ul class="budget-custom-cat-list" x-show="(customCategories || []).length > 0">
-            <template x-for="c in customCategories" :key="'custom-' + c">
-                <li class="budget-custom-cat-row">
-                    <span x-text="c"></span>
-                    <button type="button" class="btn btn-sm btn-danger"
-                            :disabled="removingCustomCat === c"
-                            @click="removeCustomCategory(c)">Remove</button>
+        <p class="flash flash-danger" role="alert" x-show="categoryEditError" x-text="categoryEditError" x-cloak></p>
+        <ul class="budget-custom-cat-list">
+            <template x-for="c in allCategories" :key="'manage-' + c">
+                <li class="budget-custom-cat-row" style="flex-wrap:wrap;gap:.5rem;">
+                    <span x-show="editingCategory !== c" x-text="c" style="overflow-wrap:anywhere;"></span>
+                    <button type="button" class="btn btn-sm btn-outline" x-show="editingCategory !== c"
+                            :disabled="savingCategory" @click="editingCategory = c; editedCategoryName = c; categoryEditError = ''">Edit</button>
+                    <form x-show="editingCategory === c" @submit.prevent="saveCategoryName()"
+                          style="display:flex;flex-wrap:wrap;gap:.5rem;width:100%;">
+                        <input type="text" class="budget-rule-input" aria-label="Category name" maxlength="80"
+                               x-model="editedCategoryName" :disabled="savingCategory" required>
+                        <button class="btn btn-sm btn-primary" type="submit" :disabled="savingCategory || !editedCategoryName.trim()"
+                                x-text="savingCategory ? 'Saving…' : 'Save'"></button>
+                        <button class="btn btn-sm btn-outline" type="button" :disabled="savingCategory"
+                                @click="editingCategory = ''; categoryEditError = ''">Cancel</button>
+                    </form>
                 </li>
             </template>
         </ul>
+    </div>
+</div>
 
+<div x-show="view === 'rules'" x-cloak>
+    <div class="card">
         <div class="card-title" style="margin-top:1.25rem;">Auto-category rules</div>
         <p class="text-muted" style="font-size:.85rem;">
             When you set a category with <strong>Always</strong>, we remember a keyword from the
