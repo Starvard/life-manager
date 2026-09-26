@@ -280,23 +280,38 @@ def infer_category(tx: dict) -> str:
 
 
 @lru_cache(maxsize=1)
-def _category_renames(path: str, stamp: tuple | None) -> dict:
-    return dict(load_categories().get("renames") or {})
+def _category_settings_cached(path: str, stamp: tuple | None) -> dict:
+    return load_categories()
 
 
 def resolve_category_name(name: str) -> str:
     """Follow persisted renames, including categories inferred by built-in rules."""
-    try:
-        stat = os.stat(config.BUDGET_CATEGORIES_FILE)
-        stamp = (stat.st_mtime_ns, stat.st_size, stat.st_ino)
-    except OSError:
-        stamp = None
-    aliases = _category_renames(config.BUDGET_CATEGORIES_FILE, stamp)
+    aliases = _category_settings().get("renames") or {}
     seen = set()
     while name in aliases and name not in seen:
         seen.add(name)
         name = aliases[name]
     return name
+
+
+def resolve_active_category(name: str) -> str:
+    """Resolve renamed labels and deleted-category redirects for transaction display."""
+    name = resolve_category_name(name)
+    deleted = _category_settings().get("deleted") or {}
+    seen = set()
+    while name in deleted and name not in seen:
+        seen.add(name)
+        name = resolve_category_name(deleted[name])
+    return name
+
+
+def _category_settings() -> dict:
+    try:
+        stat = os.stat(config.BUDGET_CATEGORIES_FILE)
+        stamp = (stat.st_mtime_ns, stat.st_size, stat.st_ino)
+    except OSError:
+        stamp = None
+    return _category_settings_cached(config.BUDGET_CATEGORIES_FILE, stamp)
 
 
 def rename_category(old_name: str, new_name: str) -> dict:
@@ -311,7 +326,7 @@ def rename_category(old_name: str, new_name: str) -> dict:
     if old == new:
         return {"ok": True}
     aliases = load_categories().get("renames") or {}
-    if new.casefold() in {c.casefold() for c in known | set(aliases)}:
+    if new.casefold() in {c.casefold() for c in known | set(aliases) | set(load_categories().get("deleted") or {})}:
         return {"ok": False, "error": "That name is already used. Choose a different name, or use Merge under Rules."}
     result = replace_budget_category_globally(old, new)
     cats = load_categories()
@@ -333,8 +348,8 @@ def get_display_category(tx: dict) -> str:
     """
     override = tx.get("category_override")
     if override:
-        return resolve_category_name(str(override))
-    return resolve_category_name(infer_category(tx))
+        return resolve_active_category(str(override))
+    return resolve_active_category(infer_category(tx))
 
 
 def category_sort_key(name: str) -> tuple[int, str]:
@@ -394,7 +409,7 @@ def list_custom_categories() -> list[str]:
     seen: set[str] = set()
     for item in raw:
         name = resolve_category_name(str(item or "").strip())
-        if not name or name in seen:
+        if not name or name in seen or name in (cats.get("deleted") or {}):
             continue
         seen.add(name)
         out.append(name)
@@ -403,7 +418,9 @@ def list_custom_categories() -> list[str]:
 
 def get_managed_categories() -> list[str]:
     """Built-in categories plus user-defined custom ones (picker / budgets list)."""
+    deleted = load_categories().get("deleted") or {}
     canon = list(dict.fromkeys(resolve_category_name(c) for c in BUDGET_CATEGORIES))
+    canon = [c for c in canon if c not in deleted]
     seen = set(canon)
     for name in list_custom_categories():
         if name not in seen:
@@ -434,6 +451,7 @@ def add_custom_category(name: str) -> dict:
         return {"ok": False, "error": "Category names must be 80 characters or fewer."}
     existing = set(get_all_categories(load_transactions())) | set(load_budgets()["limits"])
     existing.update((load_categories().get("renames") or {}).keys())
+    existing.update((load_categories().get("deleted") or {}).keys())
     if clean.casefold() in {c.casefold() for c in existing}:
         return {"ok": False, "error": "That category already exists."}
     cats = load_categories()
@@ -447,39 +465,26 @@ def add_custom_category(name: str) -> dict:
 
 
 def remove_custom_category(name: str, *, merge_into: str | None = None) -> dict:
-    """Remove a user category. Optionally merge activity into another category first."""
+    """Delete any active category while moving history and limits to an explicit target."""
     clean = (name or "").strip()
-    if not clean:
-        return {"ok": False, "error": "Category name is required."}
-    if clean in BUDGET_CATEGORIES:
-        return {"ok": False, "error": "Built-in categories cannot be removed."}
-    cats = load_categories()
-    custom = [str(c).strip() for c in (cats.get("custom") or []) if str(c).strip()]
-    if clean not in custom:
-        return {"ok": False, "error": "That custom category was not found."}
-
-    merge_result = None
     target = (merge_into or "").strip()
-    if target:
-        if target == clean:
-            return {"ok": False, "error": "Cannot merge a category into itself."}
-        merge_result = replace_budget_category_globally(clean, target)
-        if not merge_result.get("ok"):
-            return merge_result
-        # replace may have rewritten categories.json; reload before editing custom
-        cats = load_categories()
-        custom = [str(c).strip() for c in (cats.get("custom") or []) if str(c).strip()]
-
-    cats["custom"] = [c for c in custom if c != clean]
+    known = set(get_all_categories(load_transactions())) | set(load_budgets()["limits"])
+    if clean not in known:
+        return {"ok": False, "error": "Category not found."}
+    if not target or target not in known or target == clean:
+        return {"ok": False, "error": "Choose a different existing category to receive its transactions."}
+    result = replace_budget_category_globally(clean, target)
+    if not result.get("ok"):
+        return result
+    cats = load_categories()
+    cats["custom"] = [c for c in cats.get("custom", []) if resolve_category_name(c) != clean]
+    deleted = dict(cats.get("deleted") or {})
+    deleted[clean] = target
+    cats["deleted"] = deleted
     save_categories(cats)
-    out: dict = {
-        "ok": True,
-        "custom": list_custom_categories(),
-        "categories": get_managed_categories(),
-    }
-    if merge_result:
-        out["merged"] = merge_result
-    return out
+    _invalidate_rules_cache()
+    return {"ok": True, "merged": result, "custom": list_custom_categories(),
+            "categories": get_managed_categories()}
 
 
 def list_keyword_rules() -> list[dict]:
@@ -487,7 +492,7 @@ def list_keyword_rules() -> list[dict]:
     cats = load_categories()
     rules = cats.get("rules") or {}
     return sorted(
-        [{"keyword": k, "category": resolve_category_name(v)} for k, v in rules.items()],
+        [{"keyword": k, "category": resolve_active_category(v)} for k, v in rules.items()],
         key=lambda r: r["keyword"],
     )
 
