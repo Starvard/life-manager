@@ -632,7 +632,29 @@
                 <li class="budget-custom-cat-row" style="flex-wrap:wrap;gap:.5rem;">
                     <span x-show="editingCategory !== c" x-text="c" style="overflow-wrap:anywhere;"></span>
                     <button type="button" class="btn btn-sm btn-outline" x-show="editingCategory !== c"
-                            :disabled="savingCategory" @click="editingCategory = c; editedCategoryName = c; categoryEditError = ''">Edit</button>
+                            :disabled="savingCategory || deletingCategoryBusy" @click="deletingCategory = ''; editingCategory = c; editedCategoryName = c; categoryEditError = ''">Edit</button>
+                    <button type="button" class="btn btn-sm btn-danger" x-show="editingCategory !== c && deletingCategory !== c"
+                            :disabled="savingCategory || deletingCategoryBusy"
+                            @click="editingCategory = ''; deletingCategory = c; deleteCategoryTarget = ''; categoryEditError = ''">Delete</button>
+                    <form x-show="deletingCategory === c" @submit.prevent="deleteCategory()"
+                          style="display:flex;flex-wrap:wrap;gap:.5rem;width:100%;">
+                        <p class="text-muted" style="width:100%;margin:0;">
+                            Delete this category and move its transactions and rules to the category below.
+                            Monthly limits will be combined. Future matches will use the destination category.
+                            No transactions will be deleted.
+                        </p>
+                        <select class="budget-rule-input" aria-label="Move transactions to" x-model="deleteCategoryTarget"
+                                :disabled="deletingCategoryBusy" required>
+                            <option value="">Move to category…</option>
+                            <template x-for="target in allCategories.filter(name => name !== c)" :key="'delete-target-' + target">
+                                <option :value="target" x-text="target"></option>
+                            </template>
+                        </select>
+                        <button class="btn btn-sm btn-danger" type="submit" :disabled="deletingCategoryBusy || !deleteCategoryTarget"
+                                x-text="deletingCategoryBusy ? 'Deleting…' : 'Delete category'"></button>
+                        <button class="btn btn-sm btn-outline" type="button" :disabled="deletingCategoryBusy"
+                                @click="deletingCategory = ''; categoryEditError = ''">Cancel</button>
+                    </form>
                     <form x-show="editingCategory === c" @submit.prevent="saveCategoryName()"
                           style="display:flex;flex-wrap:wrap;gap:.5rem;width:100%;">
                         <input type="text" class="budget-rule-input" aria-label="Category name" maxlength="80"

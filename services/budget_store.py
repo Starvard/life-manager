@@ -413,8 +413,11 @@ def ensure_default_budget_limits_from_bundle() -> None:
 
     prior_keys = set(limits.keys())
     merged = dict(limits)
+    deleted = load_categories().get("deleted") or {}
     for cat in BUDGET_CATEGORY_ORDER:
         label = _category_label(cat)
+        if label in deleted:
+            continue
         if cat in factory and label not in merged:
             try:
                 merged[label] = float(factory[cat])

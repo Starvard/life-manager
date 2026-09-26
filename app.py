@@ -1143,12 +1143,14 @@ def api_budget_rename_category():
 
 @app.route("/api/budget/categories/<path:name>", methods=["DELETE"])
 def api_budget_delete_category(name):
-    """Remove a user-defined category. Optional ?merge_into= or JSON body."""
+    """Delete a category and move its activity to the chosen category."""
     body = request.get_json(silent=True) or {}
-    merge_into = (
-        (body.get("merge_into") or body.get("to") or request.args.get("merge_into") or "")
-        .strip()
-    ) or None
+    if not isinstance(body, dict):
+        return jsonify({"ok": False, "error": "Expected category details."}), 400
+    merge_into = body.get("merge_into") or body.get("to") or request.args.get("merge_into") or ""
+    if not isinstance(merge_into, str):
+        return jsonify({"ok": False, "error": "Choose a destination category."}), 400
+    merge_into = merge_into.strip() or None
     result = remove_custom_category(name, merge_into=merge_into)
     if not result.get("ok"):
         return jsonify(result), 400

@@ -597,7 +597,9 @@ document.addEventListener("alpine:init", () => {
         savingCategory: false,
         categoryEditError: "",
         addingCustomCat: false,
-        removingCustomCat: "",
+        deletingCategory: "",
+        deleteCategoryTarget: "",
+        deletingCategoryBusy: false,
         /** @type {Record<string, boolean>} */
         selectedTxnIds: {},
         incomeModalOpen: false,
@@ -1744,37 +1746,24 @@ document.addEventListener("alpine:init", () => {
             }
         },
 
-        async removeCustomCategory(name) {
-            if (!name) return;
-            if (!window.confirm(
-                `Remove “${name}” from your categories?\n\nTransactions already tagged with it stay as-is. Use “Rename or merge” below if you want to move them first.`
-            )) {
-                return;
-            }
-            this.removingCustomCat = name;
-            const res = await fetch(
-                `/api/budget/categories/${encodeURIComponent(name)}`,
-                {
-                    method: "DELETE",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({}),
+        async deleteCategory() {
+            if (this.deletingCategoryBusy || !this.deletingCategory || !this.deleteCategoryTarget) return;
+            this.deletingCategoryBusy = true;
+            this.categoryEditError = "";
+            try {
+                const res = await api("DELETE", `/api/budget/categories/${encodeURIComponent(this.deletingCategory)}`,
+                    { merge_into: this.deleteCategoryTarget });
+                if (!res || !res.ok) {
+                    this.categoryEditError = (res && res.error) || "Could not delete category.";
+                    return;
                 }
-            );
-            const data = await res.json().catch(() => null);
-            this.removingCustomCat = "";
-            if (data && data.ok) {
-                this.customCategories = data.custom || [];
-                this.budgetCategoryList = data.categories || this.budgetCategoryList;
-                this.allCategories = this._mergeCategoryLists(
-                    data.categories,
-                    (this.allCategories || []).filter((c) => c !== name)
-                );
-                this.importMsg = `Removed category “${name}”.`;
-                setTimeout(() => { this.importMsg = ""; }, 5000);
-                await this.refreshReport();
-            } else {
-                this.errorMsg = (data && data.error) || "Could not remove category.";
-                setTimeout(() => { this.errorMsg = ""; }, 5000);
+                const url = new URL(window.location.href);
+                url.searchParams.set("month", this.currentMonth);
+                url.hash = "categories";
+                window.history.replaceState(null, "", url.toString());
+                window.location.reload();
+            } finally {
+                this.deletingCategoryBusy = false;
             }
         },
     }));
