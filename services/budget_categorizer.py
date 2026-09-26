@@ -18,6 +18,7 @@ from __future__ import annotations
 import os
 import re
 import threading
+from functools import lru_cache
 
 import config
 from services.budget_category_list import BUDGET_CATEGORY_ORDER
@@ -278,6 +279,53 @@ def infer_category(tx: dict) -> str:
     return "🏬 Shopping"
 
 
+@lru_cache(maxsize=1)
+def _category_renames(path: str, stamp: tuple | None) -> dict:
+    return dict(load_categories().get("renames") or {})
+
+
+def resolve_category_name(name: str) -> str:
+    """Follow persisted renames, including categories inferred by built-in rules."""
+    try:
+        stat = os.stat(config.BUDGET_CATEGORIES_FILE)
+        stamp = (stat.st_mtime_ns, stat.st_size, stat.st_ino)
+    except OSError:
+        stamp = None
+    aliases = _category_renames(config.BUDGET_CATEGORIES_FILE, stamp)
+    seen = set()
+    while name in aliases and name not in seen:
+        seen.add(name)
+        name = aliases[name]
+    return name
+
+
+def rename_category(old_name: str, new_name: str) -> dict:
+    """Rename without merging unrelated categories or changing their accounting role."""
+    old = old_name.strip()
+    new = new_name.strip()
+    known = set(get_all_categories(load_transactions())) | set(load_budgets()["limits"])
+    if old not in known:
+        return {"ok": False, "error": "Category not found."}
+    if not new or len(new) > 80:
+        return {"ok": False, "error": "Use a category name between 1 and 80 characters."}
+    if old == new:
+        return {"ok": True}
+    aliases = load_categories().get("renames") or {}
+    if new.casefold() in {c.casefold() for c in known | set(aliases)}:
+        return {"ok": False, "error": "That name is already used. Choose a different name, or use Merge under Rules."}
+    result = replace_budget_category_globally(old, new)
+    cats = load_categories()
+    aliases = dict(cats.get("renames") or {})
+    aliases[old] = new
+    cats["renames"] = aliases
+    cats["custom"] = [new if c == old else c for c in cats.get("custom", [])]
+    if old not in get_managed_categories():
+        cats["custom"].append(new)
+    save_categories(cats)
+    _invalidate_rules_cache()
+    return result
+
+
 def get_display_category(tx: dict) -> str:
     """Return the best display name for a transaction's category.
 
@@ -285,8 +333,8 @@ def get_display_category(tx: dict) -> str:
     """
     override = tx.get("category_override")
     if override:
-        return str(override)
-    return infer_category(tx)
+        return resolve_category_name(str(override))
+    return resolve_category_name(infer_category(tx))
 
 
 def category_sort_key(name: str) -> tuple[int, str]:
@@ -345,7 +393,7 @@ def list_custom_categories() -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
     for item in raw:
-        name = str(item or "").strip()
+        name = resolve_category_name(str(item or "").strip())
         if not name or name in seen:
             continue
         seen.add(name)
@@ -355,7 +403,7 @@ def list_custom_categories() -> list[str]:
 
 def get_managed_categories() -> list[str]:
     """Built-in categories plus user-defined custom ones (picker / budgets list)."""
-    canon = list(BUDGET_CATEGORIES)
+    canon = list(dict.fromkeys(resolve_category_name(c) for c in BUDGET_CATEGORIES))
     seen = set(canon)
     for name in list_custom_categories():
         if name not in seen:
@@ -382,8 +430,12 @@ def add_custom_category(name: str) -> dict:
     clean = (name or "").strip()
     if not clean:
         return {"ok": False, "error": "Category name is required."}
-    if clean in BUDGET_CATEGORIES:
-        return {"ok": False, "error": "That category is already a built-in."}
+    if len(clean) > 80:
+        return {"ok": False, "error": "Category names must be 80 characters or fewer."}
+    existing = set(get_all_categories(load_transactions())) | set(load_budgets()["limits"])
+    existing.update((load_categories().get("renames") or {}).keys())
+    if clean.casefold() in {c.casefold() for c in existing}:
+        return {"ok": False, "error": "That category already exists."}
     cats = load_categories()
     custom = [str(c).strip() for c in (cats.get("custom") or []) if str(c).strip()]
     if clean in custom:
@@ -435,7 +487,7 @@ def list_keyword_rules() -> list[dict]:
     cats = load_categories()
     rules = cats.get("rules") or {}
     return sorted(
-        [{"keyword": k, "category": v} for k, v in rules.items()],
+        [{"keyword": k, "category": resolve_category_name(v)} for k, v in rules.items()],
         key=lambda r: r["keyword"],
     )
 

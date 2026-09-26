@@ -546,7 +546,7 @@ document.addEventListener("alpine:init", () => {
         overview: initialOverview || {},
         currentMonth: currentMonth,
         allMonths: months || [],
-        view: "status",
+        view: window.location.hash === "#categories" ? "categories" : "status",
         searchQuery: "",
         filterCategory: "",
         filteredTxns: [],
@@ -592,6 +592,10 @@ document.addEventListener("alpine:init", () => {
         categoryLearnAlways: false,
         customCategories: initialCustomCategories || [],
         newCustomCategory: "",
+        editingCategory: "",
+        editedCategoryName: "",
+        savingCategory: false,
+        categoryEditError: "",
         addingCustomCat: false,
         removingCustomCat: "",
         /** @type {Record<string, boolean>} */
@@ -1698,9 +1702,32 @@ document.addEventListener("alpine:init", () => {
             return out;
         },
 
+        async saveCategoryName() {
+            if (this.savingCategory) return;
+            this.savingCategory = true;
+            this.categoryEditError = "";
+            try {
+                const res = await api("POST", "/api/budget/categories/rename", {
+                    from: this.editingCategory, to: this.editedCategoryName.trim(),
+                });
+                if (!res || !res.ok) {
+                    this.categoryEditError = (res && res.error) || "Could not rename category.";
+                    return;
+                }
+                const url = new URL(window.location.href);
+                url.searchParams.set("month", this.currentMonth);
+                url.hash = "categories";
+                if (window.location.href === url.toString()) window.location.reload();
+                else window.location.assign(url.toString());
+            } finally {
+                this.savingCategory = false;
+            }
+        },
+
         async addCustomCategory() {
             const name = (this.newCustomCategory || "").trim();
-            if (!name) return;
+            if (!name || this.addingCustomCat) return;
+            this.categoryEditError = "";
             this.addingCustomCat = true;
             const res = await api("POST", "/api/budget/categories", { name });
             this.addingCustomCat = false;
@@ -1712,7 +1739,7 @@ document.addEventListener("alpine:init", () => {
                 this.importMsg = `Added category “${name}”.`;
                 setTimeout(() => { this.importMsg = ""; }, 4000);
             } else {
-                this.errorMsg = (res && res.error) || "Could not add category.";
+                this.categoryEditError = (res && res.error) || "Could not add category.";
                 setTimeout(() => { this.errorMsg = ""; }, 5000);
             }
         },
