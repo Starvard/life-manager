@@ -1337,15 +1337,14 @@ def api_budget_plaid_exchange():
 @app.route("/api/budget/plaid/sync", methods=["POST"])
 def api_budget_plaid_sync():
     body = request.get_json(silent=True) or {}
-    full_rebuild = bool(body.get("full_rebuild") or request.args.get("full"))
-    result = plaid_client.sync_all_items(full_rebuild=full_rebuild)
-    if not result.get("ok"):
-        return jsonify(result), 400
-    # Re-categorize to apply up-to-date rules
-    txns = load_transactions()
-    recategorize_all(txns)
-    save_transactions(txns)
-    return jsonify(result)
+    if not isinstance(body, dict):
+        return jsonify({"ok": False, "error": "Expected sync options."}), 400
+    item_id = body.get("item_id")
+    if item_id is not None and not isinstance(item_id, str):
+        return jsonify({"ok": False, "error": "Invalid bank selection."}), 400
+    full_rebuild = bool(body.get("repair_history") or body.get("full_rebuild") or request.args.get("full"))
+    result = plaid_client.sync_all_items(full_rebuild=full_rebuild, item_id=item_id)
+    return jsonify(result), 200 if result.get("ok") else 400
 
 
 @app.route("/api/budget/plaid/auto-sync", methods=["POST"])

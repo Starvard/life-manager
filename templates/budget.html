@@ -442,8 +442,8 @@
                     <span x-show="autoSyncing">Syncing…</span>
                 </button>
                 <button class="btn btn-sm btn-outline" @click="syncPlaid({ fullRebuild: true })" :disabled="syncing"
-                        title="Re-pull full history. Slower / more API calls — only after reconnecting a bank.">
-                    <span x-show="!syncing">Full re-sync</span>
+                        title="Recover missing transactions while keeping existing history and category edits.">
+                    <span x-show="!syncing">Repair history</span>
                     <span x-show="syncing">Working…</span>
                 </button>
             </div>

@@ -1546,7 +1546,7 @@ document.addEventListener("alpine:init", () => {
         async syncPlaid(opts) {
             if (this.syncing) return;
             const fullRebuild = !!(opts && opts.fullRebuild);
-            if (fullRebuild && !confirm("Full re-sync re-pulls your entire bank history from Plaid (slower, more API calls). Only needed after reconnecting a bank. Continue?")) {
+            if (fullRebuild && !confirm("Repair history rechecks your banks for missing transactions and keeps existing history and category edits. This can take longer than a normal sync. Continue?")) {
                 return;
             }
             this.syncing = true;
@@ -1607,6 +1607,11 @@ document.addEventListener("alpine:init", () => {
             try {
                 const res = await api("POST", "/api/budget/plaid/auto-sync", { force: true });
                 if (res && res.last_auto_sync) this.autoSync.last_auto_sync = res.last_auto_sync;
+                if (res && res.ok === false) {
+                    this.errorMsg = res.error || "Some banks could not sync. Please try again.";
+                    this.autoSyncing = false;
+                    return;
+                }
                 const parts = [];
                 if (res && res.added) parts.push(`${res.added} new`);
                 if (res && res.modified) parts.push(`${res.modified} updated`);
