@@ -6,6 +6,7 @@
 </head>
 <body>
 <form method="POST" action="{{ url_for('save_routines_form') }}">
+    <label><input type="hidden" name="simple_weekly_plan" value="0"><input type="checkbox" name="simple_weekly_plan" value="1"{% if simple_weekly_plan %} checked{% endif %}> Simple weekday lists (no flex tasks or countdowns)</label>
     {% for area_key, area in areas.items() %}
     <div class="area-section" id="area-{{ area_key }}">
         <div class="area-header">
@@ -33,6 +34,7 @@
             </div>
 
             {% for task in area.tasks %}
+            {% set task_index = loop.index0 %}
             <div class="task-row">
                 <input type="text" name="task_name_{{ area_key }}_{{ loop.index0 }}" value="{{ task.name }}">
                 <input type="number" name="task_freq_{{ area_key }}_{{ loop.index0 }}"
@@ -54,7 +56,7 @@
                 <div class="task-days-picker">
                     {% set od = task.get('on_days', []) %}
                     {% for label in ['Mo','Tu','We','Th','Fr','Sa','Su'] %}
-                    <label class="day-chip"><input type="checkbox" name="task_on_days_{{ area_key }}_{{ loop.index0 }}" value="{{ loop.index0 }}"
+                    <label class="day-chip"><input type="checkbox" name="task_on_days_{{ area_key }}_{{ task_index }}" value="{{ loop.index0 }}"
                         {% if loop.index0 in od %}checked{% endif %}><span>{{ label }}</span></label>
                     {% endfor %}
                 </div>
@@ -62,6 +64,10 @@
                     <input type="checkbox" name="task_delete_{{ area_key }}_{{ loop.index0 }}" value="1" style="display:none">
                     <span onclick="this.previousElementSibling.checked=true; this.closest('.task-row').style.opacity='0.3';">&#x2715;</span>
                 </div>
+            </div>
+            <div style="display:flex;gap:.5rem;margin-bottom:.8rem;align-items:center">
+                <label><input type="hidden" name="task_essential_{{ area_key }}_{{ task_index }}" value="0"><input type="checkbox" name="task_essential_{{ area_key }}_{{ task_index }}" value="1"{% if task.essential %} checked{% endif %}> Essential</label>
+                <input type="text" name="task_detail_{{ area_key }}_{{ task_index }}" value="{{ task.detail or '' }}" placeholder="Small first step / guidance" style="flex:1">
             </div>
             {% endfor %}
 

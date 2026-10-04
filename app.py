@@ -434,6 +434,8 @@ def today_page():
         "history": history,
         "daily_flex_slots": get_daily_flex_slots(),
         "timeline": timeline_bootstrap(day_str),
+        "simple_weekly_plan": bool(load_routines().get("simple_weekly_plan")),
+        "paused_routines": load_routines().get("paused_routines") or {},
     }
     return render_template("today.html", bootstrap=bootstrap)
 
@@ -455,13 +457,24 @@ def routines_page():
 @app.route("/routines/embed")
 def routines_embed_page():
     """Minimal routine form HTML for programmatic saves (long-press editor on /cards)."""
-    return render_template("routines_embed.html", areas=_ordered_routine_areas_for_forms())
+    return render_template("routines_embed.html", areas=_ordered_routine_areas_for_forms(), simple_weekly_plan=bool(load_routines().get("simple_weekly_plan")))
 
 
 @app.route("/routines/save", methods=["POST"])
 def save_routines_form():
     data = load_routines()
     areas = data.get("areas", {})
+    old_tasks = {key: list(area.get("tasks") or []) for key, area in areas.items()}
+    if "simple_weekly_plan" in request.form:
+        enabled = "1" in request.form.getlist("simple_weekly_plan")
+        if enabled and not data.get("simple_weekly_plan"):
+            import shutil
+            backup = config.ROUTINES_FILE + ".before-weekly-reset.yaml"
+            if not os.path.exists(backup):
+                shutil.copy2(config.ROUTINES_FILE, backup)
+        data["simple_weekly_plan"] = enabled
+        if enabled:
+            data["daily_flex_slots"] = []
 
     for area_key in list(areas.keys()):
         area = areas[area_key]
@@ -481,6 +494,17 @@ def save_routines_form():
                 i += 1
                 continue
             task = {"name": name}
+            # Preserve support metadata when the existing editor saves a row.
+            previous = next((t for t in area.get("tasks", []) if t.get("name") == name), {})
+            for field in ("essential", "detail"):
+                if field in previous:
+                    task[field] = previous[field]
+            essential_field = f"task_essential_{area_key}_{i}"
+            if essential_field in request.form:
+                task["essential"] = "1" in request.form.getlist(essential_field)
+            detail_field = f"task_detail_{area_key}_{i}"
+            if detail_field in request.form:
+                task["detail"] = request.form[detail_field].strip()
             wt = request.form.get(f"task_weight_{area_key}_{i}", "").strip()
             if wt:
                 try:
@@ -573,6 +597,12 @@ def save_routines_form():
         areas[new_key] = {"name": new_name, "tasks": []}
         data.setdefault("area_order", []).append(new_key)
 
+    if data.get("simple_weekly_plan"):
+        paused = data.setdefault("paused_routines", {})
+        for key, previous in old_tasks.items():
+            current = {t.get("name") for t in areas[key].get("tasks", [])}
+            saved = {t.get("name") for t in paused.get(key, [])}
+            paused.setdefault(key, []).extend(t for t in previous if t.get("name") not in current and t.get("name") not in saved)
     save_routines(data)
     regenerate_routine_cards(_default_week_key())
     flash("Routines saved!", "success")
@@ -717,6 +747,22 @@ def api_complete_scheduled_day(week_key, area_key):
             week_key, area_key, list_key, task, day
         )
     return jsonify({"ok": ok})
+
+
+@app.route("/api/routine-day/<day_iso>/mode", methods=["POST"])
+def api_routine_day_mode(day_iso):
+    from services.day_timeline import load_day_state, save_day_state
+    try:
+        date.fromisoformat(day_iso)
+    except ValueError:
+        return jsonify({"ok": False, "error": "bad date"}), 400
+    body = request.get_json(force=True) or {}
+    if not isinstance(body.get("essentials_only"), bool):
+        return jsonify({"ok": False, "error": "essentials_only must be boolean"}), 400
+    state = load_day_state(day_iso)
+    state["essentials_only"] = body["essentials_only"]
+    save_day_state(state)
+    return jsonify({"ok": True, "timeline": timeline_bootstrap(day_iso)})
 
 
 @app.route("/api/routine-day/<day_iso>/skip", methods=["POST"])

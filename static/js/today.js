@@ -16,6 +16,7 @@
   const cards = BOOT.cards || {};
   const FLEX_SLOTS = Array.isArray(BOOT.daily_flex_slots) ? BOOT.daily_flex_slots : [];
   let timeline = BOOT.timeline || { items: [], resolved: {}, now: null };
+  const SIMPLE = !!BOOT.simple_weekly_plan;
   const MS_DAY = 86400000;
   const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -202,6 +203,16 @@
           });
         }
       });
+      (card.extra_tasks || []).forEach((task, taskIndex) => {
+        const row = (task.days || [])[DAY_INDEX] || [];
+        rows.push({ id: 'x:' + areaKey + ':' + taskIndex, kind: 'temporary',
+          areaKey, areaName, task, taskIndex, listKey: 'extra_tasks', name: task.name || '',
+          complete: row.some(Boolean), onPlan: false, status: 'due', label: 'Optional one-off',
+          time: null, total: 1, done: row.some(Boolean) ? 1 : 0 });
+      });
+    });
+    if (SIMPLE && timeline.essentials_only) rows.forEach((r) => {
+      if (!r.task.essential) r.onPlan = false;
     });
     const plans = getPlans();
     rows.forEach((r) => { const pd = plans[planKeyOf(r)]; r.plannedDate = (pd && pd > SEL) ? pd : null; });
@@ -262,7 +273,7 @@
       used.add(r.id);
     });
 
-    FLEX_SLOTS.forEach((slot) => {
+    (SIMPLE ? [] : FLEX_SLOTS).forEach((slot) => {
       const t = normTime(slot.time);
       if (!t) return;
       const days = Array.isArray(slot.on_days) ? slot.on_days.map(Number) : null;
@@ -409,6 +420,7 @@
   let lastDayItems = [];
 
   function timerBits(tl) {
+    if (SIMPLE) return null;
     if (!tl || tl.resolved) return null;
     const now = new Date();
     const start = parseDt(tl.effective_start);
@@ -462,7 +474,7 @@
     opts = opts || {};
     let cls = 'tk', icon = '○', sub = '', pill = '', timerHtml = '';
     const skippedDay = !!opts.skipped || isPersistedSkipped(r);
-    const tl = opts.timeline || timelineByKey()[stateKeyOf(r)] || null;
+    const tl = SIMPLE ? null : (opts.timeline || timelineByKey()[stateKeyOf(r)] || null);
     const onDayPlan = !!r.onPlan || !!opts.onDayPlan;
     // Day-plan steps (incl. dailies) and bonus recurrings can swipe-skip.
     const swipeable = !r.complete && !skippedDay && (onDayPlan || r.kind === 'recurring');
@@ -498,7 +510,8 @@
     }
     if (r.atWork) cls += ' at-work';
     if (opts.flexLabel) cls += ' flex-slot';
-    const timeBit = opts.timeLabel
+    if (r.task.detail && !skippedDay) sub = r.task.detail;
+    const timeBit = SIMPLE ? '' : opts.timeLabel
       ? '<span class="tk-time">' + esc(opts.timeLabel) + '</span>'
       : (r.time ? '<span class="tk-time">' + esc(formatTime(r.time)) + '</span>' : '');
     const flexBit = opts.flexLabel
@@ -539,9 +552,15 @@
 
     // Hide exhausted flex slots (all candidates swiped / nothing overdue).
     const visibleItems = items.filter((it) => !(it.flex && it.flex.empty));
-    let html = '<div class="section"><div class="section-title"><h2>Day plan</h2><span class="count">' +
+    let html = '<div class="section"><div class="section-title"><h2>' + (SIMPLE ? (timeline.essentials_only ? 'Today’s essentials' : parseIso(SEL).toLocaleDateString('en-US', {weekday:'long'}) + ' routine') : 'Day plan') + '</h2><span class="count">' +
       visibleItems.length + '</span></div>';
+    let lastPhase = '';
     visibleItems.forEach((it) => {
+      if (SIMPLE) {
+        const hour = Number(it.sortTime.slice(0, 2));
+        const phase = hour < 8 ? 'Morning' : hour < 16 ? 'Workday' : hour < 19 ? 'After work' : 'Evening';
+        if (phase !== lastPhase) { html += '<h3 class="routine-phase">' + phase + '</h3>'; lastPhase = phase; }
+      }
       html += taskCardHtml(it.row, {
         timeLabel: effectiveTimeLabel(it),
         flexLabel: it.flex ? it.flex.label : null,
@@ -554,16 +573,24 @@
 
     const bonus = rows.filter((r) =>
       !r.complete && !r.plannedDate && r.kind === 'recurring' && !usedIds.has(r.id) &&
+      !(SIMPLE && timeline.essentials_only) &&
+      (!SIMPLE || (DAY_INDEX < 5 && scheduledToday(r.task))) &&
       !sessionSkipped.has(r.id) && !isPersistedSkipped(r) &&
       !pinnedToOtherWeekday(r.task) &&
       (r.status === 'overdue' || r.status === 'due' || r.status === 'upcoming')
     ).sort((a, b) => flexPriority(a) - flexPriority(b) || (a.dueIso || '').localeCompare(b.dueIso || ''));
     if (bonus.length) {
-      html += '<div class="section"><div class="section-title"><h2>Bonus</h2><span class="count">' + bonus.length + '</span></div>' +
+      html += '<div class="section"><div class="section-title"><h2>Optional / when due</h2><span class="count">' + bonus.length + '</span></div>' +
         '<div id="bonus-list" style="display:none">' + bonus.map((r) => taskCardHtml(r)).join('') + '</div>' +
         '<button type="button" class="show-more" id="show-bonus">Show ' + bonus.length + ' bonus</button></div>';
     }
 
+    const temporary = rows.filter((r) => r.kind === 'temporary' && !r.complete);
+    if (temporary.length) html += '<details class="section"><summary>Temporary tasks · ' + temporary.length + '</summary><p>Separate from your daily routine. Open only when you have capacity.</p>' + temporary.map((r) => taskCardHtml(r)).join('') + '</details>';
+    const deferred = rows.filter((r) => SIMPLE && timeline.essentials_only && r.time && scheduledToday(r.task) && !r.task.essential && !r.complete);
+    if (deferred.length) html += '<details class="section"><summary>Set aside today · ' + deferred.length + '</summary><p>Nothing is marked completed. Return to the full routine any time.</p>' + deferred.map((r) => taskCardHtml(r)).join('') + '</details>';
+    const modeBtn = document.getElementById('routine-mode');
+    if (modeBtn) { modeBtn.textContent = timeline.essentials_only ? 'Return to full routine' : 'Rough night: essentials only'; modeBtn.setAttribute('aria-pressed', String(!!timeline.essentials_only)); }
     const planned = rows.filter((r) => r.plannedDate).sort((a, b) => (a.plannedDate || '').localeCompare(b.plannedDate || ''));
     if (planned.length) {
       html += '<div class="section"><div class="section-title"><h2>Planned</h2><span class="count">' + planned.length + '</span></div>' +
@@ -620,7 +647,7 @@
   function applyToggle(r) {
     const card = cards[r.areaKey];
     if (!card) return null;
-    const task = card.tasks[r.taskIndex];
+    const task = (card[r.listKey || 'tasks'] || [])[r.taskIndex];
     if (!task) return null;
     task.days = task.days || [];
     if (!Array.isArray(task.days[DAY_INDEX])) task.days[DAY_INDEX] = [false];
@@ -676,8 +703,9 @@
       return refreshTimeline().then(() => render(finishing ? null : id));
     }).catch(() => {
       const card = cards[r.areaKey];
-      if (card && card.tasks[r.taskIndex] && card.tasks[r.taskIndex].days[DAY_INDEX]) {
-        card.tasks[r.taskIndex].days[DAY_INDEX][res.dot] = !res.value;
+      const saved = card && (card[r.listKey || 'tasks'] || [])[r.taskIndex];
+      if (saved && saved.days[DAY_INDEX]) {
+        saved.days[DAY_INDEX][res.dot] = !res.value;
         setXp(getXp() + (res.value ? -10 : 10));
         render();
       }
@@ -824,12 +852,26 @@
   }
 
   function init() {
+    const modeBtn = document.getElementById('routine-mode');
+    if (modeBtn) modeBtn.addEventListener('click', async () => {
+      modeBtn.disabled = true;
+      try {
+        const resp = await fetch('/api/routine-day/' + encodeURIComponent(SEL) + '/mode', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({essentials_only: !timeline.essentials_only})
+        });
+        if (!resp.ok) throw new Error('save failed');
+        const data = await resp.json(); applyTimeline(data.timeline); render();
+        document.getElementById('routine-mode-status').textContent = timeline.essentials_only ? 'Essentials only for this date. Tomorrow starts fresh.' : 'Full routine restored.';
+      } catch (e) { document.getElementById('routine-mode-status').textContent = 'Could not save. Please try again.'; }
+      finally { modeBtn.disabled = false; }
+    });
     setHeadline();
     refreshPrefButtons();
     render();
     // Keep countdown labels live; re-fetch waterfall every minute so
     // effective times stay aligned after completions on other devices.
-    setInterval(refreshTimerLabels, 1000);
+    if (!SIMPLE) setInterval(refreshTimerLabels, 1000);
     setInterval(() => { refreshTimeline().then(() => render()); }, 60000);
 
     function handler(e) {
