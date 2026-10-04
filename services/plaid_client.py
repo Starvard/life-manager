@@ -25,6 +25,7 @@ Stored per-item state lives in `data/budget/plaid_items.json`:
 from __future__ import annotations
 
 import os
+import copy
 import threading
 from datetime import datetime
 from typing import Any
@@ -33,6 +34,7 @@ import config
 from services import plaid_credentials
 
 _items_lock = threading.Lock()
+_sync_lock = threading.Lock()
 
 # Plaid's max Transactions history window is 730 days. This only affects newly
 # linked Items; existing Items that were initialized with a shorter history
@@ -451,21 +453,25 @@ def _apply_incremental_updates(
     return deduplicate_transactions(new_existing)
 
 
-def sync_all_items(full_rebuild: bool = False) -> dict:
-    """Run /transactions/sync for every connected Item. Returns a summary.
+def sync_all_items(full_rebuild: bool = False, item_id: str | None = None) -> dict:
+    """Serialize syncs; full_rebuild now safely merges a history replay."""
+    if not _sync_lock.acquire(blocking=False):
+        return {"ok": False, "error": "A bank sync is already running. Try again shortly."}
+    try:
+        return _sync_all_items(full_rebuild=full_rebuild, item_id=item_id)
+    finally:
+        _sync_lock.release()
 
-    By default this is a true **incremental** cursor sync: each Item's stored
-    cursor is reused so Plaid only returns the transactions that changed since
-    last time. This is the cost-efficient pattern — pulling the full multi-year
-    history on every sync (which the app used to do) multiplies Plaid API calls
-    and is the main reason syncs got expensive.
 
-    Pass ``full_rebuild=True`` for the rare cleanup case (e.g. right after a
-    bank relink): cursors are cleared, the entire history is re-pulled, and all
-    ``source=plaid`` rows are rebuilt from scratch. Manual/CSV rows are kept.
+def _sync_all_items(full_rebuild: bool = False, item_id: str | None = None) -> dict:
+    """Save transactions before advancing cursors, so interrupted syncs can retry.
+
+    History repair starts from an empty cursor without resetting stored state or
+    deleting existing rows. Only explicit Plaid removals remove transactions.
+    Failed/incomplete items keep their old cursors and history.
     """
-    from services.budget_dedupe import merge_new_transactions
-    from services.budget_store import load_transactions, save_transactions
+    from services.budget_store import load_transactions, save_transactions, _save_json
+    from services.budget_categorizer import recategorize_all
 
     if not is_configured():
         return {"ok": False, "error": "Plaid is not configured."}
@@ -479,14 +485,10 @@ def sync_all_items(full_rebuild: bool = False) -> dict:
         data = _load_items_file()
         items = list(data.get("items", []))
 
+    if item_id:
+        items = [it for it in items if it.get("item_id") == item_id]
     if not items:
-        return {"ok": False, "error": "No banks connected yet."}
-
-    if full_rebuild:
-        # Clear cursors so Plaid returns the initial full history for each Item.
-        _reset_item_cursors(items)
-        for it in items:
-            it["cursor"] = None
+        return {"ok": False, "error": "No matching connected bank found."}
 
     client = _get_client()
     all_added_records: list[dict] = []
@@ -494,6 +496,7 @@ def sync_all_items(full_rebuild: bool = False) -> dict:
     all_removed_ids: list[str] = []
     per_item_summary: list[dict] = []
     errors: list[str] = []
+    completed_items: list[dict] = []
 
     for it in items:
         access_token = it.get("access_token")
@@ -538,6 +541,8 @@ def sync_all_items(full_rebuild: bool = False) -> dict:
 
                 has_more = bool(resp.get("has_more"))
                 cursor = resp.get("next_cursor") or cursor
+            if has_more:
+                raise RuntimeError("Transaction history is incomplete; no progress was saved. Retry sync.")
         except Exception as e:
             errors.append(f"{institution}: {e}")
             per_item_summary.append(
@@ -545,19 +550,8 @@ def sync_all_items(full_rebuild: bool = False) -> dict:
             )
             continue
 
-        # Persist fresh cursor / last_sync only after this item succeeds.
-        with _items_lock:
-            fresh = _load_items_file()
-            for sit in fresh.get("items", []):
-                if sit.get("item_id") == it.get("item_id"):
-                    sit["cursor"] = cursor
-                    sit["last_sync"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
-                    if not sit.get("accounts") and account_lookup:
-                        sit["accounts"] = [
-                            {"account_id": aid, "name": a.get("name"), "mask": a.get("mask"), "type": "", "subtype": ""}
-                            for aid, a in account_lookup.items()
-                        ]
-            _save_items_file(fresh)
+        completed_items.append({"item_id": it.get("item_id"), "cursor": cursor,
+                                "accounts": account_lookup})
 
         all_added_records.extend(added_records)
         all_modified_records.extend(modified_records)
@@ -573,38 +567,52 @@ def sync_all_items(full_rebuild: bool = False) -> dict:
         )
 
     existing = load_transactions()
-    removed_plaid_count = 0
     any_changes = bool(all_added_records or all_modified_records or all_removed_ids)
-
-    if full_rebuild:
-        non_plaid_existing = [tx for tx in existing if tx.get("source") != "plaid"]
-        removed_plaid_count = len(existing) - len(non_plaid_existing)
-        if all_added_records or all_modified_records:
-            merged = merge_new_transactions(
-                non_plaid_existing, all_added_records + all_modified_records
-            )
-        else:
-            # All Items failed / returned nothing: keep history rather than wipe.
-            merged = existing if errors else non_plaid_existing
-    elif any_changes:
+    merged = existing
+    imported_count = 0
+    if any_changes:
+        # Dedupe mutates rows. Copy first so a failed disk write cannot change
+        # the shared in-memory cache while leaving the on-disk ledger unchanged.
         merged = _apply_incremental_updates(
-            existing, all_added_records, all_modified_records, all_removed_ids
+            copy.deepcopy(existing), all_added_records, all_modified_records, all_removed_ids
         )
-    else:
-        # Nothing changed — leave the file (and its cache) untouched.
-        merged = existing
-
-    if merged is not existing:
+        prior_ids = {tx.get("id") for tx in existing}
+        imported_count = sum(tx.get("id") not in prior_ids for tx in merged)
+        recategorize_all(merged)
+        if full_rebuild:
+            backup = os.path.join(config.BUDGET_DATA_DIR, "sync_backups",
+                                  datetime.utcnow().strftime("%Y%m%dT%H%M%S%f") + ".json")
+            _save_json(backup, existing)
         save_transactions(merged)
 
+    # A crash before this point leaves the prior cursors in place. A crash
+    # after the transaction write only replays already-saved rows on retry.
+    if completed_items:
+        updates = {it["item_id"]: it for it in completed_items}
+        with _items_lock:
+            fresh = _load_items_file()
+            for sit in fresh.get("items", []):
+                update = updates.get(sit.get("item_id"))
+                if not update:
+                    continue
+                sit["cursor"] = update["cursor"]
+                sit["last_sync"] = datetime.utcnow().isoformat(timespec="seconds") + "Z"
+                if not sit.get("accounts") and update["accounts"]:
+                    sit["accounts"] = [
+                        {"account_id": aid, "name": a.get("name"), "mask": a.get("mask"), "type": "", "subtype": ""}
+                        for aid, a in update["accounts"].items()
+                    ]
+            _save_items_file(fresh)
+
     return {
-        "ok": True,
-        "mode": "full_rebuild" if full_rebuild else "incremental",
+        "ok": not errors,
+        "error": "Some banks could not sync. " + " ".join(errors) if errors else None,
+        "mode": "history_repair" if full_rebuild else "incremental",
         "items": per_item_summary,
-        "added": sum(s.get("added", 0) for s in per_item_summary),
+        "added": imported_count,
         "modified": sum(s.get("modified", 0) for s in per_item_summary),
         "removed": sum(s.get("removed", 0) for s in per_item_summary),
-        "rebuilt_plaid_rows_removed": removed_plaid_count,
+        "rebuilt_plaid_rows_removed": 0,
         "total": len(merged),
         "errors": errors,
     }
