@@ -534,6 +534,8 @@ def _reconcile_pinned_day_tasks_with_routines(card: dict, week_key: str) -> bool
         freq = effective_weekly_freq(raw)
         n_dots = max(1, round(freq)) if freq >= 1 else 1
         target_sched = _sched_seven(_dots_from_fixed_days(n_dots, on_days))
+        if freq < 1:
+            continue  # The sub-weekly reconciler handles cadence + pinned weekday.
         old_sched = _sched_seven(task.get("scheduled"))
         grid_ok = _days_grid_matches_sched(task, target_sched)
         if old_sched == target_sched and grid_ok:
@@ -696,6 +698,9 @@ def _generate_routine_cards(week_key: str, target_date: date) -> dict[str, dict]
                 row["time"] = meta["time"]
             if meta.get("at_work"):
                 row["at_work"] = True
+            for field in ("detail", "essential", "on_days"):
+                if field in meta:
+                    row[field] = meta[field]
             card["tasks"].append(row)
         prev_wk = _prev_week_key(week_key)
         prev = _load_card_file(prev_wk, plan["key"]) if prev_wk else None
@@ -1197,6 +1202,9 @@ def _task_meta_from_routines(area_key: str) -> dict[str, dict]:
             meta["time"] = hhmm
         if t.get("at_work"):
             meta["at_work"] = True
+        for field in ("detail", "essential", "on_days"):
+            if field in t:
+                meta[field] = t[field]
         out[name] = meta
     return out
 
@@ -1209,6 +1217,14 @@ def _sync_task_schedule_meta_from_routines(cards: dict[str, dict]) -> bool:
         for task in card.get("tasks", []):
             name = task.get("name")
             meta = meta_map.get(name) or {}
+            for field in ("detail", "essential", "on_days"):
+                if field in meta:
+                    if task.get(field) != meta[field]:
+                        task[field] = meta[field]
+                        changed = True
+                elif field in task:
+                    del task[field]
+                    changed = True
             want_time = meta.get("time")
             have_time = _normalize_hhmm(task.get("time"))
             if want_time:
@@ -1249,7 +1265,7 @@ def get_daily_flex_slots() -> list[dict]:
     """Normalized flex-slot config from routines.yaml (with defaults)."""
     routines = load_routines()
     raw = routines.get("daily_flex_slots")
-    if not isinstance(raw, list) or not raw:
+    if not isinstance(raw, list):
         return default_daily_flex_slots()
     out: list[dict] = []
     for i, slot in enumerate(raw):
@@ -1278,7 +1294,7 @@ def get_daily_flex_slots() -> list[dict]:
             if days:
                 row["on_days"] = sorted(days)
         out.append(row)
-    return out or default_daily_flex_slots()
+    return out
 
 
 def _repair_task_grid_for_scheduled(task: dict) -> bool:

@@ -512,6 +512,10 @@ def _collect_task_candidates(
                 name = (task.get("name") or "").strip()
                 if not name:
                     continue
+                if list_key == "extra_tasks":
+                    continue  # Temporary tasks live separately, never in the day plan.
+                if state.get("essentials_only") and not task.get("essential"):
+                    continue
                 time_hhmm = _normalize_hhmm(task.get("time"))
                 sched_n = _scheduled_count(task, day_idx)
                 complete = _day_dots_complete(task, day_idx)
@@ -771,6 +775,7 @@ def timeline_bootstrap(day_iso: str | None = None) -> dict[str, Any]:
         "now": _fmt_iso_dt(local_now()),
         "overdue_repeat_min": OVERDUE_REPEAT_MIN,
         "items": items,
+        "essentials_only": bool(state.get("essentials_only")),
         "resolved": state.get("resolved") or {},
         "flex_skips": state.get("flex_skips") or {},
         "current_key": (current_timeline_task(items) or {}).get("key"),

@@ -364,6 +364,8 @@ def _send_notify_time_reminders(subs: list[dict], nags: list[dict], state: dict)
 
 def _waterfall_reminders_enabled() -> bool:
     """On by default; set LM_REMINDER_WATERFALL=0 to disable."""
+    if load_routines().get("simple_weekly_plan"):
+        return False  # No cascading countdowns or repeated overdue nags.
     raw = os.environ.get("LM_REMINDER_WATERFALL", "1").strip().lower()
     return raw not in ("0", "false", "no", "off")
 
