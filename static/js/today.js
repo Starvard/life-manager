@@ -17,6 +17,7 @@
   const FLEX_SLOTS = Array.isArray(BOOT.daily_flex_slots) ? BOOT.daily_flex_slots : [];
   let timeline = BOOT.timeline || { items: [], resolved: {}, now: null };
   const SIMPLE = !!BOOT.simple_weekly_plan;
+  const previousDaySkips = new Set(BOOT.previous_day_skips || []);
   const MS_DAY = 86400000;
   const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -476,6 +477,8 @@
     const skippedDay = !!opts.skipped || isPersistedSkipped(r);
     const tl = SIMPLE ? null : (opts.timeline || timelineByKey()[stateKeyOf(r)] || null);
     const onDayPlan = !!r.onPlan || !!opts.onDayPlan;
+    const skippedYesterday = onDayPlan && !r.complete && !skippedDay && previousDaySkips.has(stateKeyOf(r));
+    if (skippedYesterday) cls += ' skipped-yesterday';
     // Day-plan steps (incl. dailies) and bonus recurrings can swipe-skip.
     const swipeable = !r.complete && !skippedDay && (onDayPlan || r.kind === 'recurring');
     if (skippedDay) {
@@ -519,6 +522,7 @@
       : '';
     const flexKey = opts.flexKey || (opts.flexLabel && opts.timeline && opts.timeline.flex_key) || '';
     return '<button type="button" class="' + cls + '" data-id="' + esc(r.id) + '"' +
+      (skippedYesterday ? ' title="Skipped yesterday" aria-label="' + esc(r.name + ' — skipped yesterday') + '"' : '') +
       (swipeable ? ' data-swipe-skip="1"' : '') +
       (flexKey ? ' data-flex-key="' + esc(flexKey) + '"' : '') +
       (skippedDay ? ' data-unskip="1"' : '') + '>' +
