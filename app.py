@@ -41,6 +41,7 @@ from services.push_reminders import (
     send_test_push_to_all,
 )
 from services.day_timeline import (
+    load_day_state,
     timeline_bootstrap,
     skip_task_for_day,
     unskip_task_for_day,
@@ -424,6 +425,11 @@ def today_page():
     # get_routine_cards regenerates when YAML task names diverge (timed rewrite).
     cards = _ordered_cards(get_routine_cards(wk))
     history = routine_completion_history(day_str, 20)
+    yesterday_state = load_day_state((sel - timedelta(days=1)).isoformat())
+    previous_day_skips = [
+        key for key, entry in (yesterday_state.get("resolved") or {}).items()
+        if isinstance(entry, dict) and entry.get("status") == "skipped"
+    ]
     bootstrap = {
         "today": day_str,
         "is_today": day_str == local_today().isoformat(),
@@ -432,6 +438,7 @@ def today_page():
         "day_index": (sel - monday).days,
         "cards": cards,
         "history": history,
+        "previous_day_skips": previous_day_skips,
         "daily_flex_slots": get_daily_flex_slots(),
         "timeline": timeline_bootstrap(day_str),
         "simple_weekly_plan": bool(load_routines().get("simple_weekly_plan")),

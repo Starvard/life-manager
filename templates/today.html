@@ -65,6 +65,7 @@
   .tk.overdue { border-left-color: var(--late); background: linear-gradient(90deg, var(--late-dim), transparent 60%); }
   .tk.current { border-left-color: var(--accent); box-shadow: 0 0 0 1px rgba(99,179,255,.35) inset; }
   .tk.timer-overdue { border-left-color: var(--late); background: linear-gradient(90deg, var(--late-dim), transparent 60%); }
+  .tk.skipped-yesterday:not(.timer-overdue) { background: linear-gradient(90deg, rgba(251,191,36,.075), transparent 85%), var(--surface); }
   .tk.done { border-left-color: var(--good); opacity: .62; }
   .tk.done .tk-name { text-decoration: line-through; }
   .tk.skipped { border-left-color: var(--text-light); opacity: .7; }
