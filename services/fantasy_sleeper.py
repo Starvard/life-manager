@@ -206,40 +206,111 @@ def _enrich_draft_picks_sleeper_slots(
         )
 
 
-def _my_draft_picks(
+def _season_draft_complete(drafts: list[dict] | None, season: str) -> bool:
+    for d in drafts or []:
+        if str(d.get("season") or "") != str(season):
+            continue
+        if str(d.get("status") or "").lower() == "complete":
+            return True
+    return False
+
+
+def _owned_draft_picks(
     traded_picks: list[dict],
     my_roster_id: int | None,
     rosters: list[dict],
     users: list[dict],
+    league: dict,
+    drafts: list[dict] | None,
+    season: str,
 ) -> list[dict]:
-    """Picks currently owned by my roster (Sleeper traded_picks API)."""
+    """
+    Future picks this roster owns.
+
+    Sleeper's traded_picks feed only lists picks that have moved, and it keeps
+    the current-season class after that draft is over. We reconstruct defaults
+    for upcoming seasons and drop classes whose league draft is already complete.
+    """
     if my_roster_id is None:
         return []
-    out: list[dict] = []
-    for row in traded_picks:
-        if row.get("owner_id") != my_roster_id:
-            continue
-        rid = row.get("roster_id")
-        season = str(row.get("season", ""))
-        rnd = row.get("round")
+    settings = league.get("settings") if isinstance(league.get("settings"), dict) else {}
+    try:
+        n_rounds = max(1, min(8, int(settings.get("draft_rounds") or 4)))
+    except (TypeError, ValueError):
+        n_rounds = 4
+    try:
+        current_season = int(league.get("season") or season)
+    except (TypeError, ValueError):
+        current_season = datetime.now().year
+
+    draft_complete = _season_draft_complete(drafts, str(current_season))
+    start = current_season + 1 if draft_complete else current_season
+    end = start + 2
+
+    roster_ids = [r.get("roster_id") for r in rosters if r.get("roster_id") is not None]
+    ownership: dict[tuple, int] = {}
+    for year in range(start, end + 1):
+        ys = str(year)
+        for rid in roster_ids:
+            for rnd in range(1, n_rounds + 1):
+                ownership[(ys, rnd, rid)] = rid
+
+    for row in traded_picks or []:
+        ys = str(row.get("season", ""))
         try:
-            rnum = int(rnd) if rnd is not None else 0
+            rnum = int(row.get("round") or 0)
+            yi = int(ys)
         except (TypeError, ValueError):
-            rnum = 0
-        orig_team = _team_name_for_roster(rosters, users, rid)
-        label = f"{season} · Round {rnum}"
-        if rid != my_roster_id:
-            label += f" (from {orig_team})"
+            continue
+        orig = row.get("roster_id")
+        owner = row.get("owner_id")
+        if orig is None or owner is None or rnum < 1:
+            continue
+        if yi < start or yi > end:
+            continue
+        ownership[(ys, rnum, orig)] = owner
+
+    out: list[dict] = []
+    for (ys, rnum, orig), owner in ownership.items():
+        if owner != my_roster_id:
+            continue
+        orig_team = _team_name_for_roster(rosters, users, orig)
+        from_other = orig != my_roster_id
+        label = f"{ys} · Round {rnum}"
+        label += f" (from {orig_team})" if from_other else " (yours)"
         out.append({
-            "season": season,
+            "season": ys,
             "round": rnum,
-            "original_roster_id": rid,
-            "original_team_label": orig_team if rid != my_roster_id else None,
+            "original_roster_id": orig,
+            "original_team_label": orig_team if from_other else None,
             "label": label,
-            "pick_key": f"{season}-r{rnum}-slot{rid}",
+            "pick_key": f"{ys}-r{rnum}-slot{orig}",
+            "is_own_original": not from_other,
         })
     out.sort(key=lambda x: (x["season"], x["round"], x.get("original_roster_id") or 0))
     return out
+
+
+def _prior_season_records(previous_league_id: str | None) -> dict:
+    lid = str(previous_league_id or "").strip()
+    if not lid:
+        return {}
+    prev_league = sleeper_client.fetch_league(lid)
+    prev_rosters = sleeper_client.fetch_league_rosters(lid)
+    season = str((prev_league or {}).get("season") or "")
+    by_owner: dict[str, dict] = {}
+    for r in prev_rosters or []:
+        oid = str(r.get("owner_id") or "")
+        if not oid:
+            continue
+        st = r.get("settings") or {}
+        by_owner[oid] = {
+            "wins": st.get("wins"),
+            "losses": st.get("losses"),
+            "ties": st.get("ties"),
+            "fpts": st.get("fpts"),
+        }
+    return {"season": season, "league_id": lid, "by_owner": by_owner}
 
 
 def _slot_rows(
@@ -305,6 +376,14 @@ def sync_team(settings: dict) -> dict:
     rosters = sleeper_client.fetch_league_rosters(league_id)
     users = sleeper_client.fetch_league_users(league_id)
     traded_picks = sleeper_client.fetch_league_traded_picks(league_id)
+    league_drafts = sleeper_client.fetch_league_drafts(league_id)
+    prior_season = _prior_season_records(league.get("previous_league_id"))
+    league_trades = sleeper_client.fetch_league_trades(league_id, list(range(1, 19)))
+    prev_lid = str(league.get("previous_league_id") or "").strip()
+    if prev_lid:
+        # Offseason dump lives in week 1; add in-season weeks for market history.
+        league_trades.extend(sleeper_client.fetch_league_trades(prev_lid, [1, 10, 11, 12, 13, 14]))
+        league_trades.sort(key=lambda t: -(t.get("created") or 0))
 
     my_roster = None
     for r in rosters:
@@ -340,8 +419,11 @@ def sync_team(settings: dict) -> dict:
 
     rs = my_roster.get("settings") or {}
     my_rid = my_roster.get("roster_id")
-    my_picks = _my_draft_picks(traded_picks, my_rid, rosters, users)
-    _enrich_draft_picks_sleeper_slots(my_picks, league_id, str(league.get("season") or season))
+    my_picks = _owned_draft_picks(
+        traded_picks, my_rid, rosters, users, league, league_drafts, season,
+    )
+    if not _season_draft_complete(league_drafts, str(league.get("season") or season)):
+        _enrich_draft_picks_sleeper_slots(my_picks, league_id, str(league.get("season") or season))
     synced_at = datetime.now(timezone.utc).isoformat()
 
     # Release the big players_map ref before constructing the snapshot so
@@ -365,7 +447,18 @@ def sync_team(settings: dict) -> dict:
             "status": league.get("status"),
             "previous_league_id": league.get("previous_league_id"),
             "roster_positions": roster_positions,
+            "draft_complete": _season_draft_complete(
+                league_drafts, str(league.get("season") or season)
+            ),
+            "settings": {
+                "draft_rounds": (league.get("settings") or {}).get("draft_rounds"),
+                "num_teams": (league.get("settings") or {}).get("num_teams"),
+                "playoff_teams": (league.get("settings") or {}).get("playoff_teams"),
+                "type": (league.get("settings") or {}).get("type"),
+            },
         },
+        "prior_season": prior_season,
+        "league_trades": league_trades[:80],
         "team": {
             "name": team_name,
             "roster_id": my_roster.get("roster_id"),
